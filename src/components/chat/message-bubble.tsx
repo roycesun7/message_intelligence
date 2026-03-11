@@ -80,7 +80,7 @@ export function MessageBubble({
           {/* Sender name (group chats, received only) */}
           {showSenderName && !isFromMe && !isGrouped && message.sender && (
             <span className="mb-0.5 ml-3 text-[11px] text-zinc-500">
-              {message.sender}
+              {message.senderDisplayName || message.sender}
             </span>
           )}
 

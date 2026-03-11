@@ -10,7 +10,7 @@ pub mod state;
 use error::{AppError, AppResult};
 use rusqlite::Connection;
 use state::AppState;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 /// Resolve the path to Apple's chat.db.
@@ -73,10 +73,23 @@ pub fn run() {
                 Box::new(e) as Box<dyn std::error::Error>
             })?;
 
+            // Build contact name map from macOS Address Book
+            let contact_map = match db::contacts_db::build_contact_map() {
+                Ok(map) => {
+                    log::info!("Loaded {} contact entries", map.len());
+                    map
+                }
+                Err(e) => {
+                    log::warn!("Could not load contacts (names will show as phone numbers): {e}");
+                    std::collections::HashMap::new()
+                }
+            };
+
             // Register app state
             app.manage(AppState {
-                chat_db: Mutex::new(chat_db),
-                analytics_db: Mutex::new(analytics_db),
+                chat_db: Arc::new(Mutex::new(chat_db)),
+                analytics_db: Arc::new(Mutex::new(analytics_db)),
+                contact_map,
             });
 
             Ok(())
@@ -87,8 +100,12 @@ pub fn run() {
             commands::messages::get_messages,
             commands::messages::get_message_attachments,
             commands::messages::get_message_count,
+            // Contact commands
+            commands::contacts::get_contact_name,
+            commands::contacts::get_contact_map,
             // Analytics / wrapped commands
             commands::analytics::get_wrapped_stats,
+            commands::analytics::invalidate_wrapped_cache,
             // Embedding commands (stubs)
             commands::embeddings::check_embedding_status,
             commands::embeddings::semantic_search,

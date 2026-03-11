@@ -32,6 +32,7 @@ pub struct Message {
     pub date_delivered: Option<i64>,
     pub handle_id: i64,
     pub sender: Option<String>,
+    pub sender_display_name: Option<String>,
     pub service: Option<String>,
     pub associated_message_type: i64,
     pub associated_message_guid: Option<String>,
@@ -65,6 +66,7 @@ pub struct Handle {
     pub id: String,
     pub service: String,
     pub person_centric_id: Option<String>,
+    pub display_name: Option<String>,
 }
 
 /// Raw row coming from SQLite before timestamp conversion.
@@ -107,7 +109,7 @@ impl RawMessageRow {
         }
     }
 
-    pub fn into_message(self, sender: Option<String>) -> Message {
+    pub fn into_message(self, sender: Option<String>, sender_display_name: Option<String>) -> Message {
         let text = self.resolve_text();
         Message {
             rowid: self.rowid,
@@ -127,6 +129,7 @@ impl RawMessageRow {
             },
             handle_id: self.handle_id,
             sender,
+            sender_display_name,
             service: self.service,
             associated_message_type: self.associated_message_type,
             associated_message_guid: self.associated_message_guid,

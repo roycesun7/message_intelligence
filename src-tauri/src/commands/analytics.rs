@@ -1,13 +1,14 @@
 use rusqlite::Connection;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::db::analytics_db;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
 // ── Response types ──────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WrappedStats {
     pub message_count: MessageCount,
@@ -19,89 +20,146 @@ pub struct WrappedStats {
     pub most_popular_openers: SentReceived<Vec<OpenerStat>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageCount {
     pub sent: i64,
     pub received: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SentReceived<T> {
     pub sent: T,
     pub received: T,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatStat {
     pub chat_id: i64,
     pub message_count: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HandleStat {
     pub handle_id: i64,
     pub message_count: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeekdayStat {
     pub weekday: String,
     pub message_count: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonthlyStat {
     pub month: String,
     pub message_count: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenerStat {
     pub text: String,
     pub count: i64,
 }
 
-// ── Tauri command ───────────────────────────────────────────────────────
+// ── Tauri commands ──────────────────────────────────────────────────────
 
 /// Calculate wrapped-style analytics for a given year (0 = all time).
 /// Optionally filter to specific chat IDs.
+///
+/// When called without chat_ids, results are cached in analytics.db so
+/// subsequent loads for the same year are instant.
 #[tauri::command]
-pub fn get_wrapped_stats(
+pub async fn get_wrapped_stats(
     state: State<'_, AppState>,
     year: i64,
     chat_ids: Option<Vec<i64>>,
 ) -> AppResult<WrappedStats> {
+    // Only use cache for unfiltered (global) queries
+    let use_cache = chat_ids.is_none();
+
+    // Check cache first
+    if use_cache {
+        let analytics_conn = state
+            .analytics_db
+            .lock()
+            .map_err(|e| AppError::Custom(e.to_string()))?;
+        if let Some(json) = analytics_db::get_cached_wrapped(&analytics_conn, year) {
+            if let Ok(stats) = serde_json::from_str::<WrappedStats>(&json) {
+                return Ok(stats);
+            }
+            // Cache entry exists but is corrupt; fall through to recompute.
+        }
+    }
+
+    // Compute on a blocking thread to avoid holding the mutex across await points
+    // and to keep the UI responsive during heavy SQL work.
+    let chat_db_mutex = state.chat_db.clone();
+    let analytics_db_mutex = state.analytics_db.clone();
+    let chat_ids_clone = chat_ids.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<WrappedStats> {
+        let conn = chat_db_mutex
+            .lock()
+            .map_err(|e| AppError::Custom(e.to_string()))?;
+
+        let cids = chat_ids_clone.as_deref();
+
+        let message_count = count_messages_by_year(&conn, year, cids)?;
+        let chat_interactions = count_messages_by_chat(&conn, year, cids)?;
+        let handle_interactions = count_messages_by_handle(&conn, year, cids)?;
+        let weekday_interactions = count_messages_by_weekday(&conn, year, cids)?;
+        let monthly_interactions = count_messages_by_month(&conn, year, cids)?;
+        let late_night_interactions = late_night_messenger(&conn, year, cids)?;
+        let most_popular_openers = get_most_popular_openers(&conn, year, cids)?;
+
+        let stats = WrappedStats {
+            message_count,
+            chat_interactions,
+            handle_interactions,
+            weekday_interactions,
+            monthly_interactions,
+            late_night_interactions,
+            most_popular_openers,
+        };
+
+        // Persist to cache for unfiltered queries
+        if use_cache {
+            if let Ok(json) = serde_json::to_string(&stats) {
+                let a_conn = analytics_db_mutex
+                    .lock()
+                    .map_err(|e| AppError::Custom(e.to_string()))?;
+                let _ = analytics_db::set_cached_wrapped(&a_conn, year, &json);
+            }
+        }
+
+        Ok(stats)
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}
+
+/// Invalidate (clear) the wrapped stats cache.
+/// Pass a specific year to clear just that year, or omit to clear all.
+#[tauri::command]
+pub fn invalidate_wrapped_cache(
+    state: State<'_, AppState>,
+    year: Option<i64>,
+) -> AppResult<()> {
     let conn = state
-        .chat_db
+        .analytics_db
         .lock()
         .map_err(|e| AppError::Custom(e.to_string()))?;
-
-    let cids = chat_ids.as_deref();
-
-    let message_count = count_messages_by_year(&conn, year, cids)?;
-    let chat_interactions = count_messages_by_chat(&conn, year, cids)?;
-    let handle_interactions = count_messages_by_handle(&conn, year, cids)?;
-    let weekday_interactions = count_messages_by_weekday(&conn, year, cids)?;
-    let monthly_interactions = count_messages_by_month(&conn, year, cids)?;
-    let late_night_interactions = late_night_messenger(&conn, year, cids)?;
-    let most_popular_openers = get_most_popular_openers(&conn, year, cids)?;
-
-    Ok(WrappedStats {
-        message_count,
-        chat_interactions,
-        handle_interactions,
-        weekday_interactions,
-        monthly_interactions,
-        late_night_interactions,
-        most_popular_openers,
-    })
+    analytics_db::invalidate_wrapped_cache(&conn, year)
 }
 
 // ── Private helpers ─────────────────────────────────────────────────────

@@ -76,6 +76,39 @@ pub fn count_embedded(conn: &Connection) -> AppResult<i64> {
     Ok(count)
 }
 
+// ── Wrapped cache ──────────────────────────────────────────────────────
+
+/// Retrieve cached wrapped stats for a given year (0 = all time).
+/// Returns the JSON string if a cached entry exists, otherwise None.
+pub fn get_cached_wrapped(conn: &Connection, year: i64) -> Option<String> {
+    conn.query_row(
+        "SELECT result_json FROM wrapped_cache WHERE year = ?1",
+        params![year],
+        |row| row.get(0),
+    )
+    .ok()
+}
+
+/// Store computed wrapped stats JSON for a given year.
+pub fn set_cached_wrapped(conn: &Connection, year: i64, json: &str) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO wrapped_cache (year, result_json, computed_at)
+         VALUES (?1, ?2, datetime('now'))",
+        params![year, json],
+    )?;
+    Ok(())
+}
+
+/// Delete cached wrapped stats for a specific year, or all if year is None.
+pub fn invalidate_wrapped_cache(conn: &Connection, year: Option<i64>) -> AppResult<()> {
+    if let Some(y) = year {
+        conn.execute("DELETE FROM wrapped_cache WHERE year = ?1", params![y])?;
+    } else {
+        conn.execute("DELETE FROM wrapped_cache", [])?;
+    }
+    Ok(())
+}
+
 // ── Link storage ────────────────────────────────────────────────────────
 
 /// Store a discovered link extracted from a message.

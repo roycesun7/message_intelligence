@@ -68,13 +68,15 @@ export const useMessageCount = () => {
 
 /**
  * Resolve a display name for a chat.
- * Falls back to chatIdentifier if no display_name / participants.
+ * Uses contact display names when available, falls back to raw identifiers.
  */
 export const getChatDisplayName = (chat: Chat | undefined | null): string => {
   if (!chat) return "";
   if (chat.displayName) return chat.displayName;
   if (chat.participants.length > 0) {
-    return chat.participants.map((p) => p.id).join(", ");
+    return chat.participants
+      .map((p) => p.displayName || p.id)
+      .join(", ");
   }
   return chat.chatIdentifier || "";
 };

@@ -93,6 +93,13 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
             extracted_text   TEXT,
             analyzed_at      TEXT
         );
+
+        -- Cache for expensive wrapped/analytics computations
+        CREATE TABLE IF NOT EXISTS wrapped_cache (
+            year        INTEGER PRIMARY KEY,
+            result_json TEXT NOT NULL,
+            computed_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
         ",
     )?;
 

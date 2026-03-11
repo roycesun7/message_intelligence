@@ -1,13 +1,15 @@
 use rusqlite::{params, Connection};
 use std::collections::HashMap;
 
+use crate::db::contacts_db;
 use crate::db::models::{Attachment, Chat, Handle, Message, RawMessageRow};
 use crate::error::AppResult;
 use crate::ingestion::timestamp::apple_timestamp_to_unix_ms;
 
 /// Fetch all chats with their most-recent message text, sorted by date DESC.
 /// Participants are batch-loaded via the chat_handle_join table.
-pub fn get_chat_list(conn: &Connection) -> AppResult<Vec<Chat>> {
+/// The contact_map is used to resolve phone/email handles to display names.
+pub fn get_chat_list(conn: &Connection, contact_map: &HashMap<String, String>) -> AppResult<Vec<Chat>> {
     // 1. Fetch chats with their latest message.
     let mut stmt = conn.prepare(
         "SELECT
@@ -71,17 +73,21 @@ pub fn get_chat_list(conn: &Connection) -> AppResult<Vec<Chat>> {
 
     handle_stmt
         .query_map([], |row| {
+            let id: String = row.get(1)?;
             let handle = Handle {
                 rowid: row.get(0)?,
-                id: row.get(1)?,
+                id: id.clone(),
                 service: row.get(2)?,
                 person_centric_id: row.get(3)?,
+                display_name: None, // resolved below
             };
             let chat_id: Option<i64> = row.get(4)?;
             Ok((handle, chat_id))
         })?
         .filter_map(|r| r.ok())
-        .for_each(|(handle, chat_id)| {
+        .for_each(|(mut handle, chat_id)| {
+            // Resolve display name from contact map
+            handle.display_name = contacts_db::resolve_name(&handle.id, contact_map);
             if let Some(cid) = chat_id {
                 handles_by_chat.entry(cid).or_default().push(handle);
             }
@@ -118,11 +124,13 @@ pub fn get_chat_list(conn: &Connection) -> AppResult<Vec<Chat>> {
 }
 
 /// Fetch messages for a given chat, with handle info, ordered by date ASC.
+/// The contact_map is used to resolve sender display names.
 pub fn get_messages_for_chat(
     conn: &Connection,
     chat_id: i64,
     limit: i64,
     offset: i64,
+    contact_map: &HashMap<String, String>,
 ) -> AppResult<Vec<Message>> {
     // Build a handle lookup map for sender resolution.
     let handle_map = build_handle_map(conn)?;
@@ -178,7 +186,10 @@ pub fn get_messages_for_chat(
         .filter_map(|r| r.ok())
         .map(|raw| {
             let sender = handle_map.get(&raw.handle_id).cloned();
-            raw.into_message(sender)
+            let sender_display_name = sender
+                .as_ref()
+                .and_then(|s| contacts_db::resolve_name(s, contact_map));
+            raw.into_message(sender, sender_display_name)
         })
         .collect();
 
@@ -257,7 +268,7 @@ pub fn get_messages_for_embedding(
         .filter_map(|r| r.ok())
         .map(|raw| {
             let sender = handle_map.get(&raw.handle_id).cloned();
-            raw.into_message(sender)
+            raw.into_message(sender, None)
         })
         .collect();
 
@@ -318,6 +329,7 @@ pub fn get_handles(conn: &Connection) -> AppResult<Vec<Handle>> {
                 id: row.get(1)?,
                 service: row.get(2)?,
                 person_centric_id: row.get(3)?,
+                display_name: None,
             })
         })?
         .filter_map(|r| r.ok())

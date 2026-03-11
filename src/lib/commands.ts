@@ -27,6 +27,18 @@ export const getMessageAttachments = (messageId: number) =>
   invoke<Attachment[]>("get_message_attachments", { messageId });
 
 // ────────────────────────────────────────────────────────
+// Contact commands
+// ────────────────────────────────────────────────────────
+
+/** Resolve a single phone/email to a contact name. */
+export const getContactName = (identifier: string) =>
+  invoke<string | null>("get_contact_name", { identifier });
+
+/** Get the full contact map (phone/email -> display name). */
+export const getContactMap = () =>
+  invoke<Record<string, string>>("get_contact_map");
+
+// ────────────────────────────────────────────────────────
 // Analytics / Wrapped commands
 // ────────────────────────────────────────────────────────
 

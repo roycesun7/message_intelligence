@@ -12,7 +12,7 @@ pub fn get_chats(state: State<'_, AppState>) -> AppResult<Vec<Chat>> {
         .chat_db
         .lock()
         .map_err(|e| AppError::Custom(e.to_string()))?;
-    chat_db::get_chat_list(&conn)
+    chat_db::get_chat_list(&conn, &state.contact_map)
 }
 
 /// Return messages for a specific chat, with pagination.
@@ -27,9 +27,9 @@ pub fn get_messages(
         .chat_db
         .lock()
         .map_err(|e| AppError::Custom(e.to_string()))?;
-    let lim = limit.unwrap_or(1000);
+    let lim = limit.unwrap_or(i64::MAX);
     let off = offset.unwrap_or(0);
-    chat_db::get_messages_for_chat(&conn, chat_id, lim, off)
+    chat_db::get_messages_for_chat(&conn, chat_id, lim, off, &state.contact_map)
 }
 
 /// Return attachments for a given message ROWID.

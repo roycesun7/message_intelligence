@@ -4,6 +4,7 @@ export interface Handle {
   id: string;
   service: string;
   personCentricId: string | null;
+  displayName: string | null;
 }
 
 /** A chat conversation (1:1 or group) */
@@ -32,6 +33,7 @@ export interface Message {
   dateDelivered: number | null;
   handleId: number;
   sender: string | null;
+  senderDisplayName: string | null;
   service: string | null;
   associatedMessageType: number;
   associatedMessageGuid: string | null;

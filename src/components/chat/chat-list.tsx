@@ -88,7 +88,7 @@ export function ChatList() {
     if (!chatSearchQuery.trim()) return list;
 
     const fuse = new Fuse<Chat>(list, {
-      keys: ["displayName", "chatIdentifier", "participants.id"],
+      keys: ["displayName", "chatIdentifier", "participants.id", "participants.displayName"],
       shouldSort: true,
       threshold: 0.3,
     });

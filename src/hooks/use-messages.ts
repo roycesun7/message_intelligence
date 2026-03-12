@@ -9,11 +9,8 @@ import type { Chat } from "@/types";
 export const useChats = () => {
   return useQuery<Chat[]>({
     queryKey: ["chats"],
-    queryFn: async () => {
-      const chats = await getChats();
-      return chats;
-    },
-    staleTime: 30_000,
+    queryFn: getChats,
+    staleTime: 5 * 60_000, // 5 min — chat.db is read-only, no need to refetch often
   });
 };
 
@@ -51,7 +48,7 @@ export const useMessages = (chatId: number | null) => {
       return getMessages(chatId);
     },
     enabled: chatId !== null,
-    staleTime: 10_000,
+    staleTime: 5 * 60_000, // 5 min — messages don't change underneath us
   });
 };
 

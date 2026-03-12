@@ -14,6 +14,8 @@ export interface AppState {
   // ── Wrapped ─────────────────────────────────────
   wrappedYear: number;
   setWrappedYear: (year: number) => void;
+  wrappedChatId: number | null;
+  setWrappedChatId: (id: number | null) => void;
 
   // ── Search ──────────────────────────────────────
   searchQuery: string;
@@ -31,8 +33,11 @@ export const useAppStore = create<AppState>((set) => ({
   selectedChatId: null,
   setSelectedChatId: (selectedChatId) => set({ selectedChatId }),
 
-  wrappedYear: new Date().getFullYear(),
+  wrappedYear: 0, // 0 = all-time by default
   setWrappedYear: (wrappedYear) => set({ wrappedYear }),
+
+  wrappedChatId: null,
+  setWrappedChatId: (wrappedChatId) => set({ wrappedChatId }),
 
   searchQuery: "",
   setSearchQuery: (searchQuery) => set({ searchQuery }),

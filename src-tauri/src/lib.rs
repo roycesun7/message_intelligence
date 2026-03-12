@@ -106,6 +106,11 @@ pub fn run() {
             // Analytics / wrapped commands
             commands::analytics::get_wrapped_stats,
             commands::analytics::invalidate_wrapped_cache,
+            commands::analytics::get_temporal_trends,
+            commands::analytics::get_response_time_stats,
+            commands::analytics::get_initiation_stats,
+            commands::analytics::get_message_length_stats,
+            commands::analytics::get_active_hours,
             // Embedding commands (stubs)
             commands::embeddings::check_embedding_status,
             commands::embeddings::semantic_search,

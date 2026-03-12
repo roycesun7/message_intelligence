@@ -69,6 +69,55 @@ pub struct OpenerStat {
     pub count: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyMessageCount {
+    pub date: String,
+    pub sent: i64,
+    pub received: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseTimeStats {
+    pub my_avg_response_secs: f64,
+    pub their_avg_response_secs: f64,
+    pub my_median_response_secs: f64,
+    pub their_median_response_secs: f64,
+    pub my_fastest_response_secs: f64,
+    pub their_fastest_response_secs: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitiationStats {
+    pub my_initiations: i64,
+    pub their_initiations: i64,
+    pub my_ratio: f64,
+    pub total_conversations: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageLengthStats {
+    pub my_avg_length: f64,
+    pub their_avg_length: f64,
+    pub my_max_length: i64,
+    pub their_max_length: i64,
+    pub my_total_chars: i64,
+    pub their_total_chars: i64,
+    pub my_total_messages: i64,
+    pub their_total_messages: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HourlyActivity {
+    pub hour: i64,
+    pub my_messages: i64,
+    pub their_messages: i64,
+}
+
 // ── Tauri commands ──────────────────────────────────────────────────────
 
 /// Calculate wrapped-style analytics for a given year (0 = all time).
@@ -160,6 +209,364 @@ pub fn invalidate_wrapped_cache(
         .lock()
         .map_err(|e| AppError::Custom(e.to_string()))?;
     analytics_db::invalidate_wrapped_cache(&conn, year)
+}
+
+/// Return daily message counts (sent / received) for a specific chat.
+/// Optionally filter by year (0 = all time).
+#[tauri::command]
+pub async fn get_temporal_trends(
+    state: State<'_, AppState>,
+    chat_id: i64,
+    year: Option<i64>,
+) -> AppResult<Vec<DailyMessageCount>> {
+    let chat_db_mutex = state.chat_db.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<DailyMessageCount>> {
+        let conn = chat_db_mutex
+            .lock()
+            .map_err(|e| AppError::Custom(e.to_string()))?;
+
+        let effective_year = year.unwrap_or(0);
+        let (filter_clause, filter_params) =
+            year_filter_clause(effective_year, Some(&[chat_id]));
+
+        let sql = format!(
+            "SELECT
+                 DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime') AS day,
+                 SUM(CASE WHEN message.is_from_me = 1 THEN 1 ELSE 0 END) AS sent,
+                 SUM(CASE WHEN message.is_from_me = 0 THEN 1 ELSE 0 END) AS received
+             FROM message
+             INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+             INNER JOIN chat AS c ON c.ROWID = cmj.chat_id
+             WHERE 1=1
+             {filter_clause}
+             GROUP BY day
+             ORDER BY day ASC"
+        );
+
+        let p = as_params(&filter_params);
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt
+            .query_map(p.as_slice(), |row| {
+                Ok(DailyMessageCount {
+                    date: row.get(0)?,
+                    sent: row.get(1)?,
+                    received: row.get(2)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(rows)
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}
+
+/// Compute response time statistics for a specific chat.
+/// Walks through messages chronologically, detecting direction changes
+/// (received -> sent = my response, sent -> received = their response)
+/// and computing time deltas. Gaps > 24 hours are excluded.
+#[tauri::command]
+pub async fn get_response_time_stats(
+    state: State<'_, AppState>,
+    chat_id: i64,
+) -> AppResult<ResponseTimeStats> {
+    let chat_db_mutex = state.chat_db.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<ResponseTimeStats> {
+        let conn = chat_db_mutex
+            .lock()
+            .map_err(|e| AppError::Custom(e.to_string()))?;
+
+        let sql = "SELECT message.date, message.is_from_me
+             FROM message
+             INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+             WHERE cmj.chat_id = ?
+             ORDER BY message.date ASC";
+
+        let mut stmt = conn.prepare(sql)?;
+        let rows: Vec<(i64, bool)> = stmt
+            .query_map([chat_id], |row| {
+                let date: i64 = row.get(0)?;
+                let is_from_me: i64 = row.get(1)?;
+                Ok((date, is_from_me != 0))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut my_deltas: Vec<f64> = Vec::new();
+        let mut their_deltas: Vec<f64> = Vec::new();
+
+        let max_gap_secs: f64 = 24.0 * 3600.0;
+
+        for i in 1..rows.len() {
+            let (prev_date, prev_from_me) = rows[i - 1];
+            let (curr_date, curr_from_me) = rows[i];
+
+            if prev_from_me == curr_from_me {
+                continue; // no direction change
+            }
+
+            let delta_secs =
+                (curr_date as f64 - prev_date as f64) / 1_000_000_000.0;
+
+            if delta_secs <= 0.0 || delta_secs > max_gap_secs {
+                continue;
+            }
+
+            if !prev_from_me && curr_from_me {
+                // received -> sent = my response
+                my_deltas.push(delta_secs);
+            } else {
+                // sent -> received = their response
+                their_deltas.push(delta_secs);
+            }
+        }
+
+        fn compute_stats(deltas: &mut Vec<f64>) -> (f64, f64, f64) {
+            if deltas.is_empty() {
+                return (0.0, 0.0, 0.0);
+            }
+            let avg = deltas.iter().sum::<f64>() / deltas.len() as f64;
+            deltas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let median = if deltas.len() % 2 == 0 {
+                (deltas[deltas.len() / 2 - 1] + deltas[deltas.len() / 2]) / 2.0
+            } else {
+                deltas[deltas.len() / 2]
+            };
+            let fastest = deltas[0];
+            (avg, median, fastest)
+        }
+
+        let (my_avg, my_median, my_fastest) = compute_stats(&mut my_deltas);
+        let (their_avg, their_median, their_fastest) = compute_stats(&mut their_deltas);
+
+        Ok(ResponseTimeStats {
+            my_avg_response_secs: my_avg,
+            their_avg_response_secs: their_avg,
+            my_median_response_secs: my_median,
+            their_median_response_secs: their_median,
+            my_fastest_response_secs: my_fastest,
+            their_fastest_response_secs: their_fastest,
+        })
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}
+
+/// Who starts conversations more often. A "conversation" = a message
+/// sent after a gap of 4+ hours from the previous message in the chat.
+#[tauri::command]
+pub async fn get_initiation_stats(
+    state: State<'_, AppState>,
+    chat_id: i64,
+) -> AppResult<InitiationStats> {
+    let chat_db_mutex = state.chat_db.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<InitiationStats> {
+        let conn = chat_db_mutex
+            .lock()
+            .map_err(|e| AppError::Custom(e.to_string()))?;
+
+        let sql = "SELECT message.date, message.is_from_me
+             FROM message
+             INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+             WHERE cmj.chat_id = ?
+             ORDER BY message.date ASC";
+
+        let mut stmt = conn.prepare(sql)?;
+        let rows: Vec<(i64, bool)> = stmt
+            .query_map([chat_id], |row| {
+                let date: i64 = row.get(0)?;
+                let is_from_me: i64 = row.get(1)?;
+                Ok((date, is_from_me != 0))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let gap_threshold_ns: i64 = 4 * 3600 * 1_000_000_000; // 4 hours in nanoseconds
+        let mut my_initiations: i64 = 0;
+        let mut their_initiations: i64 = 0;
+
+        for (i, &(date, is_from_me)) in rows.iter().enumerate() {
+            let is_initiator = if i == 0 {
+                true // first message is always an initiation
+            } else {
+                date - rows[i - 1].0 >= gap_threshold_ns
+            };
+
+            if is_initiator {
+                if is_from_me {
+                    my_initiations += 1;
+                } else {
+                    their_initiations += 1;
+                }
+            }
+        }
+
+        let total = my_initiations + their_initiations;
+        let my_ratio = if total > 0 {
+            my_initiations as f64 / total as f64
+        } else {
+            0.0
+        };
+
+        Ok(InitiationStats {
+            my_initiations,
+            their_initiations,
+            my_ratio,
+            total_conversations: total,
+        })
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}
+
+/// Message length statistics (avg, max, total chars, total messages) split
+/// by sent vs received for a specific chat. Done in pure SQL.
+#[tauri::command]
+pub async fn get_message_length_stats(
+    state: State<'_, AppState>,
+    chat_id: i64,
+) -> AppResult<MessageLengthStats> {
+    let chat_db_mutex = state.chat_db.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<MessageLengthStats> {
+        let conn = chat_db_mutex
+            .lock()
+            .map_err(|e| AppError::Custom(e.to_string()))?;
+
+        let sql = "SELECT
+                 message.is_from_me,
+                 AVG(LENGTH(message.text)) AS avg_len,
+                 MAX(LENGTH(message.text)) AS max_len,
+                 SUM(LENGTH(message.text)) AS total_chars,
+                 COUNT(*) AS total_messages
+             FROM message
+             INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+             WHERE cmj.chat_id = ?
+               AND message.text IS NOT NULL
+               AND LENGTH(message.text) > 0
+             GROUP BY message.is_from_me";
+
+        let mut stmt = conn.prepare(sql)?;
+        let rows: Vec<(i64, f64, i64, i64, i64)> = stmt
+            .query_map([chat_id], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut my_avg = 0.0;
+        let mut their_avg = 0.0;
+        let mut my_max: i64 = 0;
+        let mut their_max: i64 = 0;
+        let mut my_total_chars: i64 = 0;
+        let mut their_total_chars: i64 = 0;
+        let mut my_total_messages: i64 = 0;
+        let mut their_total_messages: i64 = 0;
+
+        for (is_from_me, avg_len, max_len, total_chars, total_messages) in &rows {
+            if *is_from_me == 1 {
+                my_avg = *avg_len;
+                my_max = *max_len;
+                my_total_chars = *total_chars;
+                my_total_messages = *total_messages;
+            } else {
+                their_avg = *avg_len;
+                their_max = *max_len;
+                their_total_chars = *total_chars;
+                their_total_messages = *total_messages;
+            }
+        }
+
+        Ok(MessageLengthStats {
+            my_avg_length: my_avg,
+            their_avg_length: their_avg,
+            my_max_length: my_max,
+            their_max_length: their_max,
+            my_total_chars,
+            their_total_chars,
+            my_total_messages,
+            their_total_messages,
+        })
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}
+
+/// Hourly message activity (0-23) split by sent vs received for a specific chat.
+/// Returns all 24 hours, filling missing hours with 0.
+#[tauri::command]
+pub async fn get_active_hours(
+    state: State<'_, AppState>,
+    chat_id: i64,
+) -> AppResult<Vec<HourlyActivity>> {
+    let chat_db_mutex = state.chat_db.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<HourlyActivity>> {
+        let conn = chat_db_mutex
+            .lock()
+            .map_err(|e| AppError::Custom(e.to_string()))?;
+
+        let sql = "SELECT
+                 CAST(strftime('%H', DATETIME(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime')) AS integer) AS hour,
+                 SUM(CASE WHEN message.is_from_me = 1 THEN 1 ELSE 0 END) AS my_messages,
+                 SUM(CASE WHEN message.is_from_me = 0 THEN 1 ELSE 0 END) AS their_messages
+             FROM message
+             INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+             WHERE cmj.chat_id = ?
+             GROUP BY hour
+             ORDER BY hour ASC";
+
+        let mut stmt = conn.prepare(sql)?;
+        let rows: Vec<(i64, i64, i64)> = stmt
+            .query_map([chat_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Build a lookup from the SQL results
+        let mut hour_map: std::collections::HashMap<i64, (i64, i64)> =
+            std::collections::HashMap::new();
+        for (hour, my_msgs, their_msgs) in &rows {
+            hour_map.insert(*hour, (*my_msgs, *their_msgs));
+        }
+
+        // Return all 24 hours, filling missing with 0
+        let result: Vec<HourlyActivity> = (0..24)
+            .map(|h| {
+                let (my_messages, their_messages) = hour_map.get(&h).copied().unwrap_or((0, 0));
+                HourlyActivity {
+                    hour: h,
+                    my_messages,
+                    their_messages,
+                }
+            })
+            .collect();
+
+        Ok(result)
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
 }
 
 // ── Private helpers ─────────────────────────────────────────────────────

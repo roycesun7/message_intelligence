@@ -6,6 +6,11 @@ import type {
   WrappedStats,
   EmbeddingStatus,
   SemanticSearchResult,
+  DailyMessageCount,
+  ResponseTimeStats,
+  InitiationStats,
+  MessageLengthStats,
+  HourlyActivity,
 } from "@/types";
 
 // ────────────────────────────────────────────────────────
@@ -43,8 +48,32 @@ export const getContactMap = () =>
 // ────────────────────────────────────────────────────────
 
 /** Compute "Wrapped"-style stats for a calendar year. Pass 0 for all-time. */
-export const getWrappedStats = (year: number) =>
-  invoke<WrappedStats>("get_wrapped_stats", { year });
+export const getWrappedStats = (year: number, chatIds?: number[]) =>
+  invoke<WrappedStats>("get_wrapped_stats", { year, chatIds: chatIds ?? null });
+
+/** Fetch daily message counts for a conversation's temporal trend chart. */
+export const getTemporalTrends = (chatId: number, year?: number) =>
+  invoke<DailyMessageCount[]>("get_temporal_trends", { chatId, year: year ?? null });
+
+// ────────────────────────────────────────────────────────
+// Relationship metrics commands (per-chat)
+// ────────────────────────────────────────────────────────
+
+/** Fetch response time stats for a conversation. */
+export const getResponseTimeStats = (chatId: number) =>
+  invoke<ResponseTimeStats>("get_response_time_stats", { chatId });
+
+/** Fetch conversation initiation stats. */
+export const getInitiationStats = (chatId: number) =>
+  invoke<InitiationStats>("get_initiation_stats", { chatId });
+
+/** Fetch message length stats. */
+export const getMessageLengthStats = (chatId: number) =>
+  invoke<MessageLengthStats>("get_message_length_stats", { chatId });
+
+/** Fetch hourly activity breakdown. */
+export const getActiveHours = (chatId: number) =>
+  invoke<HourlyActivity[]>("get_active_hours", { chatId });
 
 // ────────────────────────────────────────────────────────
 // Embedding / AI commands

@@ -20,17 +20,17 @@ function NavBar() {
   const setView = useAppStore((s) => s.setView);
 
   return (
-    <nav className="flex h-11 shrink-0 items-center gap-1 border-b border-white/10 bg-zinc-900 px-4">
+    <nav className="flex h-11 shrink-0 items-center gap-1 glass glass-border shadow-[0_1px_8px_rgba(0,0,0,0.25)] px-4 relative z-10">
       {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
         const isActive = view === id;
         return (
           <button
             key={id}
             onClick={() => setView(id)}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200 apple-text-sm ${
               isActive
-                ? "bg-blue-600/20 text-blue-400"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
+                ? "bg-[#007AFF]/20 text-[#007AFF] shadow-[0_0_12px_rgba(0,122,255,0.15)]"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -39,7 +39,7 @@ function NavBar() {
         );
       })}
 
-      <div className="ml-auto text-xs font-medium text-zinc-600">
+      <div className="ml-auto text-xs font-medium text-zinc-600 apple-text-xs">
         Message Intelligence
       </div>
     </nav>
@@ -64,11 +64,13 @@ function MainContent() {
 // ── Page ──────────────────────────────────────────────────
 export default function Home() {
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#1C1C1E]">
       <NavBar />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1">
         <ChatList />
-        <MainContent />
+        <main className="relative min-h-0 min-w-0 flex-1 overflow-auto">
+          <MainContent />
+        </main>
       </div>
     </div>
   );

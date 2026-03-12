@@ -50,21 +50,21 @@ export function MessageBubble({
     previousMessage.isFromMe === isFromMe &&
     previousMessage.handleId === message.handleId;
 
-  // Bubble colours
+  // Bubble colours — Apple's exact colors
   const bubbleBg = isFromMe
     ? isIMessage
-      ? "bg-blue-500"
-      : "bg-green-600"
-    : "bg-zinc-700";
+      ? "bg-[#007AFF]"
+      : "bg-[#34C759]"
+    : "bg-[#3A3A3C]";
 
   const bubbleText = isFromMe ? "text-white" : "text-zinc-100";
 
   return (
     <>
-      {/* Date separator */}
+      {/* Date separator — pill-shaped, centered */}
       {showDate && (
         <div className="flex items-center justify-center py-3">
-          <span className="text-[11px] font-medium text-zinc-500">
+          <span className="rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-medium text-zinc-500 apple-text-xs">
             {dayjs(message.date).format("ddd, MMM D, YYYY h:mm A")}
           </span>
         </div>
@@ -79,25 +79,25 @@ export function MessageBubble({
         <div className={`max-w-[75%] flex flex-col ${isFromMe ? "items-end" : "items-start"}`}>
           {/* Sender name (group chats, received only) */}
           {showSenderName && !isFromMe && !isGrouped && message.sender && (
-            <span className="mb-0.5 ml-3 text-[11px] text-zinc-500">
+            <span className="mb-0.5 ml-3 text-[11px] text-zinc-500 apple-text-xs">
               {message.senderDisplayName || message.sender}
             </span>
           )}
 
           {/* Bubble */}
           <div
-            className={`relative rounded-2xl px-3 py-1.5 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
+            className={`relative rounded-[20px] px-4 py-2 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
               isFromMe
                 ? isGrouped
-                  ? "rounded-br-md"
-                  : "rounded-br-md"
+                  ? "rounded-br-[8px]"
+                  : "rounded-br-[8px]"
                 : isGrouped
-                ? "rounded-bl-md"
-                : "rounded-bl-md"
+                ? "rounded-bl-[8px]"
+                : "rounded-bl-[8px]"
             }`}
           >
             {message.text ?? (
-              <span className="italic text-zinc-400">
+              <span className="italic text-white/60">
                 {message.cacheHasAttachments ? "[Attachment]" : "[No text]"}
               </span>
             )}
@@ -105,7 +105,7 @@ export function MessageBubble({
 
           {/* Timestamp — shown at intervals or on hover via group */}
           {!isGrouped && (
-            <span className="mt-0.5 text-[10px] text-zinc-600 px-1">
+            <span className="mt-1 text-[10px] text-zinc-600 px-1 apple-text-xs">
               {dayjs(message.date).format("h:mm A")}
             </span>
           )}
@@ -116,19 +116,23 @@ export function MessageBubble({
 }
 
 /**
- * Collect tapback reactions for a given message from the surrounding messages.
- * (Utility — can be used by the parent to decorate bubbles.)
+ * Build a map of message GUID -> tapback emoji[] in a single pass.
+ * O(n) instead of O(n*m) when called per-message.
  */
-export function collectTapbacks(
-  targetGuid: string,
-  messages: Message[]
-): string[] {
-  return messages
-    .filter(
-      (m) =>
-        isTapback(m) &&
-        m.associatedMessageGuid?.includes(targetGuid)
-    )
-    .map((m) => TAPBACK_MAP[m.associatedMessageType] ?? "")
-    .filter(Boolean);
+export function buildTapbackMap(messages: Message[]): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  for (const m of messages) {
+    if (!isTapback(m) || !m.associatedMessageGuid) continue;
+    const emoji = TAPBACK_MAP[m.associatedMessageType];
+    if (!emoji) continue;
+    // associatedMessageGuid may have a prefix like "p:0/" before the target guid
+    const targetGuid = m.associatedMessageGuid.replace(/^.*\//, "");
+    const existing = map.get(targetGuid);
+    if (existing) {
+      existing.push(emoji);
+    } else {
+      map.set(targetGuid, [emoji]);
+    }
+  }
+  return map;
 }

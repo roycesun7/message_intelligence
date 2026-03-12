@@ -104,6 +104,48 @@ export interface WrappedStats {
   mostPopularOpeners: SentReceived<OpenerStat[]>;
 }
 
+/** Daily message count for temporal trend charts */
+export interface DailyMessageCount {
+  date: string;
+  sent: number;
+  received: number;
+}
+
+// ── Relationship metrics (per-chat Wrapped) ────────────
+
+export interface ResponseTimeStats {
+  myAvgResponseSecs: number;
+  theirAvgResponseSecs: number;
+  myMedianResponseSecs: number;
+  theirMedianResponseSecs: number;
+  myFastestResponseSecs: number;
+  theirFastestResponseSecs: number;
+}
+
+export interface InitiationStats {
+  myInitiations: number;
+  theirInitiations: number;
+  myRatio: number;
+  totalConversations: number;
+}
+
+export interface MessageLengthStats {
+  myAvgLength: number;
+  theirAvgLength: number;
+  myMaxLength: number;
+  theirMaxLength: number;
+  myTotalChars: number;
+  theirTotalChars: number;
+  myTotalMessages: number;
+  theirTotalMessages: number;
+}
+
+export interface HourlyActivity {
+  hour: number;
+  myMessages: number;
+  theirMessages: number;
+}
+
 /** Embedding / semantic search status */
 export interface EmbeddingStatus {
   ollamaRunning: boolean;

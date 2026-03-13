@@ -10,6 +10,8 @@ import { MessageBubble, buildTapbackMap } from "./message-bubble";
 
 export function ChatView() {
   const chatId = useAppStore((s) => s.selectedChatId);
+  const scrollToMessageDate = useAppStore((s) => s.scrollToMessageDate);
+  const setScrollToMessageDate = useAppStore((s) => s.setScrollToMessageDate);
   const chat = useChatById(chatId);
   const { data: messages, isLoading } = useMessages(chatId);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -43,6 +45,34 @@ export function ChatView() {
       });
     }
   }, [chatId]); // Only on chat change, not message count
+
+  // Scroll to a specific message date (from "On This Day" navigation)
+  useEffect(() => {
+    if (scrollToMessageDate === null || !visibleMessages.length || !virtuosoRef.current) return;
+
+    // Find the message closest to the target date
+    let closestIndex = 0;
+    let closestDiff = Infinity;
+    for (let i = 0; i < visibleMessages.length; i++) {
+      const diff = Math.abs(visibleMessages[i].date - scrollToMessageDate);
+      if (diff < closestDiff) {
+        closestDiff = diff;
+        closestIndex = i;
+      }
+    }
+
+    // Wait a tick for Virtuoso to be ready, then scroll
+    requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: closestIndex,
+        align: "center",
+        behavior: "smooth",
+      });
+    });
+
+    // Clear the scroll target after navigating
+    setScrollToMessageDate(null);
+  }, [scrollToMessageDate, visibleMessages, setScrollToMessageDate]);
 
   const itemContent = useCallback(
     (index: number) => {

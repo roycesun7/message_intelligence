@@ -31,6 +31,9 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { GroupDynamics } from "./group-dynamics";
+import { FunStats } from "./fun-stats";
+import { OnThisDaySection } from "./on-this-day";
 import {
   MessageSquare,
   Send,
@@ -121,6 +124,12 @@ const MONTH_COLORS = [
 const DAY_COLORS = [
   "#f97316", "#3b82f6", "#6366f1", "#8b5cf6",
   "#ec4899", "#22c55e", "#eab308",
+];
+
+const YEAR_COLORS = [
+  "#3b82f6", "#8b5cf6", "#ec4899", "#f97316",
+  "#22c55e", "#eab308", "#14b8a6", "#6366f1",
+  "#f43f5e", "#a855f7",
 ];
 
 // ── Helpers ──────────────────────────────────────────────
@@ -326,7 +335,6 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
             <Area
               type="monotone"
               dataKey="received"
-              stackId="1"
               stroke="#8b5cf6"
               fill="url(#gradientReceived)"
               strokeWidth={1.5}
@@ -334,7 +342,6 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
             <Area
               type="monotone"
               dataKey="sent"
-              stackId="1"
               stroke="#3b82f6"
               fill="url(#gradientSent)"
               strokeWidth={1.5}
@@ -696,6 +703,9 @@ export function WrappedView() {
     }
   }
 
+  const selectedChat = wrappedChatId !== null ? chatMap.get(wrappedChatId) : undefined;
+  const isGroupChat = selectedChat?.style === 43;
+
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center bg-zinc-950 text-zinc-500">
@@ -742,6 +752,13 @@ export function WrappedView() {
     stats.weekdayInteractions.received,
     (d) => d.weekday,
   ).sort((a, b) => DAY_ORDER.indexOf(a.key) - DAY_ORDER.indexOf(b.key));
+
+  // Yearly data — sort chronologically
+  const yearlyData = combineByKey(
+    stats.yearlyInteractions?.sent ?? [],
+    stats.yearlyInteractions?.received ?? [],
+    (y) => y.year,
+  ).sort((a, b) => a.key.localeCompare(b.key));
 
   // Late night top chats
   const lateNightChats = combineByKey(
@@ -831,6 +848,9 @@ export function WrappedView() {
 
       {/* Relationship metrics — per-chat only */}
       {isPerChat && <RelationshipMetrics chatId={wrappedChatId} />}
+
+      {/* Group dynamics — per-chat + group chats only */}
+      {isPerChat && isGroupChat && <GroupDynamics chatId={wrappedChatId} />}
 
       {/* Two-column: Top contacts + Messages by month (or just month if per-chat) */}
       <div className={`mb-8 grid grid-cols-1 gap-6 ${isPerChat ? "" : "lg:grid-cols-2"}`}>
@@ -926,6 +946,49 @@ export function WrappedView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Messages by Year — only show for all-time view with multi-year data */}
+      {year === 0 && yearlyData.length > 1 && (
+        <Card className="mb-8 border-zinc-800 bg-zinc-900">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-white">
+              Messages by Year
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={yearlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <XAxis
+                  dataKey="key"
+                  tick={{ fill: "#999", fontSize: 11 }}
+                />
+                <YAxis tick={{ fill: "#999", fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e1e1e",
+                    border: "1px solid #333",
+                    borderRadius: "8px",
+                    color: "#eee",
+                  }}
+                  formatter={(value, name) => [
+                    Number(value).toLocaleString(),
+                    name === "sent" ? "Sent" : name === "received" ? "Received" : "Total",
+                  ]}
+                />
+                <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                  {yearlyData.map((_entry, index) => (
+                    <Cell
+                      key={index}
+                      fill={YEAR_COLORS[index % YEAR_COLORS.length]}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Two-column: Day of week + Late night */}
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -1033,6 +1096,12 @@ export function WrappedView() {
           </CardContent>
         </Card>
       )}
+
+      {/* Texting Personality */}
+      <FunStats chatId={wrappedChatId} />
+
+      {/* On This Day — only for all-time view */}
+      {year === 0 && <OnThisDaySection chatId={wrappedChatId} />}
     </div>
   );
 }

@@ -84,6 +84,11 @@ export interface MonthlyStat {
   messageCount: number;
 }
 
+export interface YearlyStat {
+  year: string;
+  messageCount: number;
+}
+
 export interface OpenerStat {
   text: string;
   count: number;
@@ -100,6 +105,7 @@ export interface WrappedStats {
   handleInteractions: SentReceived<HandleStat[]> | null;
   weekdayInteractions: SentReceived<WeekdayStat[]>;
   monthlyInteractions: SentReceived<MonthlyStat[]>;
+  yearlyInteractions: SentReceived<YearlyStat[]>;
   lateNightInteractions: SentReceived<ChatStat[]>;
   mostPopularOpeners: SentReceived<OpenerStat[]>;
 }
@@ -158,4 +164,56 @@ export interface SemanticSearchResult {
   messageRowid: number;
   score: number;
   text: string;
+}
+
+// ── Group Chat Dynamics ────────────────────────────────
+
+export interface ParticipantStats {
+  handleId: number;
+  displayName: string | null;
+  messageCount: number;
+  avgMessageLength: number;
+  repliesTriggered: number;
+  ignoredCount: number;
+  firstMessageDate: string;
+  lastMessageDate: string;
+}
+
+export interface GroupChatDynamics {
+  participants: ParticipantStats[];
+  totalMessages: number;
+  mostActiveParticipant: string | null;
+  conversationStarter: string | null;
+}
+
+// ── On This Day ────────────────────────────────────────
+
+export interface OnThisDayMessage {
+  year: number;
+  text: string | null;
+  isFromMe: boolean;
+  sender: string | null;
+  chatDisplayName: string | null;
+  date: number;
+  chatId: number;
+  messageRowid: number;
+}
+
+export interface OnThisDayResult {
+  messages: OnThisDayMessage[];
+  yearsWithMessages: number[];
+}
+
+// ── Texting Personality ────────────────────────────────
+
+export interface PersonalityTrait {
+  name: string;
+  description: string;
+  score: number;
+}
+
+export interface TextingPersonality {
+  primaryType: string;
+  secondaryType: string | null;
+  traits: PersonalityTrait[];
 }

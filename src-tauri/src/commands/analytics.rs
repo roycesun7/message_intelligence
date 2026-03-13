@@ -8,6 +8,10 @@ use crate::state::AppState;
 
 // ── Response types ──────────────────────────────────────────────────────
 
+fn default_yearly_interactions() -> SentReceived<Vec<YearlyStat>> {
+    SentReceived { sent: Vec::new(), received: Vec::new() }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WrappedStats {
@@ -16,6 +20,8 @@ pub struct WrappedStats {
     pub handle_interactions: Option<SentReceived<Vec<HandleStat>>>,
     pub weekday_interactions: SentReceived<Vec<WeekdayStat>>,
     pub monthly_interactions: SentReceived<Vec<MonthlyStat>>,
+    #[serde(default = "default_yearly_interactions")]
+    pub yearly_interactions: SentReceived<Vec<YearlyStat>>,
     pub late_night_interactions: SentReceived<Vec<ChatStat>>,
     pub most_popular_openers: SentReceived<Vec<OpenerStat>>,
 }
@@ -59,6 +65,13 @@ pub struct WeekdayStat {
 #[serde(rename_all = "camelCase")]
 pub struct MonthlyStat {
     pub month: String,
+    pub message_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YearlyStat {
+    pub year: String,
     pub message_count: i64,
 }
 
@@ -166,6 +179,7 @@ pub async fn get_wrapped_stats(
         let handle_interactions = count_messages_by_handle(&conn, year, cids)?;
         let weekday_interactions = count_messages_by_weekday(&conn, year, cids)?;
         let monthly_interactions = count_messages_by_month(&conn, year, cids)?;
+        let yearly_interactions = count_messages_by_year_breakdown(&conn, year, cids)?;
         let late_night_interactions = late_night_messenger(&conn, year, cids)?;
         let most_popular_openers = get_most_popular_openers(&conn, year, cids)?;
 
@@ -175,6 +189,7 @@ pub async fn get_wrapped_stats(
             handle_interactions,
             weekday_interactions,
             monthly_interactions,
+            yearly_interactions,
             late_night_interactions,
             most_popular_openers,
         };
@@ -827,6 +842,41 @@ fn count_messages_by_month(
             .query_map(p.as_slice(), |row| {
                 Ok(MonthlyStat {
                     month: row.get(0)?,
+                    message_count: row.get(1)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    };
+
+    Ok(SentReceived {
+        sent: query_for(true)?,
+        received: query_for(false)?,
+    })
+}
+
+fn count_messages_by_year_breakdown(
+    conn: &Connection,
+    year: i64,
+    chat_ids: Option<&[i64]>,
+) -> AppResult<SentReceived<Vec<YearlyStat>>> {
+    let query_for = |is_from_me: bool| -> AppResult<Vec<YearlyStat>> {
+        let (sql, params_vec) = build_year_query(
+            "SELECT
+                strftime('%Y', DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime')) AS year,
+                COUNT(message.ROWID) AS message_count",
+            "GROUP BY year ORDER BY year ASC",
+            year,
+            chat_ids,
+            is_from_me,
+        );
+        let p = as_params(&params_vec);
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt
+            .query_map(p.as_slice(), |row| {
+                Ok(YearlyStat {
+                    year: row.get(0)?,
                     message_count: row.get(1)?,
                 })
             })?

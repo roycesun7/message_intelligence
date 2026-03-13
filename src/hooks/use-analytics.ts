@@ -6,6 +6,9 @@ import {
   getInitiationStats,
   getMessageLengthStats,
   getActiveHours,
+  getGroupChatDynamics,
+  getOnThisDay,
+  getTextingPersonality,
 } from "@/lib/commands";
 import type {
   WrappedStats,
@@ -14,6 +17,9 @@ import type {
   InitiationStats,
   MessageLengthStats,
   HourlyActivity,
+  GroupChatDynamics,
+  OnThisDayResult,
+  TextingPersonality,
 } from "@/types";
 
 /**
@@ -79,6 +85,40 @@ export const useActiveHours = (chatId: number | null) => {
     queryKey: ["activeHours", chatId],
     queryFn: () => getActiveHours(chatId!),
     enabled: chatId !== null,
+    staleTime: 5 * 60_000,
+  });
+};
+
+// ── Group chat dynamics & fun/shareable hooks ─────────────
+
+/** Fetch group chat dynamics for a conversation. */
+export const useGroupChatDynamics = (chatId: number | null) => {
+  return useQuery<GroupChatDynamics>({
+    queryKey: ["groupChatDynamics", chatId],
+    queryFn: () => getGroupChatDynamics(chatId!),
+    enabled: chatId !== null,
+    staleTime: 5 * 60_000,
+  });
+};
+
+/** Fetch "On This Day" messages for the current date. */
+export const useOnThisDay = (chatId?: number | null) => {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  return useQuery<OnThisDayResult>({
+    queryKey: ["onThisDay", chatId ?? null, month, day],
+    queryFn: () =>
+      getOnThisDay(chatId ?? undefined, month, day),
+    staleTime: 5 * 60_000,
+  });
+};
+
+/** Fetch your texting personality profile. */
+export const useTextingPersonality = (chatId?: number | null) => {
+  return useQuery<TextingPersonality>({
+    queryKey: ["textingPersonality", chatId ?? null],
+    queryFn: () => getTextingPersonality(chatId ?? undefined),
     staleTime: 5 * 60_000,
   });
 };

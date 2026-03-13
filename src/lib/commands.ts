@@ -11,6 +11,9 @@ import type {
   InitiationStats,
   MessageLengthStats,
   HourlyActivity,
+  GroupChatDynamics,
+  OnThisDayResult,
+  TextingPersonality,
 } from "@/types";
 
 // ────────────────────────────────────────────────────────
@@ -86,3 +89,25 @@ export const checkEmbeddingStatus = () =>
 /** Run semantic search. */
 export const semanticSearch = (query: string, limit?: number) =>
   invoke<SemanticSearchResult[]>("semantic_search", { query, limit });
+
+// ────────────────────────────────────────────────────────
+// Group chat dynamics & fun/shareable commands
+// ────────────────────────────────────────────────────────
+
+/** Fetch group chat dynamics for a conversation. */
+export const getGroupChatDynamics = (chatId: number) =>
+  invoke<GroupChatDynamics>("get_group_chat_dynamics", { chatId });
+
+/** Fetch "On This Day" messages for a given date. */
+export const getOnThisDay = (chatId?: number, month?: number, day?: number) =>
+  invoke<OnThisDayResult>("get_on_this_day", {
+    chatId: chatId ?? null,
+    month: month ?? new Date().getMonth() + 1,
+    day: day ?? new Date().getDate(),
+  });
+
+/** Fetch your texting personality profile. */
+export const getTextingPersonality = (chatId?: number) =>
+  invoke<TextingPersonality>("get_texting_personality", {
+    chatId: chatId ?? null,
+  });

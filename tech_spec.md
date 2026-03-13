@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-Message Intelligence is a native macOS desktop application built with **Tauri v2**, combining a **Rust backend** for performance-critical data processing with a **React/Next.js frontend** for the user interface. The app reads Apple's iMessage database (chat.db) in read-only mode and maintains its own analytics database for computed insights.
+Message Intelligence is a native macOS desktop application built with **Tauri v2**, combining a **Rust backend** for performance-critical data processing with a **React/Next.js frontend** for the user interface. The app reads Apple's iMessage database (chat.db) directly in read-only mode and maintains a separate analytics database for cached computations.
 
 ```
 +--------------------------------------------------+
@@ -13,7 +13,8 @@ Message Intelligence is a native macOS desktop application built with **Tauri v2
 |  |                                                | |
 |  |  Components:  Chat | Wrapped | Search          | |
 |  |  State:       Zustand + React Query            | |
-|  |  Charts:      Recharts                         | |
+|  |  Charts:      Recharts (Area, Bar)             | |
+|  |  Design:      Apple glassmorphism, SF Pro      | |
 |  +-------------------+---------------------------+ |
 |                      | Tauri invoke() / IPC        |
 |  +-------------------v---------------------------+ |
@@ -40,11 +41,11 @@ Message Intelligence is a native macOS desktop application built with **Tauri v2
 | React | 19.2 | UI framework |
 | Next.js | 16.1 | App framework (static export mode) |
 | TypeScript | 5.x | Type safety |
-| Tailwind CSS | 4.x | Styling |
+| Tailwind CSS | 4.x | Styling + Apple glassmorphism utilities |
 | shadcn/ui | latest | Component library (Radix-based) |
 | Zustand | latest | Global state management |
 | TanStack React Query | latest | Async data fetching & caching |
-| Recharts | latest | Data visualization |
+| Recharts | latest | Data visualization (AreaChart, BarChart) |
 | Fuse.js | latest | Client-side fuzzy search |
 | Day.js | latest | Date formatting |
 | @tauri-apps/api | 2.x | Frontend-to-backend IPC |
@@ -66,7 +67,6 @@ Message Intelligence is a native macOS desktop application built with **Tauri v2
 | Technology | Purpose |
 |-----------|---------|
 | Ollama | Local LLM inference (embeddings, sentiment, simulation) |
-| fastembed-rs or similar | Rust-native embedding generation |
 
 ## Directory Structure
 
@@ -74,16 +74,18 @@ Message Intelligence is a native macOS desktop application built with **Tauri v2
 message_intelligence/
 ├── src/                              # Frontend source
 │   ├── app/
-│   │   ├── page.tsx                  # Main page - nav + view routing
+│   │   ├── page.tsx                  # Main page - nav + view routing (glass nav bar)
 │   │   ├── layout.tsx                # Root layout with QueryProvider
-│   │   └── globals.css               # Global styles
+│   │   └── globals.css               # Global styles, glassmorphism utilities, Apple scrollbars
 │   ├── components/
 │   │   ├── chat/
-│   │   │   ├── chat-list.tsx         # Sidebar conversation list + search
-│   │   │   ├── chat-view.tsx         # Message display for selected chat
-│   │   │   └── message-bubble.tsx    # Individual message + tapback rendering
+│   │   │   ├── chat-list.tsx         # Sidebar: chat list, search, wrapped chat selector
+│   │   │   ├── chat-view.tsx         # Message display with Virtuoso
+│   │   │   └── message-bubble.tsx    # Apple-styled message bubbles + tapbacks
 │   │   ├── wrapped/
-│   │   │   └── wrapped-view.tsx      # Wrapped analytics dashboard
+│   │   │   ├── wrapped-view.tsx      # Wrapped dashboard (global + per-chat), temporal trends, relationship metrics
+│   │   │   ├── group-dynamics.tsx    # Group chat dynamics: MVP cards + ranked participant stats
+│   │   │   └── fun-stats.tsx         # "On This Day" highlights + texting personality classification
 │   │   ├── search/
 │   │   │   └── global-search.tsx     # Semantic search UI (placeholder)
 │   │   ├── ui/                       # shadcn/ui primitives
@@ -91,33 +93,34 @@ message_intelligence/
 │   │       └── query-provider.tsx    # React Query provider
 │   ├── hooks/
 │   │   ├── use-messages.ts           # Chat & message data hooks
-│   │   └── use-analytics.ts          # Wrapped stats hook
+│   │   └── use-analytics.ts          # Wrapped, temporal trends, and relationship metric hooks
 │   ├── lib/
-│   │   ├── commands.ts               # Tauri invoke wrappers
+│   │   ├── commands.ts               # Tauri invoke wrappers (all backend commands)
 │   │   └── utils.ts                  # Utilities (cn helper)
 │   ├── stores/
-│   │   └── app-store.ts              # Zustand store (view, selectedChat, searchQuery)
+│   │   └── app-store.ts              # Zustand store (view, selectedChat, wrappedChatId, wrappedYear)
 │   └── types/
 │       └── index.ts                  # TypeScript domain types
 │
 ├── src-tauri/                        # Backend source
 │   ├── src/
-│   │   ├── main.rs                   # Entry point (prevents console window)
+│   │   ├── main.rs                   # Entry point
 │   │   ├── lib.rs                    # App builder, DB init, command registration
 │   │   ├── state.rs                  # AppState (DB connections + contact map)
 │   │   ├── error.rs                  # AppError enum with Tauri serialization
 │   │   ├── db/
-│   │   │   ├── mod.rs                # Module exports
+│   │   │   ├── mod.rs
 │   │   │   ├── models.rs             # Domain structs (Chat, Message, Handle, etc.)
 │   │   │   ├── chat_db.rs            # Read-only queries against Apple's chat.db
 │   │   │   ├── contacts_db.rs        # macOS Address Book contact resolution
-│   │   │   ├── analytics_db.rs       # Analytics database CRUD operations
+│   │   │   ├── analytics_db.rs       # Analytics database CRUD + wrapped cache
 │   │   │   └── schema.rs             # Analytics DB migration/table definitions
 │   │   ├── commands/
-│   │   │   ├── mod.rs                # Module exports
+│   │   │   ├── mod.rs
 │   │   │   ├── messages.rs           # get_chats, get_messages, get_message_count
 │   │   │   ├── contacts.rs           # get_contact_name, get_contact_map
-│   │   │   ├── analytics.rs          # get_wrapped_stats (with caching)
+│   │   │   ├── analytics.rs          # Wrapped stats, temporal trends, relationship metrics
+│   │   │   ├── fun.rs               # Group dynamics, "On This Day", texting personality
 │   │   │   └── embeddings.rs         # check_embedding_status, semantic_search (stubs)
 │   │   ├── ingestion/
 │   │   │   ├── mod.rs
@@ -126,133 +129,104 @@ message_intelligence/
 │   │   ├── analysis/                 # Placeholder for sentiment/topic modules
 │   │   ├── embeddings/               # Placeholder for vector search modules
 │   │   └── sidecar/                  # Placeholder for Ollama integration
-│   ├── Cargo.toml                    # Rust dependencies
-│   └── tauri.conf.json               # Tauri app configuration
+│   ├── Cargo.toml
+│   └── tauri.conf.json
 │
 ├── .reference/                       # Legacy/reference code from earlier iteration
-├── package.json                      # Node dependencies
-├── next.config.ts                    # Next.js config (static export)
-├── tsconfig.json                     # TypeScript config
+├── package.json
+├── next.config.ts                    # Static export config
+├── tsconfig.json
 ├── components.json                   # shadcn/ui config
 ├── project_context.md                # Product requirements document
 └── tech_spec.md                      # This file
 ```
 
+## Tauri Commands (Backend API)
+
+All 16 commands are invoked via `invoke()` from the frontend. Heavy queries run on `tokio::task::spawn_blocking` to keep the UI responsive.
+
+### Message Commands (`commands/messages.rs`)
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `get_chats` | -- | `Chat[]` | All conversations sorted by most-recent message |
+| `get_messages` | `chatId, limit?, offset?` | `Message[]` | Messages for a chat |
+| `get_message_count` | -- | `number` | Total message count across all chats |
+
+### Analytics Commands (`commands/analytics.rs`)
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `get_wrapped_stats` | `year, chatIds?` | `WrappedStats` | Wrapped analytics. Year 0 = all-time. Optional chat filter. Global results cached in analytics.db. |
+| `get_temporal_trends` | `chatId, year?` | `DailyMessageCount[]` | Daily sent/received counts for a chat over its full history |
+| `get_response_time_stats` | `chatId` | `ResponseTimeStats` | Avg/median/fastest response times, you vs. them |
+| `get_initiation_stats` | `chatId` | `InitiationStats` | Who starts conversations more (4h gap threshold) |
+| `get_message_length_stats` | `chatId` | `MessageLengthStats` | Avg/max/total chars and message count per side |
+| `get_active_hours` | `chatId` | `HourlyActivity[]` | Messages by hour (0-23), you vs. them |
+| `invalidate_wrapped_cache` | `year?` | -- | Clear cached wrapped results |
+
+### Contact Commands (`commands/contacts.rs`)
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `get_contact_name` | `identifier` | `string?` | Resolve phone/email to contact name |
+| `get_contact_map` | -- | `Record<string, string>` | Full contact lookup map |
+
+### Fun & Social Commands (`commands/fun.rs`)
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `get_group_chat_dynamics` | `chatId` | `GroupChatDynamics` | Per-participant stats: message count, avg length, replies triggered, ignored count. MVP cards for most active, conversation starter, reply magnet. |
+| `get_on_this_day` | `chatId?` | `OnThisDayResult` | Messages from today's month+day across all past years, grouped by year. Works global (all chats) and per-chat. |
+| `get_texting_personality` | `chatId?` | `TextingPersonality` | Classifies texting style from 8 traits (Night Owl, Early Bird, Essay Writer, Rapid Fire, Conversation Starter, Slow Burn, Weekend Warrior, Ghost) with scored trait bars. |
+
+### Embedding Commands (`commands/embeddings.rs`) -- Stubs
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `check_embedding_status` | -- | `EmbeddingStatus` | Check Ollama/embedding readiness |
+| `semantic_search` | `query, limit?` | `SemanticSearchResult[]` | Vector similarity search |
+
 ## Database Architecture
 
 ### Apple's chat.db (Read-Only)
 
-Located at `~/Library/Messages/chat.db`. Requires **Full Disk Access** permission. Opened with `PRAGMA journal_mode=WAL` for safe concurrent reading.
+Located at `~/Library/Messages/chat.db`. Requires **Full Disk Access** permission. Opened with `SQLITE_OPEN_READ_ONLY` and `PRAGMA journal_mode=WAL`.
 
 **Key tables used:**
 
 | Table | Purpose |
 |-------|---------|
-| `chat` | Conversation metadata (guid, style, display_name, last_addressed_handle) |
-| `message` | Individual messages (text, date, is_from_me, handle_id, associated_message_type for tapbacks) |
+| `chat` | Conversation metadata (guid, style, display_name) |
+| `message` | Individual messages (text, date, is_from_me, handle_id, associated_message_type) |
 | `handle` | Contact identifiers (phone numbers, emails, service type) |
 | `chat_message_join` | Many-to-many: chat <-> message |
 | `chat_handle_join` | Many-to-many: chat <-> handle (participants) |
 | `attachment` | File attachments metadata |
 | `message_attachment_join` | Many-to-many: message <-> attachment |
 
-**Key fields and conventions:**
+**Key conventions:**
 
-- `message.date` uses Apple Core Data epoch (seconds since 2001-01-01, stored as nanoseconds / 1e9)
-- `message.associated_message_type` != 0 indicates a tapback reaction (1000-5005 range)
-- `message.attributedBody` is a binary NSKeyedArchiver blob; parsed when `text` is NULL
+- `message.date`: Apple Core Data epoch (nanoseconds since 2001-01-01). To Unix seconds: `date / 1_000_000_000 + 978_307_200`
+- `message.associated_message_type` != 0: tapback reaction (2000-2005 range for current tapbacks)
+- `message.attributedBody`: binary NSKeyedArchiver blob; parsed when `text` is NULL
 - `chat.style`: 43 = group chat, 45 = DM
 
 ### analytics.db (Read/Write, App-Managed)
 
-Created at app data directory on first launch. Stores all computed analytics to avoid re-processing.
+Created on first launch. Currently used for wrapped stats caching. Schema includes tables for future features (sentiment, embeddings, topics, relationship metrics, links) but only `wrapped_cache` is actively written to.
 
-**Tables:**
+**Active table:**
 
 ```sql
--- Tracks incremental processing progress
-processing_state (
-    id INTEGER PRIMARY KEY,
-    last_processed_rowid INTEGER,    -- Last message rowid processed
-    last_run_at TEXT,                 -- ISO timestamp
-    total_processed INTEGER,
-    status TEXT                       -- 'idle' | 'processing' | 'complete'
-)
-
--- Per-message sentiment scores
-message_sentiment (
-    message_rowid INTEGER PRIMARY KEY,
-    sentiment_score REAL,            -- -1.0 to 1.0
-    sentiment_label TEXT,            -- 'positive' | 'negative' | 'neutral'
-    confidence REAL,
-    analyzed_at TEXT
-)
-
--- Embedding generation progress
-embedding_state (
-    message_rowid INTEGER PRIMARY KEY,
-    embedded_at TEXT,
-    model_version TEXT
-)
-
--- Time-windowed conversation groupings
-conversation_windows (
-    id INTEGER PRIMARY KEY,
-    chat_id INTEGER,
-    start_date TEXT,
-    end_date TEXT,
-    message_count INTEGER,
-    summary TEXT
-)
-
--- Extracted conversation topics
-topics (
-    id INTEGER PRIMARY KEY,
-    chat_id INTEGER,
-    topic TEXT,
-    first_seen TEXT,
-    last_seen TEXT,
-    message_count INTEGER,
-    confidence REAL
-)
-
--- Relationship health and pattern metrics
-relationship_metrics (
-    id INTEGER PRIMARY KEY,
-    handle_id INTEGER,
-    avg_response_time_seconds REAL,
-    initiation_ratio REAL,           -- 0.0 to 1.0 (how often user initiates)
-    sentiment_trend REAL,
-    last_updated TEXT
-)
-
--- Cataloged shared links
-links (
-    id INTEGER PRIMARY KEY,
-    message_rowid INTEGER,
-    url TEXT,
-    title TEXT,
-    domain TEXT,
-    extracted_at TEXT
-)
-
--- Attachment metadata cache
-attachment_cache (
-    attachment_rowid INTEGER PRIMARY KEY,
-    mime_type TEXT,
-    file_size INTEGER,
-    is_image INTEGER,
-    is_video INTEGER,
-    thumbnail_path TEXT
-)
-
--- Pre-computed Wrapped stats (JSON blob per year)
 wrapped_cache (
     year INTEGER PRIMARY KEY,
-    stats_json TEXT,                  -- Serialized WrappedStats
+    stats_json TEXT,         -- Serialized WrappedStats JSON
     computed_at TEXT
 )
 ```
+
+**Schema-only tables (created but not yet populated):** `processing_state`, `message_sentiment`, `embedding_state`, `conversation_windows`, `topics`, `relationship_metrics`, `links`, `attachment_cache`.
 
 ## Data Flow
 
@@ -265,187 +239,95 @@ wrapped_cache (
 4.   Open analytics.db -> Create if needed, run schema migrations
 5.   Load contacts   -> Query macOS Address Book (ABCDRecord SQLite)
 6.   Build AppState  -> { chat_db, analytics_db, contact_map }
-7.   Register commands -> Tauri IPC handlers
+7.   Register commands -> 13 Tauri IPC handlers
 8.   Create window   -> 1200x800, min 900x600
 9. Frontend loads    -> React Query fetches initial data
 ```
 
-### Chat Loading
+### Relationship Metrics (Per-Chat)
 
 ```
-Frontend                          Backend
-   |                                 |
-   |-- invoke("get_chats") --------->|
-   |                                 |-- Query chat table
-   |                                 |-- Batch load participants via chat_handle_join
-   |                                 |-- Resolve contact names from map
-   |                                 |-- Get last message per chat
-   |                                 |-- Sort by last_message_date DESC
-   |<-- Chat[] ----------------------|
-   |                                 |
-   |-- invoke("get_messages", id) -->|
-   |                                 |-- Query messages for chat_id
-   |                                 |-- Filter out tapback reactions
-   |                                 |-- Parse attributedBody where text is NULL
-   |                                 |-- Resolve sender names
-   |<-- Message[] -------------------|
+Frontend                                  Backend
+   |                                         |
+   |-- invoke("get_response_time_stats") --->|
+   |                                         |-- Fetch all messages for chat, ordered by date
+   |                                         |-- Walk messages in Rust, detect direction changes
+   |                                         |-- Compute avg/median/fastest deltas (<24h only)
+   |<-- ResponseTimeStats -------------------|
+   |                                         |
+   |-- invoke("get_initiation_stats") ------>|
+   |                                         |-- Walk messages, flag 4h+ gaps as new conversations
+   |                                         |-- Count initiations by is_from_me
+   |<-- InitiationStats ---------------------|
+   |                                         |
+   |-- invoke("get_active_hours") ---------->|
+   |                                         |-- SQL: strftime('%H') + conditional SUM by is_from_me
+   |<-- HourlyActivity[24] -----------------|
 ```
 
-### Wrapped Stats
-
-```
-Frontend                              Backend
-   |                                     |
-   |-- invoke("get_wrapped_stats", yr)->|
-   |                                     |-- Check wrapped_cache for year
-   |                                     |-- If cached: return JSON
-   |                                     |-- If not cached:
-   |                                     |     Query message counts
-   |                                     |     Group by handle, weekday, month
-   |                                     |     Compute late-night stats
-   |                                     |     Extract conversation openers
-   |                                     |     Store in wrapped_cache
-   |<-- WrappedStats --------------------|
-```
-
-## Domain Types
-
-### TypeScript (Frontend)
+## Frontend State (Zustand)
 
 ```typescript
-interface Chat {
-  rowid: number;
-  guid: string;
-  display_name: string | null;
-  style: number;              // 43=group, 45=DM
-  participants: Handle[];
-  last_message_date: number;  // Unix ms
-  last_message_text: string | null;
-}
-
-interface Message {
-  rowid: number;
-  guid: string;
-  text: string | null;
-  is_from_me: boolean;
-  date: number;               // Unix ms
-  handle_id: number;
-  sender: string | null;      // Resolved display name
-  service: string;            // "iMessage" | "SMS"
-  has_attachments: boolean;
-  associated_message_type: number | null;  // Tapback type
-}
-
-interface Handle {
-  rowid: number;
-  id: string;                 // Phone number or email
-  service: string;
-  display_name: string | null;
-}
-
-interface WrappedStats {
-  message_count: number;
-  sent_count: number;
-  received_count: number;
-  chat_count: number;
-  chat_interactions: ChatInteraction[];
-  weekday_distribution: Record<string, number>;
-  monthly_distribution: Record<string, number>;
-  late_night_chats: LateNightChat[];
-  popular_openers: PopularOpener[];
+interface AppState {
+  view: "chat" | "wrapped" | "search";
+  selectedChatId: number | null;     // Active chat in chat view
+  wrappedChatId: number | null;      // Active chat in wrapped view (null = global)
+  wrappedYear: number;               // 0 = all-time (default)
+  searchQuery: string;
+  chatSearchQuery: string;
 }
 ```
 
-### Rust (Backend)
+## Design System
 
-Equivalent structs in `src-tauri/src/db/models.rs` with `#[derive(Serialize)]` for Tauri IPC serialization.
+Apple-native dark theme with glassmorphism:
 
-## App Configuration
+| Element | Style |
+|---------|-------|
+| Backgrounds | `#1C1C1E` (primary), `#2C2C2E` (secondary), `#3A3A3C` (tertiary) |
+| iMessage blue | `#007AFF` |
+| SMS green | `#34C759` |
+| Received bubble | `#3A3A3C` |
+| Borders | `rgba(255, 255, 255, 0.06)` -- barely visible |
+| Glass surfaces | `backdrop-blur(20px) saturate(180%)` with `bg-white/5` |
+| Font | `-apple-system, BlinkMacSystemFont, SF Pro Display` |
+| Bubbles | `rounded-[20px]` with `rounded-br-[8px]` tail corner |
+| Scrollbars | 6px, transparent until hovered |
 
-### Tauri (tauri.conf.json)
-
-- **Bundle identifier**: `com.message-intelligence.app`
-- **Window**: 1200x800 default, 900x600 minimum
-- **Frontend**: Static files from `../out` (Next.js static export)
-- **Dev server**: `http://localhost:3000`
-
-### Next.js (next.config.ts)
-
-- **Output mode**: `"export"` (static HTML/JS/CSS, no server)
-- **Image optimization**: disabled (static export limitation)
-
-## Planned AI Architecture
-
-### Embedding Pipeline (Phase 2)
-
-```
-chat.db messages
-    |
-    v
-[Incremental Processor] -- tracks last_processed_rowid
-    |
-    v
-[Text Extraction] -- message_parser.rs
-    |
-    v
-[Ollama Embedding API] -- local HTTP (localhost:11434)
-    |
-    v
-[Vector Storage] -- analytics.db or separate vectors.db
-    |
-    v
-[Similarity Search] -- cosine similarity on query embedding
-```
-
-- Process messages incrementally (only new messages since last run)
-- Background processing with progress reporting to frontend
-- Model: `nomic-embed-text` or similar via Ollama
-- Storage: SQLite with BLOB columns for float32 vectors, or consider sqlite-vss extension
-
-### Sentiment Analysis (Phase 2-3)
-
-- Batch analyze messages using local LLM
-- Store per-message scores in `message_sentiment` table
-- Aggregate into `relationship_metrics` for trend analysis
-- Real-time sentiment overlay on chat view
-
-### AI Conversation Simulation (Phase 4)
-
-- Build conversation context from message history
-- Use local LLM (Ollama) with system prompt constructed from contact's writing style
-- Temperature and personality parameters derived from actual communication patterns
+CSS utility classes: `.glass`, `.glass-heavy`, `.glass-border`, `.glass-shadow`, `.apple-text-sm`, `.apple-text-xs`
 
 ## Build & Development
 
 ```bash
-# Frontend development (hot reload)
-npm run dev
+# Full app development (Tauri manages both frontend + backend)
+npx tauri dev
 
-# Full app development (Tauri + Next.js)
-cargo tauri dev
+# Frontend only (no backend, invoke() calls will fail)
+npm run dev
 
 # Production build
 npm run build          # Next.js static export -> out/
 cargo tauri build      # Bundle macOS .app / .dmg
 
-# Rust checks
-cd src-tauri && cargo check
-cd src-tauri && cargo clippy
+# Type checking
+npx tsc --noEmit       # Frontend
+cd src-tauri && cargo check  # Backend
 ```
 
 ## Security & Privacy
 
 - **chat.db**: Opened read-only (`SQLITE_OPEN_READ_ONLY`). The app cannot modify message data.
-- **No network calls**: The app makes zero network requests for message data. AI processing uses only localhost Ollama.
+- **No network calls**: Zero network requests for message data. Future AI uses only localhost Ollama.
 - **Full Disk Access**: Required macOS entitlement -- user must explicitly grant in System Preferences.
 - **Contact access**: Uses macOS Address Book database directly (SQLite) for name resolution.
 - **No telemetry**: No analytics, crash reporting, or usage tracking.
 
-## Performance Considerations
+## Performance
 
-- **React Query caching**: Chat list cached for 30 seconds; messages cached for 60 seconds
-- **Wrapped stats caching**: Computed once per year, stored in analytics.db
-- **Incremental processing**: Embedding/analysis pipelines track progress and only process new messages
+- **React Query caching**: 5 minute stale time for chats, messages, and analytics queries
+- **Wrapped stats caching**: Global results cached as JSON in analytics.db; per-chat results cached in React Query memory only
 - **SQLite WAL mode**: Allows concurrent reads without blocking Apple's Messages.app
-- **Lazy loading**: Messages loaded per-chat, not all at once
+- **Virtuoso virtualization**: Chat list and message view use react-virtuoso with memoized rows
+- **Tapback optimization**: Single-pass O(n) tapback map instead of per-message O(n) filtering
+- **Blocking threads**: All heavy SQL runs on `tokio::task::spawn_blocking` to keep UI responsive
 - **Batch operations**: Contact resolution done as batch lookup at startup, stored in HashMap

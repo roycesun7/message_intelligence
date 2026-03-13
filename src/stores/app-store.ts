@@ -24,6 +24,10 @@ export interface AppState {
   // ── Chat list filter ────────────────────────────
   chatSearchQuery: string;
   setChatSearchQuery: (q: string) => void;
+
+  // ── Scroll to message ───────────────────────────
+  scrollToMessageDate: number | null;
+  setScrollToMessageDate: (date: number | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -44,4 +48,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   chatSearchQuery: "",
   setChatSearchQuery: (chatSearchQuery) => set({ chatSearchQuery }),
+
+  scrollToMessageDate: null,
+  setScrollToMessageDate: (scrollToMessageDate) => set({ scrollToMessageDate }),
 }));

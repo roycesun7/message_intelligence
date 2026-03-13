@@ -27,10 +27,10 @@ function NavBar() {
           <button
             key={id}
             onClick={() => setView(id)}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200 apple-text-sm ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium tracking-wide transition-all duration-200 apple-text-sm ${
               isActive
-                ? "bg-[#007AFF]/20 text-[#007AFF] shadow-[0_0_12px_rgba(0,122,255,0.15)]"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
+                ? "bg-[#007AFF]/20 text-[#007AFF]"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]"
             }`}
           >
             <Icon className="h-4 w-4" />

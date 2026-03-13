@@ -32,7 +32,7 @@ function TextingPersonalityCard({ chatId }: { chatId: number | null }) {
   const { data, isLoading } = useTextingPersonality(chatId);
 
   return (
-    <Card className="border-zinc-800 bg-zinc-900">
+    <Card className="card-glass">
       <CardHeader className="flex flex-row items-center gap-2">
         <Sparkles className="h-5 w-5 text-yellow-400" />
         <CardTitle className="text-lg font-semibold text-white">
@@ -55,15 +55,15 @@ function TextingPersonalityCard({ chatId }: { chatId: number | null }) {
         {!isLoading && data && (
           <div className="space-y-6">
             {/* Primary type */}
-            <div className="text-center">
-              <p className="text-4xl">
+            <div className="text-center py-2">
+              <p className="text-5xl mb-3">
                 {getPersonalityEmoji(data.primaryType)}
               </p>
-              <p className="mt-2 text-2xl font-bold text-white">
+              <p className="text-2xl font-bold tracking-tight text-white">
                 {data.primaryType}
               </p>
               {data.secondaryType && (
-                <p className="mt-1 text-sm text-zinc-400">
+                <p className="mt-2 text-sm text-zinc-500">
                   with a touch of{" "}
                   <span className="font-medium text-zinc-300">
                     {getPersonalityEmoji(data.secondaryType)}{" "}
@@ -76,9 +76,7 @@ function TextingPersonalityCard({ chatId }: { chatId: number | null }) {
             {/* Traits */}
             {data.traits.length > 0 && (
               <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                  Traits
-                </p>
+                <p className="section-header">Traits</p>
                 {data.traits.map((trait) => (
                   <div key={trait.name} className="space-y-1">
                     <div className="flex items-center justify-between">
@@ -89,13 +87,13 @@ function TextingPersonalityCard({ chatId }: { chatId: number | null }) {
                         {Math.round(trait.score * 100)}%
                       </span>
                     </div>
-                    <p className="text-[11px] text-zinc-500">
+                    <p className="text-[11px] text-zinc-600">
                       {trait.description}
                     </p>
-                    <div className="h-1.5 w-full rounded-full bg-zinc-800">
+                    <div className="h-1 w-full rounded-full bg-white/[0.06]">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 transition-all"
-                        style={{ width: `${Math.round(trait.score * 100)}%` }}
+                        className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all"
+                        style={{ width: `${Math.max(Math.round(trait.score * 100), 2)}%` }}
                       />
                     </div>
                   </div>

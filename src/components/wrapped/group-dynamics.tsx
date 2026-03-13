@@ -49,13 +49,13 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
       {/* Header */}
       <div className="flex items-center gap-2">
         <Users className="h-6 w-6 text-blue-400" />
-        <h2 className="text-xl font-bold text-white">Group Dynamics</h2>
+        <p className="text-lg font-semibold text-white">The Group Chat</p>
       </div>
 
       {/* MVP Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {/* Most Active */}
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-400">
               Most Active
@@ -72,7 +72,7 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
         </Card>
 
         {/* Conversation Starter */}
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-400">
               Conversation Starter
@@ -87,7 +87,7 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
         </Card>
 
         {/* Reply Magnet */}
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-wider text-zinc-400">
               Reply Magnet
@@ -106,7 +106,7 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
       </div>
 
       {/* Participant Table */}
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="card-glass">
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-white">
             Participants ({sorted.length})
@@ -142,9 +142,9 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
                   </div>
 
                   {/* Progress bar */}
-                  <div className="ml-7 h-1.5 w-full rounded-full bg-zinc-800">
+                  <div className="ml-7 h-1.5 w-full rounded-full bg-white/[0.06]">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all"
+                      className="h-full rounded-full bg-gradient-to-r from-blue-500/80 to-purple-500/80 transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

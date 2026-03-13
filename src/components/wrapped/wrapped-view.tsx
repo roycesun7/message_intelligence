@@ -58,6 +58,18 @@ import type {
   HourlyActivity,
 } from "@/types";
 
+const CHART_TOOLTIP_STYLE = {
+  contentStyle: {
+    backgroundColor: "rgba(28, 28, 30, 0.95)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    borderRadius: "12px",
+    color: "#eee",
+    backdropFilter: "blur(12px)",
+    padding: "10px 14px",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+  },
+};
+
 // ── Year selector ────────────────────────────────────────
 function YearSelector() {
   const year = useAppStore((s) => s.wrappedYear);
@@ -72,7 +84,7 @@ function YearSelector() {
       <select
         value={year}
         onChange={(e) => setYear(Number(e.target.value))}
-        className="h-8 rounded-md border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-200 outline-none focus:ring-2 focus:ring-blue-500/40"
+        className="h-8 rounded-full border border-white/[0.08] bg-white/[0.06] px-4 text-sm text-zinc-200 outline-none transition-colors hover:bg-white/[0.1] focus:ring-2 focus:ring-blue-500/40"
       >
         <option value={0}>All Time</option>
         {years.map((y) => (
@@ -98,15 +110,15 @@ function StatCard({
   gradient: string;
 }) {
   return (
-    <Card className={`border-0 ${gradient} text-white`}>
+    <Card className={`border-0 ${gradient} text-white stat-glow rounded-2xl`}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium opacity-90">
+        <CardTitle className="text-xs font-medium uppercase tracking-wider opacity-80">
           {title}
         </CardTitle>
-        <Icon className="h-5 w-5 opacity-70" />
+        <Icon className="h-4 w-4 opacity-50" />
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold">
+        <div className="text-3xl font-bold tracking-tight">
           {typeof value === "number" ? value.toLocaleString() : value}
         </div>
       </CardContent>
@@ -272,11 +284,11 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
 
   if (isLoading) {
     return (
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="card-glass">
         <CardHeader className="flex flex-row items-center gap-2">
           <TrendingUp className="h-5 w-5 text-blue-400" />
           <CardTitle className="text-lg font-semibold text-white">
-            Message Volume Over Time
+            Your Conversation Timeline
           </CardTitle>
         </CardHeader>
         <CardContent className="flex h-[300px] items-center justify-center">
@@ -289,7 +301,7 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
   if (!trends || points.length === 0) return null;
 
   return (
-    <Card className="border-zinc-800 bg-zinc-900">
+    <Card className="card-glass">
       <CardHeader className="flex flex-row items-center gap-2">
         <TrendingUp className="h-5 w-5 text-blue-400" />
         <CardTitle className="text-lg font-semibold text-white">
@@ -309,22 +321,17 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
                 <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.05} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fill: "#999", fontSize: 11 }}
+              tick={{ fill: "#666", fontSize: 11 }}
               tickFormatter={(v: string) => formatTrendDate(v, granularity)}
               interval="preserveStartEnd"
               minTickGap={40}
             />
-            <YAxis tick={{ fill: "#999", fontSize: 11 }} />
+            <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
             <Tooltip
-              contentStyle={{
-                backgroundColor: "#1e1e1e",
-                border: "1px solid #333",
-                borderRadius: "8px",
-                color: "#eee",
-              }}
+              {...CHART_TOOLTIP_STYLE}
               labelFormatter={(label) => formatTrendDate(String(label), granularity)}
               formatter={(value, name) => {
                 const displayName = name === "sent" ? "Sent" : "Received";
@@ -395,16 +402,16 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
 
   return (
     <div className="mb-8 space-y-6">
-      <h2 className="text-xl font-bold text-white">Relationship Metrics</h2>
+      <p className="text-lg font-semibold text-white">Between You Two</p>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* A. Response Time Card */}
         {responseTime && (
-          <Card className="border-zinc-800 bg-zinc-900">
+          <Card className="card-glass">
             <CardHeader className="flex flex-row items-center gap-2">
               <Clock className="h-5 w-5 text-blue-400" />
               <CardTitle className="text-lg font-semibold text-white">
-                Response Time
+                Who Replies Faster
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -500,11 +507,11 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
 
         {/* B. Conversation Initiation Card */}
         {initiation && (
-          <Card className="border-zinc-800 bg-zinc-900">
+          <Card className="card-glass">
             <CardHeader className="flex flex-row items-center gap-2">
               <MessageCircle className="h-5 w-5 text-green-400" />
               <CardTitle className="text-lg font-semibold text-white">
-                Conversation Initiation
+                Who Texts First
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -553,11 +560,11 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
 
         {/* C. Message Length Card */}
         {msgLength && (
-          <Card className="border-zinc-800 bg-zinc-900">
+          <Card className="card-glass">
             <CardHeader className="flex flex-row items-center gap-2">
               <AlignLeft className="h-5 w-5 text-amber-400" />
               <CardTitle className="text-lg font-semibold text-white">
-                Message Length
+                Who Writes More
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -625,11 +632,11 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
 
         {/* D. Active Hours Card */}
         {activeHours && activeHours.length > 0 && (
-          <Card className="border-zinc-800 bg-zinc-900">
+          <Card className="card-glass">
             <CardHeader className="flex flex-row items-center gap-2">
               <Activity className="h-5 w-5 text-cyan-400" />
               <CardTitle className="text-lg font-semibold text-white">
-                Active Hours
+                When You Both Text
               </CardTitle>
             </CardHeader>
             <CardContent className="h-72">
@@ -638,21 +645,16 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                   data={activeHours}
                   margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                   <XAxis
                     dataKey="hour"
-                    tick={{ fill: "#999", fontSize: 10 }}
+                    tick={{ fill: "#666", fontSize: 11 }}
                     tickFormatter={(v: number) => formatHourLabel(v)}
                     interval={2}
                   />
-                  <YAxis tick={{ fill: "#999", fontSize: 11 }} />
+                  <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e1e1e",
-                      border: "1px solid #333",
-                      borderRadius: "8px",
-                      color: "#eee",
-                    }}
+                    {...CHART_TOOLTIP_STYLE}
                     labelFormatter={(label) => formatHourLabel(Number(label))}
                     formatter={(value, name) => [
                       Number(value).toLocaleString(),
@@ -667,12 +669,12 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                   <Bar
                     dataKey="myMessages"
                     fill="#3b82f6"
-                    radius={[2, 2, 0, 0]}
+                    radius={[6, 6, 0, 0]}
                   />
                   <Bar
                     dataKey="theirMessages"
                     fill="#6366f1"
-                    radius={[2, 2, 0, 0]}
+                    radius={[6, 6, 0, 0]}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -792,7 +794,7 @@ export function WrappedView() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold text-white">
+          <h1 className="text-3xl font-bold tracking-tight text-white">
             {year === 0 ? "All-Time" : year} Wrapped
             {isPerChat && (
               <span className="ml-2 text-2xl font-bold text-blue-400">
@@ -800,10 +802,10 @@ export function WrappedView() {
               </span>
             )}
           </h1>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-500">
             {isPerChat
-              ? `Stats for this conversation`
-              : "Your iMessage year in review"}
+              ? `Your conversation at a glance`
+              : "Your iMessage story, by the numbers"}
           </p>
         </div>
         <YearSelector />
@@ -840,6 +842,7 @@ export function WrappedView() {
       </div>
 
       {/* Temporal trends — per-chat only */}
+      {/* Temporal trends — per-chat only */}
       {isPerChat && (
         <div className="mb-8">
           <TemporalTrendsChart chatId={wrappedChatId} year={year} />
@@ -856,10 +859,10 @@ export function WrappedView() {
       <div className={`mb-8 grid grid-cols-1 gap-6 ${isPerChat ? "" : "lg:grid-cols-2"}`}>
         {/* Top contacts — hidden in per-chat mode */}
         {!isPerChat && (
-          <Card className="border-zinc-800 bg-zinc-900">
+          <Card className="card-glass">
             <CardHeader>
               <CardTitle className="text-lg font-semibold text-white">
-                Top 10 Conversations
+                Your Top People
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -884,9 +887,9 @@ export function WrappedView() {
                               {c.total.toLocaleString()}
                             </span>
                           </div>
-                          <div className="mt-1 h-1.5 w-full rounded-full bg-zinc-800">
+                          <div className="mt-1 h-1 w-full rounded-full bg-white/[0.06]">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500"
+                              className="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
@@ -901,10 +904,10 @@ export function WrappedView() {
         )}
 
         {/* Messages by month */}
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-white">
-              Messages by Month
+              Your Busiest Months
             </CardTitle>
           </CardHeader>
           <CardContent className="h-72">
@@ -913,26 +916,21 @@ export function WrappedView() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                   <XAxis
                     dataKey="key"
-                    tick={{ fill: "#999", fontSize: 11 }}
+                    tick={{ fill: "#666", fontSize: 11 }}
                     tickFormatter={(v: string) => v.slice(0, 3)}
                   />
-                  <YAxis tick={{ fill: "#999", fontSize: 11 }} />
+                  <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e1e1e",
-                      border: "1px solid #333",
-                      borderRadius: "8px",
-                      color: "#eee",
-                    }}
+                    {...CHART_TOOLTIP_STYLE}
                     formatter={(value, name) => [
                       Number(value).toLocaleString(),
                       name === "total" ? "Total" : name === "sent" ? "Sent" : "Received",
                     ]}
                   />
-                  <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="total" radius={[6, 6, 0, 0]}>
                     {monthlyData.map((_entry, index) => (
                       <Cell
                         key={index}
@@ -949,34 +947,29 @@ export function WrappedView() {
 
       {/* Messages by Year — only show for all-time view with multi-year data */}
       {year === 0 && yearlyData.length > 1 && (
-        <Card className="mb-8 border-zinc-800 bg-zinc-900">
+        <Card className="mb-8 card-glass">
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-white">
-              Messages by Year
+              Your Year by Year
             </CardTitle>
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={yearlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                 <XAxis
                   dataKey="key"
-                  tick={{ fill: "#999", fontSize: 11 }}
+                  tick={{ fill: "#666", fontSize: 11 }}
                 />
-                <YAxis tick={{ fill: "#999", fontSize: 11 }} />
+                <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e1e1e",
-                    border: "1px solid #333",
-                    borderRadius: "8px",
-                    color: "#eee",
-                  }}
+                  {...CHART_TOOLTIP_STYLE}
                   formatter={(value, name) => [
                     Number(value).toLocaleString(),
                     name === "sent" ? "Sent" : name === "received" ? "Received" : "Total",
                   ]}
                 />
-                <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="total" radius={[6, 6, 0, 0]}>
                   {yearlyData.map((_entry, index) => (
                     <Cell
                       key={index}
@@ -993,10 +986,10 @@ export function WrappedView() {
       {/* Two-column: Day of week + Late night */}
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Messages by day of week */}
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-white">
-              Messages by Day of Week
+              Your Favorite Days
             </CardTitle>
           </CardHeader>
           <CardContent className="h-64">
@@ -1005,22 +998,17 @@ export function WrappedView() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weekdayData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                   <XAxis
                     dataKey="key"
-                    tick={{ fill: "#999", fontSize: 11 }}
+                    tick={{ fill: "#666", fontSize: 11 }}
                     tickFormatter={(v: string) => v.slice(0, 3)}
                   />
-                  <YAxis tick={{ fill: "#999", fontSize: 11 }} />
+                  <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e1e1e",
-                      border: "1px solid #333",
-                      borderRadius: "8px",
-                      color: "#eee",
-                    }}
+                    {...CHART_TOOLTIP_STYLE}
                   />
-                  <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="total" radius={[6, 6, 0, 0]}>
                     {weekdayData.map((_entry, index) => (
                       <Cell
                         key={index}
@@ -1035,11 +1023,11 @@ export function WrappedView() {
         </Card>
 
         {/* Late night chats */}
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader className="flex flex-row items-center gap-2">
             <Moon className="h-5 w-5 text-indigo-400" />
             <CardTitle className="text-lg font-semibold text-white">
-              {isPerChat ? "Late Night Messages" : "Late Night Texters"}
+              {isPerChat ? "Night Owl Mode" : "Your Late Night Crew"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1075,10 +1063,10 @@ export function WrappedView() {
 
       {/* Popular openers */}
       {topOpeners.length > 0 && (
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-white">
-              Most Popular Conversation Openers
+              How You Start Conversations
             </CardTitle>
           </CardHeader>
           <CardContent>

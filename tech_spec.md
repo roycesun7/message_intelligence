@@ -85,7 +85,8 @@ message_intelligence/
 │   │   ├── wrapped/
 │   │   │   ├── wrapped-view.tsx      # Wrapped dashboard (global + per-chat), temporal trends, relationship metrics
 │   │   │   ├── group-dynamics.tsx    # Group chat dynamics: MVP cards + ranked participant stats
-│   │   │   └── fun-stats.tsx         # "On This Day" highlights + texting personality classification
+│   │   │   ├── fun-stats.tsx         # Texting personality classification
+│   │   │   └── on-this-day.tsx       # "On This Day" interactive section with click-to-navigate
 │   │   ├── search/
 │   │   │   └── global-search.tsx     # Semantic search UI (placeholder)
 │   │   ├── ui/                       # shadcn/ui primitives
@@ -137,7 +138,7 @@ message_intelligence/
 ├── next.config.ts                    # Static export config
 ├── tsconfig.json
 ├── components.json                   # shadcn/ui config
-├── project_context.md                # Product requirements document
+├── README.md                         # Project overview, features, and setup
 └── tech_spec.md                      # This file
 ```
 
@@ -239,7 +240,7 @@ wrapped_cache (
 4.   Open analytics.db -> Create if needed, run schema migrations
 5.   Load contacts   -> Query macOS Address Book (ABCDRecord SQLite)
 6.   Build AppState  -> { chat_db, analytics_db, contact_map }
-7.   Register commands -> 13 Tauri IPC handlers
+7.   Register commands -> 16 Tauri IPC handlers
 8.   Create window   -> 1200x800, min 900x600
 9. Frontend loads    -> React Query fetches initial data
 ```
@@ -280,7 +281,7 @@ interface AppState {
 
 ## Design System
 
-Apple-native dark theme with glassmorphism:
+Consumer-friendly, conversational UI with Apple-native dark theme and glassmorphism. Uses `.card-glass` utility for glassmorphic cards throughout analytics views.
 
 | Element | Style |
 |---------|-------|
@@ -294,7 +295,7 @@ Apple-native dark theme with glassmorphism:
 | Bubbles | `rounded-[20px]` with `rounded-br-[8px]` tail corner |
 | Scrollbars | 6px, transparent until hovered |
 
-CSS utility classes: `.glass`, `.glass-heavy`, `.glass-border`, `.glass-shadow`, `.apple-text-sm`, `.apple-text-xs`
+CSS utility classes: `.glass`, `.glass-heavy`, `.glass-border`, `.glass-shadow`, `.apple-text-sm`, `.apple-text-xs`, `.card-glass`, `.stat-glow`, `.section-header`
 
 ## Build & Development
 

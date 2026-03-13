@@ -43,10 +43,10 @@ function OnThisDayMessageItem({ msg }: { msg: OnThisDayMessage }) {
   return (
     <button
       onClick={handleClick}
-      className={`group w-full text-left rounded-xl px-4 py-3 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
+      className={`group w-full text-left rounded-2xl px-4 py-3 transition-colors cursor-pointer ${
         msg.isFromMe
-          ? "ml-8 border border-blue-500/20 bg-blue-500/10 hover:bg-blue-500/15"
-          : "mr-8 border border-zinc-700/50 bg-zinc-800/50 hover:bg-zinc-700/50"
+          ? "ml-6 bg-blue-500/[0.08] hover:bg-blue-500/[0.12]"
+          : "mr-6 bg-white/[0.04] hover:bg-white/[0.07]"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -79,7 +79,7 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
   if (isLoading) {
     return (
       <div className="mb-8">
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader className="flex flex-row items-center gap-2">
             <Calendar className="h-5 w-5 text-amber-400" />
             <CardTitle className="text-lg font-semibold text-white">
@@ -97,7 +97,7 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
   if (!data || data.messages.length === 0) {
     return (
       <div className="mb-8">
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="card-glass">
           <CardHeader className="flex flex-row items-center gap-2">
             <Calendar className="h-5 w-5 text-amber-400" />
             <CardTitle className="text-lg font-semibold text-white">
@@ -119,13 +119,13 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
 
   return (
     <div className="mb-8">
-      <Card className="border-zinc-800 bg-zinc-900">
+      <Card className="card-glass">
         <CardHeader className="flex flex-row items-center gap-2">
           <Calendar className="h-5 w-5 text-amber-400" />
           <CardTitle className="text-lg font-semibold text-white">
             On This Day — {formatMonthDay()}
           </CardTitle>
-          <span className="ml-auto text-xs text-zinc-500">
+          <span className="ml-auto text-xs text-zinc-600">
             {data.messages.length} messages across {sortedYears.length} years
           </span>
         </CardHeader>
@@ -138,9 +138,9 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
               const msgs = grouped.get(year) ?? [];
               return (
                 <div key={year}>
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="text-sm font-bold text-amber-400">{year}</span>
-                    <div className="h-px flex-1 bg-zinc-800" />
+                  <div className="mb-3 flex items-center gap-3">
+                    <span className="text-sm font-bold text-amber-400/90">{year}</span>
+                    <div className="h-px flex-1 bg-white/[0.06]" />
                     <span className="text-xs text-zinc-600">{msgs.length} messages</span>
                   </div>
                   <div className="space-y-2">

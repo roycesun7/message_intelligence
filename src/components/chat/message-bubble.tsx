@@ -63,7 +63,7 @@ export function MessageBubble({
   const bubbleText = isFromMe ? "text-white" : "text-[#071739] dark:text-zinc-100";
 
   return (
-    <>
+    <div className="min-h-[1px]">
       {/* Date separator — pill-shaped, centered */}
       {showDate && (
         <div className="flex items-center justify-center py-3">
@@ -141,7 +141,7 @@ export function MessageBubble({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

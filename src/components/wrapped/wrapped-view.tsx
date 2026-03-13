@@ -783,7 +783,7 @@ export function WrappedView() {
     stats.lateNightInteractions.sent,
     stats.lateNightInteractions.received,
     (c) => String(c.chatId),
-  ).slice(0, 5);
+  ).slice(0, 10);
 
   // Top openers
   const topOpeners = [
@@ -1050,12 +1050,44 @@ export function WrappedView() {
             {lateNightChats.length === 0 ? (
               <p className="text-sm text-[#A4B5C4] dark:text-zinc-500">No late-night activity.</p>
             ) : isPerChat ? (
-              <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-[#071739] dark:text-indigo-400">
-                  {lateNightChats.reduce((sum, c) => sum + c.total, 0).toLocaleString()}
-                </span>
-                <span className="text-sm text-[#4B6382] dark:text-zinc-400">late night messages</span>
-              </div>
+              (() => {
+                const lnTotal = lateNightChats.reduce((sum, c) => sum + c.total, 0);
+                const lnSent = lateNightChats.reduce((sum, c) => sum + c.sent, 0);
+                const lnReceived = lateNightChats.reduce((sum, c) => sum + c.received, 0);
+                const pct = totalMessages > 0 ? ((lnTotal / totalMessages) * 100).toFixed(1) : "0";
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-[#071739] dark:text-indigo-400">
+                        {lnTotal.toLocaleString()}
+                      </span>
+                      <span className="text-sm text-[#4B6382] dark:text-zinc-400">
+                        late night messages ({pct}% of all)
+                      </span>
+                    </div>
+                    <div className="flex gap-4 text-sm">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2.5 w-2.5 rounded-full bg-[#007AFF]" />
+                        <span className="text-[#071739] dark:text-zinc-200">{lnSent.toLocaleString()}</span>
+                        <span className="text-[#A4B5C4] dark:text-zinc-500">sent</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2.5 w-2.5 rounded-full bg-[#A4B5C4] dark:bg-zinc-500" />
+                        <span className="text-[#071739] dark:text-zinc-200">{lnReceived.toLocaleString()}</span>
+                        <span className="text-[#A4B5C4] dark:text-zinc-500">received</span>
+                      </div>
+                    </div>
+                    {lnTotal > 0 && (
+                      <div className="h-2 w-full rounded-full bg-[#CDD5DB]/30 dark:bg-white/[0.06] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#007AFF]"
+                          style={{ width: `${(lnSent / lnTotal) * 100}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
             ) : (
               <ol className="space-y-2">
                 {lateNightChats.map((c, i) => {

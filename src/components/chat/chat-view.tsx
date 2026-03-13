@@ -116,45 +116,48 @@ export function ChatView() {
 
       {/* Messages */}
       <div className="relative min-h-0 flex-1">
+        {/* Always render Virtuoso so it has dimensions before data arrives */}
+        <div className="absolute inset-0 overflow-hidden">
+          <Virtuoso
+            ref={virtuosoRef}
+            totalCount={visibleMessages.length}
+            itemContent={itemContent}
+            initialTopMostItemIndex={Math.max(0, visibleMessages.length - 1)}
+            followOutput="auto"
+            defaultItemHeight={44}
+            increaseViewportBy={800}
+            overscan={200}
+            style={{ height: "100%", width: "100%" }}
+            components={{
+              Header: () => <div className="pt-3" />,
+              Footer: () => <div className="pb-16" />,
+            }}
+          />
+        </div>
+        {/* Overlay status messages on top */}
         {isLoading && (
-          <div className="flex h-full items-center justify-center text-sm text-[#A4B5C4] dark:text-zinc-500">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#A4B5C4] dark:text-zinc-500 bg-[#F0EDE8] dark:bg-[#1C1C1E]">
             Loading messages...
           </div>
         )}
         {!isLoading && isError && (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm bg-[#F0EDE8] dark:bg-[#1C1C1E]">
             <p className="text-red-500 dark:text-red-400">Failed to load messages</p>
             <p className="text-[#A4B5C4] dark:text-zinc-600 text-xs max-w-md text-center">{String(error)}</p>
           </div>
         )}
         {!isLoading && !isError && visibleMessages.length === 0 && (
-          <div className="flex h-full items-center justify-center text-sm text-[#A4B5C4] dark:text-zinc-500">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#A4B5C4] dark:text-zinc-500 bg-[#F0EDE8] dark:bg-[#1C1C1E]">
             No messages in this chat.
           </div>
         )}
-        {!isLoading && visibleMessages.length > 0 && (
-          <Virtuoso
-            ref={virtuosoRef}
-            totalCount={visibleMessages.length}
-            itemContent={itemContent}
-            initialTopMostItemIndex={visibleMessages.length - 1}
-            followOutput="auto"
-            defaultItemHeight={44}
-            increaseViewportBy={800}
-            overscan={200}
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-            components={{
-              Footer: () => (
-                <div className="flex items-center justify-center px-4 py-4">
-                  <div className="flex h-10 w-full max-w-2xl items-center rounded-full bg-[#071739]/[0.04] dark:bg-white/[0.06] border border-[#CDD5DB]/40 dark:border-white/[0.06] px-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
-                    <span className="text-sm text-[#A4B5C4] dark:text-zinc-600 apple-text-sm">iMessage</span>
-                  </div>
-                </div>
-              ),
-              Header: () => <div className="pt-3" />,
-            }}
-          />
-        )}
+      </div>
+
+      {/* Fixed iMessage bar at bottom */}
+      <div className="shrink-0 flex items-center justify-center px-4 py-2 bg-[#F0EDE8] dark:bg-[#1C1C1E] border-t border-[#CDD5DB]/40 dark:border-white/[0.06]">
+        <div className="flex h-10 w-full max-w-2xl items-center rounded-full bg-[#071739]/[0.04] dark:bg-white/[0.06] border border-[#CDD5DB]/40 dark:border-white/[0.06] px-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
+          <span className="text-sm text-[#A4B5C4] dark:text-zinc-600 apple-text-sm">iMessage</span>
+        </div>
       </div>
     </div>
   );

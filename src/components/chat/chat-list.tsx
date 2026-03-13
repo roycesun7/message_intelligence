@@ -204,14 +204,16 @@ export function ChatList() {
           </div>
         )}
         {!isLoading && !isError && filteredChats.length > 0 && (
-          <Virtuoso
-            data={filteredChats}
-            itemContent={itemContent}
-            defaultItemHeight={68}
-            increaseViewportBy={400}
-            overscan={100}
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-          />
+          <div className="absolute inset-0 overflow-hidden">
+            <Virtuoso
+              data={filteredChats}
+              itemContent={itemContent}
+              defaultItemHeight={68}
+              increaseViewportBy={400}
+              overscan={100}
+              style={{ height: "100%", width: "100%" }}
+            />
+          </div>
         )}
       </div>
     </div>

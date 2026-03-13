@@ -1,12 +1,14 @@
 "use client";
 
-import { MessageSquare, BarChart3, Search, Sun, Moon } from "lucide-react";
+import { MessageSquare, BarChart3, Search, Settings, Sun, Moon } from "lucide-react";
 
 import { useAppStore, type AppView } from "@/stores/app-store";
 import { ChatList } from "@/components/chat/chat-list";
 import { ChatView } from "@/components/chat/chat-view";
 import { WrappedView } from "@/components/wrapped/wrapped-view";
 import { GlobalSearch } from "@/components/search/global-search";
+import { SettingsPage } from "@/components/settings/settings-page";
+import { IndexingStatusBar } from "@/components/layout/indexing-status-bar";
 import { FdaGate } from "@/components/onboarding/fda-gate";
 
 // ── Nav tabs ──────────────────────────────────────────────
@@ -14,6 +16,7 @@ const NAV_ITEMS: { id: AppView; label: string; icon: React.ElementType }[] = [
   { id: "chat", label: "Chats", icon: MessageSquare },
   { id: "wrapped", label: "Wrapped", icon: BarChart3 },
   { id: "search", label: "Search", icon: Search },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 function NavBar() {
@@ -43,6 +46,7 @@ function NavBar() {
       })}
 
       <div className="ml-auto flex items-center gap-3">
+        <IndexingStatusBar />
         <span className="text-xs font-medium text-[#A4B5C4] dark:text-zinc-600 apple-text-xs">
           Message Intelligence
         </span>
@@ -67,6 +71,8 @@ function MainContent() {
       return <WrappedView />;
     case "search":
       return <GlobalSearch />;
+    case "settings":
+      return <SettingsPage />;
     case "chat":
     default:
       return <ChatView />;

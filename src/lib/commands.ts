@@ -15,6 +15,7 @@ import type {
   OnThisDayResult,
   TextingPersonality,
   AttachmentData,
+  WordFrequency,
 } from "@/types";
 
 // ────────────────────────────────────────────────────────
@@ -115,6 +116,14 @@ export const getOnThisDay = (chatId?: number, month?: number, day?: number) =>
 export const getTextingPersonality = (chatId?: number) =>
   invoke<TextingPersonality>("get_texting_personality", {
     chatId: chatId ?? null,
+  });
+
+/** Fetch most frequently used words. */
+export const getWordFrequency = (year: number, chatIds?: number[], fromMeOnly?: boolean) =>
+  invoke<WordFrequency[]>("get_word_frequency", {
+    year,
+    chatIds: chatIds ?? null,
+    fromMeOnly: fromMeOnly ?? false,
   });
 
 // ────────────────────────────────────────────────────────

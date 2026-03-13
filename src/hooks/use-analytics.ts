@@ -9,6 +9,7 @@ import {
   getGroupChatDynamics,
   getOnThisDay,
   getTextingPersonality,
+  getWordFrequency,
 } from "@/lib/commands";
 import type {
   WrappedStats,
@@ -20,6 +21,7 @@ import type {
   GroupChatDynamics,
   OnThisDayResult,
   TextingPersonality,
+  WordFrequency,
 } from "@/types";
 
 /**
@@ -119,6 +121,19 @@ export const useTextingPersonality = (chatId?: number | null) => {
   return useQuery<TextingPersonality>({
     queryKey: ["textingPersonality", chatId ?? null],
     queryFn: () => getTextingPersonality(chatId ?? undefined),
+    staleTime: 5 * 60_000,
+  });
+};
+
+/** Fetch most frequently used words. */
+export const useWordFrequency = (
+  year: number,
+  chatIds?: number[],
+  fromMeOnly?: boolean,
+) => {
+  return useQuery<WordFrequency[]>({
+    queryKey: ["wordFrequency", year, chatIds ?? null, fromMeOnly ?? false],
+    queryFn: () => getWordFrequency(year, chatIds, fromMeOnly),
     staleTime: 5 * 60_000,
   });
 };

@@ -218,6 +218,13 @@ export interface OnThisDayResult {
   yearsWithMessages: number[];
 }
 
+// ── Word Frequency ───────────────────────────────────
+
+export interface WordFrequency {
+  word: string;
+  count: number;
+}
+
 // ── Texting Personality ────────────────────────────────
 
 export interface PersonalityTrait {

@@ -34,6 +34,7 @@ import {
 import { GroupDynamics } from "./group-dynamics";
 import { FunStats } from "./fun-stats";
 import { OnThisDaySection } from "./on-this-day";
+import { WordFrequencySection } from "./word-frequency";
 import {
   MessageSquare,
   Send,
@@ -1131,6 +1132,12 @@ export function WrappedView() {
           </CardContent>
         </Card>
       )}
+
+      {/* Most Used Words */}
+      <WordFrequencySection
+        year={year}
+        chatIds={wrappedChatId !== null ? [wrappedChatId] : undefined}
+      />
 
       {/* Texting Personality */}
       <FunStats chatId={wrappedChatId} />

@@ -1024,3 +1024,109 @@ fn get_most_popular_openers(
         received: query_for(false)?,
     })
 }
+
+// ── Word frequency ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WordFrequency {
+    pub word: String,
+    pub count: i64,
+}
+
+/// Common English stop words to exclude from frequency analysis.
+const STOP_WORDS: &[&str] = &[
+    "i", "me", "my", "we", "our", "you", "your", "he", "she", "it", "its",
+    "they", "them", "their", "this", "that", "these", "those", "is", "are",
+    "was", "were", "be", "been", "being", "have", "has", "had", "do", "does",
+    "did", "will", "would", "could", "should", "can", "may", "might", "shall",
+    "a", "an", "the", "and", "but", "or", "if", "so", "as", "at", "by", "in",
+    "on", "to", "of", "for", "with", "from", "up", "out", "not", "no", "nor",
+    "just", "also", "than", "then", "too", "very", "don't", "dont", "didn't",
+    "isn't", "it's", "i'm", "im", "what", "when", "where", "how", "who",
+    "which", "there", "here", "about", "all", "each", "some", "any", "more",
+    "other", "into", "over", "after", "before", "between", "because", "while",
+    "get", "got", "going", "go", "goes", "went", "come", "came", "like",
+    "know", "think", "want", "see", "look", "make", "way", "thing", "things",
+    "said", "say", "been", "one", "two", "right", "well", "back", "still",
+    "now", "let", "even", "much", "really", "yeah", "yes", "ok", "okay",
+    "oh", "lol", "haha", "hahaha", "lmao", "u", "ur",
+];
+
+#[tauri::command]
+pub async fn get_word_frequency(
+    state: State<'_, AppState>,
+    year: i64,
+    chat_ids: Option<Vec<i64>>,
+    from_me_only: bool,
+) -> AppResult<Vec<WordFrequency>> {
+    let chat_db_mutex = state.chat_db.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<WordFrequency>> {
+        let guard = chat_db_mutex
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
+
+        let cids = chat_ids.as_deref();
+        let (filter_clause, filter_params) = year_filter_clause(year, cids);
+
+        let from_me_clause = if from_me_only {
+            "AND message.is_from_me = 1"
+        } else {
+            ""
+        };
+
+        let sql = format!(
+            "SELECT message.text
+             FROM message
+             INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+             INNER JOIN chat AS c ON c.ROWID = cmj.chat_id
+             WHERE message.text IS NOT NULL
+               AND LENGTH(message.text) > 0
+               AND message.associated_message_type = 0
+               {from_me_clause}
+               {filter_clause}"
+        );
+
+        let p = as_params(&filter_params);
+        let mut stmt = conn.prepare(&sql)?;
+        let texts: Vec<String> = stmt
+            .query_map(p.as_slice(), |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Build stop word set
+        let stop: std::collections::HashSet<&str> = STOP_WORDS.iter().copied().collect();
+
+        // Count word frequencies
+        let mut freq: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+        for text in &texts {
+            for word in text.split_whitespace() {
+                let w: String = word.to_lowercase()
+                    .trim_matches(|c: char| !c.is_alphanumeric() && c != '\'')
+                    .to_string();
+                if w.len() < 2 || stop.contains(w.as_str()) {
+                    continue;
+                }
+                if w.starts_with("http") || w.contains("://") {
+                    continue;
+                }
+                *freq.entry(w).or_insert(0) += 1;
+            }
+        }
+
+        let mut words: Vec<WordFrequency> = freq
+            .into_iter()
+            .map(|(word, count)| WordFrequency { word, count })
+            .collect();
+        words.sort_by(|a, b| b.count.cmp(&a.count));
+        words.truncate(50);
+
+        Ok(words)
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}

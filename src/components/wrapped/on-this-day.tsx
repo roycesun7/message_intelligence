@@ -3,7 +3,7 @@
 import { useOnThisDay } from "@/hooks/use-analytics";
 import { useAppStore } from "@/stores/app-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, ExternalLink } from "lucide-react";
+import { Calendar, ArrowRight } from "lucide-react";
 import type { OnThisDayMessage } from "@/types";
 import dayjs from "dayjs";
 
@@ -43,10 +43,10 @@ function OnThisDayMessageItem({ msg }: { msg: OnThisDayMessage }) {
   return (
     <button
       onClick={handleClick}
-      className={`group w-full text-left rounded-2xl px-4 py-3 transition-colors cursor-pointer ${
+      className={`group w-full text-left rounded-2xl px-4 py-3 transition-all cursor-pointer ${
         msg.isFromMe
-          ? "ml-6 bg-[#4B6382]/[0.08] hover:bg-[#4B6382]/[0.12] dark:bg-blue-500/[0.08] dark:hover:bg-blue-500/[0.12]"
-          : "mr-6 bg-[#071739]/[0.04] hover:bg-[#071739]/[0.07] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+          ? "ml-6 bg-[#4B6382]/[0.08] hover:bg-[#4B6382]/[0.14] dark:bg-blue-500/[0.08] dark:hover:bg-blue-500/[0.14]"
+          : "mr-6 bg-[#071739]/[0.04] hover:bg-[#071739]/[0.08] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -63,11 +63,13 @@ function OnThisDayMessageItem({ msg }: { msg: OnThisDayMessage }) {
             )}
             <span className="text-[10px] text-[#A4B5C4] dark:text-zinc-600 ml-auto shrink-0">{timeStr}</span>
           </div>
-          <p className="text-sm text-[#071739] dark:text-zinc-300">
-            {msg.text ? truncate(msg.text, 150) : "(attachment)"}
+          <p className="text-sm text-[#071739] dark:text-zinc-300 leading-relaxed">
+            {msg.text ? truncate(msg.text, 200) : "(attachment)"}
           </p>
         </div>
-        <ExternalLink className="mt-1 h-3.5 w-3.5 shrink-0 text-[#A4B5C4] dark:text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100" />
+        <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#071739]/[0.06] dark:bg-white/[0.08] opacity-60 transition-opacity group-hover:opacity-100">
+          <ArrowRight className="h-3 w-3 text-[#071739] dark:text-zinc-300" />
+        </div>
       </div>
     </button>
   );
@@ -130,9 +132,6 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
           </span>
         </CardHeader>
         <CardContent>
-          <p className="mb-6 text-sm text-[#4B6382] dark:text-zinc-400">
-            Click any message to jump to that conversation.
-          </p>
           <div className="space-y-6">
             {sortedYears.map((year) => {
               const msgs = grouped.get(year) ?? [];

@@ -126,6 +126,7 @@ pub fn run() {
             commands::analytics::get_initiation_stats,
             commands::analytics::get_message_length_stats,
             commands::analytics::get_active_hours,
+            commands::analytics::get_word_frequency,
             // Fun / shareable commands
             commands::fun::get_group_chat_dynamics,
             commands::fun::get_on_this_day,

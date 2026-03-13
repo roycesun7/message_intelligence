@@ -77,9 +77,10 @@ function Section({ title, count, expanded, onToggle, children }: SectionProps) {
   );
 }
 
-// ── Indexing progress bar ──────────────────────────────────────────
+// ── Unified index status + progress ───────────────────────────────
 
-function IndexingProgress() {
+function IndexStatusBar() {
+  const { data: status } = useEmbeddingStatus();
   const [progress, setProgress] = useState<EmbeddingProgress | null>(null);
 
   useEffect(() => {
@@ -91,43 +92,11 @@ function IndexingProgress() {
     };
   }, []);
 
-  if (!progress || progress.phase === "done") return null;
-
-  const pct =
-    progress.total > 0
-      ? Math.round((progress.processed / progress.total) * 100)
-      : 0;
-
-  const phaseLabel = progress.phase === "chunking" ? "Analyzing" : "Indexing";
-
-  return (
-    <div className="mt-3 mx-auto w-full max-w-xl">
-      <div className="flex items-center gap-2 text-[11px] text-[#4B6382] dark:text-zinc-400">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        <span>
-          {phaseLabel} messages... {progress.processed.toLocaleString()} /{" "}
-          {progress.total.toLocaleString()} ({pct}%)
-        </span>
-      </div>
-      <div className="mt-1.5 h-1 w-full rounded-full bg-[#CDD5DB]/40 dark:bg-zinc-800 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ── Index status indicator ────────────────────────────────────────
-
-function IndexStatus() {
-  const { data: status } = useEmbeddingStatus();
-
   if (!status) return null;
 
   const { modelsLoaded, totalEmbedded, totalMessages } = status;
 
+  // Models not loaded — warning
   if (!modelsLoaded) {
     return (
       <div className="mt-3 mx-auto w-full max-w-xl flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
@@ -137,21 +106,63 @@ function IndexStatus() {
     );
   }
 
-  if (totalEmbedded === 0) {
+  // Active indexing — show progress bar with phase and counts
+  const isActivelyIndexing = progress && progress.phase !== "done";
+  if (isActivelyIndexing) {
+    const pct =
+      progress.total > 0
+        ? Math.round((progress.processed / progress.total) * 100)
+        : 0;
+    const phaseLabel =
+      progress.phase === "chunking"
+        ? "Analyzing messages"
+        : progress.phase === "text"
+          ? "Embedding text"
+          : "Embedding attachments";
+
     return (
-      <div className="mt-3 mx-auto w-full max-w-xl flex items-center gap-2 text-[11px] text-[#4B6382] dark:text-zinc-400">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        <span>Building search index...</span>
+      <div className="mt-3 mx-auto w-full max-w-xl">
+        <div className="flex items-center justify-between text-[11px] text-[#4B6382] dark:text-zinc-400 mb-1.5">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>{phaseLabel}</span>
+          </div>
+          <span>
+            {progress.processed.toLocaleString()} / {progress.total.toLocaleString()} ({pct}%)
+          </span>
+        </div>
+        <div className="h-1.5 w-full rounded-full bg-[#CDD5DB]/40 dark:bg-zinc-800 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {totalEmbedded > 0 && (
+          <div className="mt-1 text-[11px] text-[#A4B5C4] dark:text-zinc-500">
+            {totalEmbedded.toLocaleString()} messages searchable so far
+          </div>
+        )}
       </div>
     );
   }
 
+  // Finished indexing — show count
+  if (totalEmbedded > 0) {
+    return (
+      <div className="mt-3 mx-auto w-full max-w-xl flex items-center gap-2 text-[11px] text-[#A4B5C4] dark:text-zinc-500">
+        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+        <span>
+          {totalEmbedded.toLocaleString()} of {totalMessages.toLocaleString()} messages indexed
+        </span>
+      </div>
+    );
+  }
+
+  // No embeddings yet, no active progress — waiting to start
   return (
-    <div className="mt-3 mx-auto w-full max-w-xl flex items-center gap-2 text-[11px] text-[#A4B5C4] dark:text-zinc-500">
-      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-      <span>
-        {totalEmbedded.toLocaleString()} of {totalMessages.toLocaleString()} messages indexed
-      </span>
+    <div className="mt-3 mx-auto w-full max-w-xl flex items-center gap-2 text-[11px] text-[#4B6382] dark:text-zinc-400">
+      <Loader2 className="h-3 w-3 animate-spin" />
+      <span>Preparing search index...</span>
     </div>
   );
 }
@@ -213,9 +224,8 @@ export function GlobalSearch() {
         </div>
       </div>
 
-      {/* Indexing progress (real-time) or static index status */}
-      <IndexingProgress />
-      <IndexStatus />
+      {/* Index status + progress */}
+      <IndexStatusBar />
 
       {/* Content area */}
       <div className="mx-auto mt-8 w-full max-w-xl">

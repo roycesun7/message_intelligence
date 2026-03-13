@@ -12,6 +12,7 @@ use rusqlite::Connection;
 use state::AppState;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
+use tokenizers::Tokenizer;
 
 /// Resolve the path to Apple's chat.db.
 fn chat_db_path() -> AppResult<std::path::PathBuf> {
@@ -46,6 +47,84 @@ fn open_analytics_db(app: &tauri::App) -> AppResult<Connection> {
     conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")?;
     db::schema::run_migrations(&conn)?;
     Ok(conn)
+}
+
+/// Load a single ONNX model file into a Session.
+fn load_onnx_session(path: &std::path::Path) -> ort::error::Result<ort::session::Session> {
+    let mut builder = ort::session::Session::builder()?;
+    builder.commit_from_file(path)
+}
+
+/// Attempt to load MobileCLIP-S2 ONNX sessions and tokenizer from the app's resource directory.
+///
+/// Returns (clip_text, clip_vision, tokenizer). If any file is missing or fails to load,
+/// logs a warning and returns (None, None, None).
+fn load_clip_sessions(
+    app: &tauri::App,
+) -> (
+    Option<Arc<ort::session::Session>>,
+    Option<Arc<ort::session::Session>>,
+    Option<Arc<Tokenizer>>,
+) {
+    let resource_dir = match app.path().resource_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            log::warn!("Cannot resolve resource dir, CLIP models unavailable: {e}");
+            return (None, None, None);
+        }
+    };
+
+    let text_path = resource_dir.join("models/mobileclip_s2_text.onnx");
+    let vision_path = resource_dir.join("models/mobileclip_s2_vision.onnx");
+    let tokenizer_path = resource_dir.join("models/tokenizer.json");
+
+    // Check that all three files exist before attempting to load any
+    if !text_path.exists() || !vision_path.exists() || !tokenizer_path.exists() {
+        log::warn!(
+            "One or more CLIP model files not found in {:?} — semantic search disabled. \
+             Expected: mobileclip_s2_text.onnx, mobileclip_s2_vision.onnx, tokenizer.json",
+            resource_dir.join("models")
+        );
+        return (None, None, None);
+    }
+
+    // Load text encoder
+    let text_session = match load_onnx_session(&text_path) {
+        Ok(session) => {
+            log::info!("Loaded CLIP text encoder from {:?}", text_path);
+            Arc::new(session)
+        }
+        Err(e) => {
+            log::warn!("Failed to load CLIP text encoder: {e}");
+            return (None, None, None);
+        }
+    };
+
+    // Load vision encoder
+    let vision_session = match load_onnx_session(&vision_path) {
+        Ok(session) => {
+            log::info!("Loaded CLIP vision encoder from {:?}", vision_path);
+            Arc::new(session)
+        }
+        Err(e) => {
+            log::warn!("Failed to load CLIP vision encoder: {e}");
+            return (None, None, None);
+        }
+    };
+
+    // Load tokenizer
+    let tokenizer = match Tokenizer::from_file(&tokenizer_path) {
+        Ok(tok) => {
+            log::info!("Loaded CLIP tokenizer from {:?}", tokenizer_path);
+            Arc::new(tok)
+        }
+        Err(e) => {
+            log::warn!("Failed to load CLIP tokenizer: {e}");
+            return (None, None, None);
+        }
+    };
+
+    (Some(text_session), Some(vision_session), Some(tokenizer))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -96,10 +175,16 @@ pub fn run() {
                 std::collections::HashMap::new()
             };
 
+            // Load CLIP ONNX sessions and tokenizer (gracefully handles missing models)
+            let (clip_text, clip_vision, tokenizer) = load_clip_sessions(app);
+
             app.manage(AppState {
                 chat_db: Arc::new(Mutex::new(chat_db)),
                 analytics_db: Arc::new(Mutex::new(analytics_db)),
                 contact_map: Arc::new(Mutex::new(contact_map)),
+                clip_text,
+                clip_vision,
+                tokenizer,
             });
 
             Ok(())

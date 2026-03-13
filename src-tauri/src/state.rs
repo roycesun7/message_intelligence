@@ -4,14 +4,23 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::error::{AppError, AppResult};
 
-/// Holds two database connections:
+/// Holds database connections, contact map, and optional CLIP model sessions.
+///
 /// - `chat_db`: read-only connection to Apple's ~/Library/Messages/chat.db (None if FDA not granted)
 /// - `analytics_db`: read-write connection to our computed analytics data
 /// - `contact_map`: phone/email -> display name, from macOS Address Book
+/// - `clip_text` / `clip_vision`: MobileCLIP-S2 ONNX sessions (None if models not found)
+/// - `tokenizer`: MobileCLIP-S2 tokenizer (None if tokenizer file not found)
 pub struct AppState {
     pub chat_db: Arc<Mutex<Option<Connection>>>,
     pub analytics_db: Arc<Mutex<Connection>>,
     pub contact_map: Arc<Mutex<HashMap<String, String>>>,
+    /// MobileCLIP-S2 text encoder ONNX session. None if models not found.
+    pub clip_text: Option<Arc<ort::session::Session>>,
+    /// MobileCLIP-S2 image encoder ONNX session. None if models not found.
+    pub clip_vision: Option<Arc<ort::session::Session>>,
+    /// MobileCLIP-S2 tokenizer. None if tokenizer file not found.
+    pub tokenizer: Option<Arc<tokenizers::Tokenizer>>,
 }
 
 /// A guard that holds the MutexGuard and provides access to the inner Connection.

@@ -16,7 +16,7 @@ pub struct EmbeddingStatus {
     pub models_loaded: bool,
     pub total_embedded: i64,
     pub total_messages: i64,
-    pub index_target: Option<String>,
+    pub index_target: i64,
 }
 
 /// Check the current status of the embedding pipeline.
@@ -28,7 +28,9 @@ pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<Embedding
     let total_messages = chat_db::get_total_message_count(&chat_conn)?;
     let total_embedded = analytics_db::count_embeddings(&analytics_conn)?;
     let models_loaded = state.clip_text.is_some() && state.clip_vision.is_some();
-    let index_target = analytics_db::get_search_setting(&analytics_conn, "index_target");
+    let index_target = analytics_db::get_search_setting(&analytics_conn, "index_target")
+        .and_then(|s| s.parse::<i64>().ok())
+        .unwrap_or(1000);
 
     Ok(EmbeddingStatus {
         models_loaded,
@@ -96,10 +98,10 @@ pub fn semantic_search(
 
     let mut scored: Vec<(f64, i64, String, i64, Option<i64>, i64)> = all_embeddings
         .iter()
-        .map(|(id, source_type, source_id, chunk_id, chat_id, blob)| {
-            let emb = clip::blob_to_embedding(blob);
+        .filter_map(|(id, source_type, source_id, chunk_id, chat_id, blob)| {
+            let emb = clip::blob_to_embedding(blob).ok()?;
             let score = clip::cosine_similarity(&query_embedding, &emb) as f64;
-            (score, *id, source_type.clone(), *source_id, *chunk_id, *chat_id)
+            Some((score, *id, source_type.clone(), *source_id, *chunk_id, *chat_id))
         })
         .collect();
 
@@ -162,14 +164,14 @@ pub fn semantic_search(
 
 // ── Index target ───────────────────────────────────────────────────────
 
-/// Set the index target (e.g. "all", "recent_1000", etc.).
+/// Set the index target (number of messages to embed).
 #[tauri::command]
 pub fn set_index_target(
     state: State<'_, AppState>,
-    target: String,
+    target: i64,
 ) -> AppResult<()> {
     let analytics_conn = state.lock_analytics_db()?;
-    analytics_db::set_search_setting(&analytics_conn, "index_target", &target)?;
+    analytics_db::set_search_setting(&analytics_conn, "index_target", &target.to_string())?;
     Ok(())
 }
 

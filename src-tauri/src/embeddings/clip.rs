@@ -174,20 +174,20 @@ pub fn embedding_to_blob(embedding: &[f32; EMBEDDING_DIM]) -> Vec<u8> {
 
 /// Convert a byte blob back to a 512-dim f32 embedding.
 ///
-/// # Panics
-/// Panics if `blob.len() < 2048`.
-pub fn blob_to_embedding(blob: &[u8]) -> [f32; EMBEDDING_DIM] {
-    assert!(
-        blob.len() >= EMBEDDING_DIM * 4,
-        "Embedding blob too short: expected {} bytes, got {}",
-        EMBEDDING_DIM * 4,
-        blob.len()
-    );
+/// Returns an error if the blob is too short (< 2048 bytes).
+pub fn blob_to_embedding(blob: &[u8]) -> AppResult<[f32; EMBEDDING_DIM]> {
+    if blob.len() < EMBEDDING_DIM * 4 {
+        return Err(AppError::Custom(format!(
+            "Embedding blob too short: expected {} bytes, got {}",
+            EMBEDDING_DIM * 4,
+            blob.len()
+        )));
+    }
     let mut embedding = [0f32; EMBEDDING_DIM];
     for (i, chunk) in blob.chunks_exact(4).take(EMBEDDING_DIM).enumerate() {
         embedding[i] = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
     }
-    embedding
+    Ok(embedding)
 }
 
 /// Cosine similarity between two L2-normalized embeddings (= dot product).
@@ -217,7 +217,7 @@ mod tests {
         }
         let blob = embedding_to_blob(&emb);
         assert_eq!(blob.len(), EMBEDDING_DIM * 4);
-        let recovered = blob_to_embedding(&blob);
+        let recovered = blob_to_embedding(&blob).unwrap();
         assert_eq!(emb, recovered);
     }
 

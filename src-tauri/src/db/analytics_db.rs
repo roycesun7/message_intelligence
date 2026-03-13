@@ -150,7 +150,7 @@ pub fn clear_embeddings(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(
         "DELETE FROM embeddings;
          DELETE FROM message_chunks;
-         DELETE FROM processing_state WHERE pipeline_name IN ('chunking', 'embedding_recent', 'embedding_oldest');"
+         DELETE FROM processing_state WHERE pipeline_name IN ('chunking', 'embedding_recent', 'embedding_oldest', 'embedding_attachments');"
     )?;
     Ok(())
 }

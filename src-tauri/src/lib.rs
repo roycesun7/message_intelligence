@@ -62,8 +62,8 @@ fn load_onnx_session(path: &std::path::Path) -> ort::error::Result<ort::session:
 fn load_clip_sessions(
     app: &tauri::App,
 ) -> (
-    Option<Arc<ort::session::Session>>,
-    Option<Arc<ort::session::Session>>,
+    Option<Arc<Mutex<ort::session::Session>>>,
+    Option<Arc<Mutex<ort::session::Session>>>,
     Option<Arc<Tokenizer>>,
 ) {
     let resource_dir = match app.path().resource_dir() {
@@ -92,7 +92,7 @@ fn load_clip_sessions(
     let text_session = match load_onnx_session(&text_path) {
         Ok(session) => {
             log::info!("Loaded CLIP text encoder from {:?}", text_path);
-            Arc::new(session)
+            Arc::new(Mutex::new(session))
         }
         Err(e) => {
             log::warn!("Failed to load CLIP text encoder: {e}");
@@ -104,7 +104,7 @@ fn load_clip_sessions(
     let vision_session = match load_onnx_session(&vision_path) {
         Ok(session) => {
             log::info!("Loaded CLIP vision encoder from {:?}", vision_path);
-            Arc::new(session)
+            Arc::new(Mutex::new(session))
         }
         Err(e) => {
             log::warn!("Failed to load CLIP vision encoder: {e}");
@@ -187,6 +187,14 @@ pub fn run() {
                 tokenizer,
             });
 
+            // Spawn background embedding pipeline
+            let app_handle = app.handle().clone();
+            tokio::task::spawn_blocking(move || {
+                if let Err(e) = embeddings::pipeline::run_indexing_pipeline(&app_handle) {
+                    log::error!("Embedding pipeline failed: {e}");
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -215,9 +223,11 @@ pub fn run() {
             commands::fun::get_group_chat_dynamics,
             commands::fun::get_on_this_day,
             commands::fun::get_texting_personality,
-            // Embedding commands (stubs)
+            // Embedding / search commands
             commands::embeddings::check_embedding_status,
             commands::embeddings::semantic_search,
+            commands::embeddings::set_index_target,
+            commands::embeddings::rebuild_search_index,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

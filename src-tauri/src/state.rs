@@ -16,9 +16,11 @@ pub struct AppState {
     pub analytics_db: Arc<Mutex<Connection>>,
     pub contact_map: Arc<Mutex<HashMap<String, String>>>,
     /// MobileCLIP-S2 text encoder ONNX session. None if models not found.
-    pub clip_text: Option<Arc<ort::session::Session>>,
+    /// Wrapped in Mutex because Session::run requires &mut self.
+    pub clip_text: Option<Arc<Mutex<ort::session::Session>>>,
     /// MobileCLIP-S2 image encoder ONNX session. None if models not found.
-    pub clip_vision: Option<Arc<ort::session::Session>>,
+    /// Wrapped in Mutex because Session::run requires &mut self.
+    pub clip_vision: Option<Arc<Mutex<ort::session::Session>>>,
     /// MobileCLIP-S2 tokenizer. None if tokenizer file not found.
     pub tokenizer: Option<Arc<tokenizers::Tokenizer>>,
 }

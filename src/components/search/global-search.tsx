@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Sparkles, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { listen } from "@tauri-apps/api/event";
 import { Input } from "@/components/ui/input";
 import { useAppStore } from "@/stores/app-store";
 import { useSemanticSearch, useEmbeddingStatus } from "@/hooks/use-search";
 import { SearchResultMessage } from "./search-result-message";
 import { SearchResultLinks } from "./search-result-link";
 import { SearchResultPhotos } from "./search-result-photo";
-import type { SemanticSearchResult } from "@/types";
+import type { SemanticSearchResult, EmbeddingProgress } from "@/types";
 
 // ── Result grouping helpers ────────────────────────────────────────
 
@@ -79,24 +80,33 @@ function Section({ title, count, expanded, onToggle, children }: SectionProps) {
 // ── Indexing progress bar ──────────────────────────────────────────
 
 function IndexingProgress() {
-  const { data: status } = useEmbeddingStatus();
+  const [progress, setProgress] = useState<EmbeddingProgress | null>(null);
 
-  if (!status) return null;
+  useEffect(() => {
+    const unlisten = listen<EmbeddingProgress>("embedding-progress", (event) => {
+      setProgress(event.payload);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
-  const { totalEmbedded, indexTarget } = status;
+  if (!progress || progress.phase === "done") return null;
 
-  // Don't show progress if fully indexed or no target
-  if (indexTarget === 0 || totalEmbedded >= indexTarget) return null;
+  const pct =
+    progress.total > 0
+      ? Math.round((progress.processed / progress.total) * 100)
+      : 0;
 
-  const pct = Math.round((totalEmbedded / indexTarget) * 100);
+  const phaseLabel = progress.phase === "chunking" ? "Analyzing" : "Indexing";
 
   return (
     <div className="mt-3 mx-auto w-full max-w-xl">
       <div className="flex items-center gap-2 text-[11px] text-[#4B6382] dark:text-zinc-400">
         <Loader2 className="h-3 w-3 animate-spin" />
         <span>
-          Indexing messages... {totalEmbedded.toLocaleString()} /{" "}
-          {indexTarget.toLocaleString()} ({pct}%)
+          {phaseLabel} messages... {progress.processed.toLocaleString()} /{" "}
+          {progress.total.toLocaleString()} ({pct}%)
         </span>
       </div>
       <div className="mt-1.5 h-1 w-full rounded-full bg-[#CDD5DB]/40 dark:bg-zinc-800 overflow-hidden">

@@ -41,31 +41,26 @@ pub fn encode_texts(
     const SEQ_LEN: usize = 77;
     let batch_size = encodings.len();
 
-    // Build input_ids and attention_mask as flat Vec<i64> with shape (batch_size, SEQ_LEN)
+    // Build input_ids as flat Vec<i64> with shape (batch_size, SEQ_LEN)
+    // The exported ONNX model only has input_ids (no attention_mask).
     let mut input_ids_data = vec![0i64; batch_size * SEQ_LEN];
-    let mut attention_mask_data = vec![0i64; batch_size * SEQ_LEN];
 
     for (i, encoding) in encodings.iter().enumerate() {
         let ids = encoding.get_ids();
-        let mask = encoding.get_attention_mask();
         let len = ids.len().min(SEQ_LEN);
         for j in 0..len {
             input_ids_data[i * SEQ_LEN + j] = ids[j] as i64;
-            attention_mask_data[i * SEQ_LEN + j] = mask[j] as i64;
         }
     }
 
-    // Create ONNX tensors using the (shape, data) tuple API to avoid ndarray version conflicts
+    // Create ONNX tensor using the (shape, data) tuple API to avoid ndarray version conflicts
     let shape = vec![batch_size as i64, SEQ_LEN as i64];
-    let input_ids_tensor = ort::value::Tensor::from_array((shape.clone(), input_ids_data.into_boxed_slice()))
+    let input_ids_tensor = ort::value::Tensor::from_array((shape, input_ids_data.into_boxed_slice()))
         .map_err(|e| AppError::Custom(format!("Failed to create input_ids tensor: {e}")))?;
-    let attention_mask_tensor = ort::value::Tensor::from_array((shape, attention_mask_data.into_boxed_slice()))
-        .map_err(|e| AppError::Custom(format!("Failed to create attention_mask tensor: {e}")))?;
 
     let outputs = session
         .run(ort::inputs![
             "input_ids" => input_ids_tensor,
-            "attention_mask" => attention_mask_tensor,
         ])
         .map_err(|e| AppError::Custom(format!("Text encoder inference failed: {e}")))?;
 

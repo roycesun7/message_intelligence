@@ -168,8 +168,6 @@ export interface HourlyActivity {
 
 /** Embedding / semantic search status */
 export interface EmbeddingStatus {
-  ollamaRunning: boolean;
-  modelAvailable: boolean;
   totalEmbedded: number;
   totalMessages: number;
 }

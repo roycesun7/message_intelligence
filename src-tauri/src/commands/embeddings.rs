@@ -8,14 +8,12 @@ use crate::state::AppState;
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmbeddingStatus {
-    pub ollama_running: bool,
-    pub model_available: bool,
     pub total_embedded: i64,
     pub total_messages: i64,
 }
 
 /// Check the current status of the embedding pipeline.
-/// Returns whether Ollama is running, model availability, and progress.
+/// Returns embedding progress counts.
 #[tauri::command]
 pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<EmbeddingStatus> {
     let chat_conn = state
@@ -24,11 +22,9 @@ pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<Embedding
         .lock_analytics_db()?;
 
     let total_messages = chat_db::get_total_message_count(&chat_conn)?;
-    let total_embedded = analytics_db::count_embedded(&analytics_conn)?;
+    let total_embedded = analytics_db::count_embeddings(&analytics_conn)?;
 
     Ok(EmbeddingStatus {
-        ollama_running: false,
-        model_available: false,
         total_embedded,
         total_messages,
     })

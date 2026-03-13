@@ -103,6 +103,47 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
         ",
     )?;
 
+    // Drop legacy Ollama embedding tracking table
+    conn.execute_batch("DROP TABLE IF EXISTS embedding_state;")?;
+
+    // New tables for MobileCLIP-S2 semantic search
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS message_chunks (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id           INTEGER NOT NULL,
+            is_from_me        INTEGER NOT NULL,
+            handle_id         INTEGER,
+            first_rowid       INTEGER NOT NULL,
+            last_rowid        INTEGER NOT NULL,
+            message_count     INTEGER NOT NULL,
+            concatenated_text TEXT NOT NULL,
+            started_at        INTEGER NOT NULL,
+            ended_at          INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_chunks_chat ON message_chunks(chat_id);
+        CREATE INDEX IF NOT EXISTS idx_chunks_first_rowid ON message_chunks(first_rowid);
+
+        CREATE TABLE IF NOT EXISTS embeddings (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_type TEXT NOT NULL,
+            source_id   INTEGER NOT NULL,
+            chunk_id    INTEGER,
+            chat_id     INTEGER NOT NULL,
+            model       TEXT NOT NULL,
+            vector      BLOB NOT NULL,
+            embedded_at TEXT NOT NULL,
+            UNIQUE(source_type, source_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_embeddings_chat ON embeddings(chat_id);
+
+        CREATE TABLE IF NOT EXISTS search_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        ",
+    )?;
+
     // FTS5 virtual table for full-text search on links (separate statement
     // because CREATE VIRTUAL TABLE cannot be inside execute_batch on some
     // SQLite builds).

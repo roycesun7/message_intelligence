@@ -59,18 +59,39 @@ fn open_analytics_db_rw(app_handle: &AppHandle) -> AppResult<Connection> {
 fn load_pipeline_sessions(
     app_handle: &AppHandle,
 ) -> AppResult<(ort::session::Session, ort::session::Session, Tokenizer)> {
-    let resource_dir = app_handle
-        .path()
-        .resource_dir()
-        .map_err(|e| AppError::Custom(format!("Cannot resolve resource dir: {e}")))?;
+    // Try resource_dir first (production builds), then fall back to the source
+    // resources directory (during `tauri dev`, resource_dir points to target/debug/).
+    let models_dir = {
+        let from_resource = app_handle
+            .path()
+            .resource_dir()
+            .ok()
+            .map(|d| d.join("models"));
+        let from_source = {
+            let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            manifest.join("resources/models")
+        };
+        if from_resource
+            .as_ref()
+            .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
+        {
+            from_resource.unwrap()
+        } else if from_source.join("mobileclip_s2_text.onnx").exists() {
+            from_source
+        } else {
+            return Err(AppError::Custom(
+                "CLIP model files not found — pipeline cannot run".into(),
+            ));
+        }
+    };
 
-    let text_path = resource_dir.join("models/mobileclip_s2_text.onnx");
-    let vision_path = resource_dir.join("models/mobileclip_s2_vision.onnx");
-    let tokenizer_path = resource_dir.join("models/tokenizer.json");
+    let text_path = models_dir.join("mobileclip_s2_text.onnx");
+    let vision_path = models_dir.join("mobileclip_s2_vision.onnx");
+    let tokenizer_path = models_dir.join("tokenizer.json");
 
     if !text_path.exists() || !vision_path.exists() || !tokenizer_path.exists() {
         return Err(AppError::Custom(
-            "CLIP model files not found in resource dir — pipeline cannot run".into(),
+            "CLIP model files not found — pipeline cannot run".into(),
         ));
     }
 

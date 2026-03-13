@@ -66,24 +66,45 @@ fn load_clip_sessions(
     Option<Arc<Mutex<ort::session::Session>>>,
     Option<Arc<Tokenizer>>,
 ) {
-    let resource_dir = match app.path().resource_dir() {
-        Ok(dir) => dir,
-        Err(e) => {
-            log::warn!("Cannot resolve resource dir, CLIP models unavailable: {e}");
+    // Try resource_dir first (production builds), then fall back to the source
+    // resources directory (during `tauri dev`, resource_dir points to target/debug/).
+    let models_dir = {
+        let from_resource = app
+            .path()
+            .resource_dir()
+            .ok()
+            .map(|d| d.join("models"));
+        let from_source = {
+            let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            manifest.join("resources/models")
+        };
+        if from_resource
+            .as_ref()
+            .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
+        {
+            from_resource.unwrap()
+        } else if from_source.join("mobileclip_s2_text.onnx").exists() {
+            from_source
+        } else {
+            log::warn!(
+                "CLIP model files not found — semantic search disabled. \
+                 Checked {:?} and {:?}",
+                from_resource,
+                from_source
+            );
             return (None, None, None);
         }
     };
 
-    let text_path = resource_dir.join("models/mobileclip_s2_text.onnx");
-    let vision_path = resource_dir.join("models/mobileclip_s2_vision.onnx");
-    let tokenizer_path = resource_dir.join("models/tokenizer.json");
+    let text_path = models_dir.join("mobileclip_s2_text.onnx");
+    let vision_path = models_dir.join("mobileclip_s2_vision.onnx");
+    let tokenizer_path = models_dir.join("tokenizer.json");
 
-    // Check that all three files exist before attempting to load any
     if !text_path.exists() || !vision_path.exists() || !tokenizer_path.exists() {
         log::warn!(
             "One or more CLIP model files not found in {:?} — semantic search disabled. \
              Expected: mobileclip_s2_text.onnx, mobileclip_s2_vision.onnx, tokenizer.json",
-            resource_dir.join("models")
+            models_dir
         );
         return (None, None, None);
     }
@@ -187,9 +208,10 @@ pub fn run() {
                 tokenizer,
             });
 
-            // Spawn background embedding pipeline
+            // Spawn background embedding pipeline on a dedicated thread
+            // (setup runs before the Tokio runtime is available, so we use std::thread)
             let app_handle = app.handle().clone();
-            tokio::task::spawn_blocking(move || {
+            std::thread::spawn(move || {
                 if let Err(e) = embeddings::pipeline::run_indexing_pipeline(&app_handle) {
                     log::error!("Embedding pipeline failed: {e}");
                 }

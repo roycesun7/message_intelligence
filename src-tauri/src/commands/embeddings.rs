@@ -187,7 +187,7 @@ pub fn rebuild_search_index(
     drop(analytics_conn);
 
     // Spawn pipeline again in the background
-    tokio::task::spawn_blocking(move || {
+    std::thread::spawn(move || {
         if let Err(e) = crate::embeddings::pipeline::run_indexing_pipeline(&app_handle) {
             log::error!("Rebuild pipeline failed: {e}");
         }

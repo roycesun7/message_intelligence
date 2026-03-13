@@ -95,6 +95,14 @@ export const checkEmbeddingStatus = () =>
 export const semanticSearch = (query: string, limit?: number) =>
   invoke<SemanticSearchResult[]>("semantic_search", { query, limit });
 
+/** Set the index target (number of messages to embed). */
+export const setIndexTarget = (target: number) =>
+  invoke<void>("set_index_target", { target });
+
+/** Clear and rebuild the search index. */
+export const rebuildSearchIndex = () =>
+  invoke<void>("rebuild_search_index");
+
 // ────────────────────────────────────────────────────────
 // Group chat dynamics & fun/shareable commands
 // ────────────────────────────────────────────────────────

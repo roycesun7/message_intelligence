@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type AppView = "chat" | "wrapped" | "search";
+export type AppView = "chat" | "wrapped" | "search" | "settings";
 export type Theme = "light" | "dark";
 
 function getStoredTheme(): Theme {

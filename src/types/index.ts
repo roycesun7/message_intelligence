@@ -168,14 +168,34 @@ export interface HourlyActivity {
 
 /** Embedding / semantic search status */
 export interface EmbeddingStatus {
+  modelsLoaded: boolean;
   totalEmbedded: number;
   totalMessages: number;
+  indexTarget: number;
 }
 
 export interface SemanticSearchResult {
+  sourceType: string;
+  sourceId: number;
   messageRowid: number;
+  chatId: number;
   score: number;
-  text: string;
+  text: string | null;
+  isFromMe: boolean;
+  senderDisplayName: string | null;
+  date: number;
+  mimeType: string | null;
+  attachmentPath: string | null;
+  linkUrl: string | null;
+  linkDomain: string | null;
+  linkTitle: string | null;
+}
+
+/** Progress event from the indexing pipeline */
+export interface EmbeddingProgress {
+  phase: string;
+  processed: number;
+  total: number;
 }
 
 // ── Group Chat Dynamics ────────────────────────────────

@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Message Intelligence",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.placeholder.messageintelligence",
   "build": {
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
@@ -25,15 +25,31 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [],
+      "pubkey": ""
+    }
+  },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["dmg", "app"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "entitlements": "entitlements.plist",
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": null,
+      "exceptionDomain": null
+    },
+    "category": "public.app-category.utilities",
+    "copyright": "Copyright © 2025 Message Intelligence",
+    "shortDescription": "AI-powered iMessage analytics",
+    "longDescription": "A privacy-first desktop application that transforms your iMessage history into searchable, analytically powerful insights. All processing happens locally."
   }
 }

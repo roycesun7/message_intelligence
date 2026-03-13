@@ -84,15 +84,16 @@ pub async fn get_group_chat_dynamics(
     chat_id: i64,
 ) -> AppResult<GroupChatDynamics> {
     let chat_db_mutex = state.chat_db.clone();
-    let contact_map = state.contact_map.clone();
+    let contact_map = state.contact_map.lock().map_err(|e| AppError::Custom(e.to_string()))?.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<GroupChatDynamics> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         // Build handle_id -> handle identifier string map for name resolution
-        let handle_map = build_handle_map(&conn)?;
+        let handle_map = build_handle_map(conn)?;
 
         // Fetch all messages for this chat, ordered chronologically
         let sql = "SELECT
@@ -302,14 +303,15 @@ pub async fn get_on_this_day(
     day: i64,
 ) -> AppResult<OnThisDayResult> {
     let chat_db_mutex = state.chat_db.clone();
-    let contact_map = state.contact_map.clone();
+    let contact_map = state.contact_map.lock().map_err(|e| AppError::Custom(e.to_string()))?.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<OnThisDayResult> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
-        let handle_map = build_handle_map(&conn)?;
+        let handle_map = build_handle_map(conn)?;
 
         let month_str = format!("{:02}", month);
         let day_str = format!("{:02}", day);
@@ -475,9 +477,10 @@ pub async fn get_texting_personality(
     let chat_db_mutex = state.chat_db.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<TextingPersonality> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         let chat_filter = if chat_id.is_some() {
             "AND cmj.chat_id = ?1"

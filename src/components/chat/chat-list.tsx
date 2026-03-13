@@ -53,17 +53,17 @@ const ChatEntry = memo(function ChatEntry({
       onClick={handleClick}
       className={`flex w-full cursor-pointer items-start gap-3 mx-2 px-3 py-2.5 text-left transition-colors duration-200 rounded-[10px] ${
         isActive
-          ? "bg-white/[0.08]"
-          : "hover:bg-white/[0.06]"
+          ? "bg-[#071739]/[0.06] dark:bg-white/[0.08]"
+          : "hover:bg-[#071739]/[0.04] dark:hover:bg-white/[0.06]"
       }`}
       style={{ width: "calc(100% - 16px)" }}
     >
       {/* Avatar circle */}
       <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
           isGroup
-            ? "bg-purple-600/30 text-purple-300"
-            : "bg-[#007AFF]/30 text-[#64ACFF]"
+            ? "bg-purple-100 text-purple-600 dark:bg-purple-600/30 dark:text-purple-300"
+            : "bg-[#007AFF]/15 text-[#007AFF] dark:bg-[#007AFF]/30 dark:text-[#64ACFF]"
         }`}
       >
         {name.charAt(0).toUpperCase() || "?"}
@@ -72,17 +72,17 @@ const ChatEntry = memo(function ChatEntry({
       {/* Text content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[13px] font-medium text-zinc-100 apple-text-sm">
+          <span className="truncate text-[13px] font-medium text-[#071739] dark:text-zinc-100 apple-text-sm">
             {name}
           </span>
           {chat.lastMessageDate && (
-            <span className="shrink-0 text-[11px] text-zinc-500 apple-text-xs">
+            <span className="shrink-0 text-[11px] text-[#A4B5C4] dark:text-zinc-500 apple-text-xs">
               {dayjs(chat.lastMessageDate).fromNow(true)}
             </span>
           )}
         </div>
         {chat.lastMessageText && (
-          <p className="mt-0.5 truncate text-xs text-zinc-500 apple-text-xs">
+          <p className="mt-0.5 truncate text-xs text-[#4B6382] dark:text-zinc-500 apple-text-xs">
             {chat.lastMessageText}
           </p>
         )}
@@ -111,21 +111,21 @@ function AllChatsEntry({ isActive }: { isActive: boolean }) {
       onClick={handleClick}
       className={`flex w-full cursor-pointer items-start gap-3 mx-2 px-3 py-2.5 text-left transition-colors duration-200 rounded-[10px] ${
         isActive
-          ? "bg-white/[0.08]"
-          : "hover:bg-white/[0.06]"
+          ? "bg-[#071739]/[0.06] dark:bg-white/[0.08]"
+          : "hover:bg-[#071739]/[0.04] dark:hover:bg-white/[0.06]"
       }`}
       style={{ width: "calc(100% - 16px)" }}
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#007AFF]/30 to-purple-600/30 text-sm font-semibold text-[#64ACFF] shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#007AFF]/15 to-purple-200/50 dark:from-[#007AFF]/30 dark:to-purple-600/30 text-sm font-semibold text-[#007AFF] dark:text-[#64ACFF] shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
         <BarChart3 className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[13px] font-medium text-zinc-100 apple-text-sm">
+          <span className="truncate text-[13px] font-medium text-[#071739] dark:text-zinc-100 apple-text-sm">
             All Chats
           </span>
         </div>
-        <p className="mt-0.5 truncate text-xs text-zinc-500 apple-text-xs">
+        <p className="mt-0.5 truncate text-xs text-[#4B6382] dark:text-zinc-500 apple-text-xs">
           Global wrapped stats
         </p>
       </div>
@@ -164,16 +164,16 @@ export function ChatList() {
   );
 
   return (
-    <div className="flex h-full w-80 min-w-80 flex-col border-r border-white/[0.06] glass-heavy">
+    <div className="flex h-full w-80 min-w-80 flex-col border-r border-[#CDD5DB]/40 dark:border-white/[0.06] bg-[#FAFAF7] dark:bg-[#1C1C1E]/60 dark:backdrop-blur-2xl dark:saturate-[2]">
       {/* Search bar */}
       <div className="p-3">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A4B5C4] dark:text-zinc-500" />
           <Input
             placeholder="Search conversations..."
             value={chatSearchQuery}
             onChange={(e) => setChatSearchQuery(e.target.value)}
-            className="h-9 pl-9 rounded-lg bg-white/[0.06] border-white/[0.06] text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-[#007AFF]/40 apple-text-sm"
+            className="h-9 pl-9 rounded-lg bg-[#071739]/[0.04] dark:bg-white/[0.06] border-[#CDD5DB]/40 dark:border-white/[0.06] text-[#071739] dark:text-zinc-200 placeholder:text-[#A4B5C4] dark:placeholder:text-zinc-500 focus-visible:ring-[#4B6382]/40 dark:focus-visible:ring-[#007AFF]/40 apple-text-sm"
           />
         </div>
       </div>
@@ -184,22 +184,22 @@ export function ChatList() {
       )}
 
       {/* List */}
-      <div className="flex-1 overflow-hidden">
+      <div className="relative min-h-0 flex-1">
         {isLoading && (
-          <div className="flex items-center justify-center p-8 text-sm text-zinc-500">
+          <div className="flex items-center justify-center p-8 text-sm text-[#A4B5C4] dark:text-zinc-500">
             Loading conversations...
           </div>
         )}
         {isError && (
-          <div className="flex flex-col items-center justify-center gap-2 p-8 text-center text-sm text-zinc-500">
-            <p className="font-medium text-red-400">Unable to load chats</p>
+          <div className="flex flex-col items-center justify-center gap-2 p-8 text-center text-sm text-[#A4B5C4] dark:text-zinc-500">
+            <p className="font-medium text-red-500 dark:text-red-400">Unable to load chats</p>
             <p className="text-xs apple-text-xs">
               Make sure Full Disk Access is granted in System Settings.
             </p>
           </div>
         )}
         {!isLoading && !isError && filteredChats.length === 0 && (
-          <div className="flex items-center justify-center p-8 text-sm text-zinc-500">
+          <div className="flex items-center justify-center p-8 text-sm text-[#A4B5C4] dark:text-zinc-500">
             No conversations found.
           </div>
         )}
@@ -210,7 +210,7 @@ export function ChatList() {
             defaultItemHeight={68}
             increaseViewportBy={400}
             overscan={100}
-            style={{ height: "100%" }}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
           />
         )}
       </div>

@@ -1,11 +1,32 @@
 import { create } from "zustand";
 
 export type AppView = "chat" | "wrapped" | "search";
+export type Theme = "light" | "dark";
+
+function getStoredTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  return (localStorage.getItem("theme") as Theme) ?? "light";
+}
+
+function applyTheme(theme: Theme) {
+  if (typeof document === "undefined") return;
+  const html = document.documentElement;
+  if (theme === "dark") {
+    html.classList.add("dark");
+  } else {
+    html.classList.remove("dark");
+  }
+  localStorage.setItem("theme", theme);
+}
 
 export interface AppState {
   // ── Navigation ──────────────────────────────────
   view: AppView;
   setView: (view: AppView) => void;
+
+  // ── Theme ─────────────────────────────────────
+  theme: Theme;
+  toggleTheme: () => void;
 
   // ── Selected chat ───────────────────────────────
   selectedChatId: number | null;
@@ -30,9 +51,16 @@ export interface AppState {
   setScrollToMessageDate: (date: number | null) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   view: "chat",
   setView: (view) => set({ view }),
+
+  theme: getStoredTheme(),
+  toggleTheme: () => {
+    const next = get().theme === "light" ? "dark" : "light";
+    applyTheme(next);
+    set({ theme: next });
+  },
 
   selectedChatId: null,
   setSelectedChatId: (selectedChatId) => set({ selectedChatId }),

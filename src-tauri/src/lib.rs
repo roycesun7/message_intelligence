@@ -30,7 +30,6 @@ fn open_chat_db() -> AppResult<Connection> {
         path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )?;
-    // Improve read performance
     conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA query_only = true;")?;
     Ok(conn)
 }
@@ -52,8 +51,10 @@ fn open_analytics_db(app: &tauri::App) -> AppResult<Connection> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            // Logging plugin (debug builds only)
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -62,39 +63,51 @@ pub fn run() {
                 )?;
             }
 
-            // Open databases
-            let chat_db = open_chat_db().map_err(|e| {
-                log::error!("Failed to open chat.db: {e}");
-                Box::new(e) as Box<dyn std::error::Error>
-            })?;
+            // Try to open chat.db — but don't crash if it fails
+            let chat_db = match open_chat_db() {
+                Ok(conn) => {
+                    log::info!("Successfully opened chat.db");
+                    Some(conn)
+                }
+                Err(e) => {
+                    log::warn!("Could not open chat.db (FDA may not be granted): {e}");
+                    None
+                }
+            };
 
             let analytics_db = open_analytics_db(app).map_err(|e| {
                 log::error!("Failed to open analytics.db: {e}");
                 Box::new(e) as Box<dyn std::error::Error>
             })?;
 
-            // Build contact name map from macOS Address Book
-            let contact_map = match db::contacts_db::build_contact_map() {
-                Ok(map) => {
-                    log::info!("Loaded {} contact entries", map.len());
-                    map
+            // Build contact map only if chat.db is available
+            let contact_map = if chat_db.is_some() {
+                match db::contacts_db::build_contact_map() {
+                    Ok(map) => {
+                        log::info!("Loaded {} contact entries", map.len());
+                        map
+                    }
+                    Err(e) => {
+                        log::warn!("Could not load contacts: {e}");
+                        std::collections::HashMap::new()
+                    }
                 }
-                Err(e) => {
-                    log::warn!("Could not load contacts (names will show as phone numbers): {e}");
-                    std::collections::HashMap::new()
-                }
+            } else {
+                std::collections::HashMap::new()
             };
 
-            // Register app state
             app.manage(AppState {
                 chat_db: Arc::new(Mutex::new(chat_db)),
                 analytics_db: Arc::new(Mutex::new(analytics_db)),
-                contact_map,
+                contact_map: Arc::new(Mutex::new(contact_map)),
             });
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // FDA / onboarding commands
+            commands::onboarding::check_fda_status,
+            commands::onboarding::retry_chat_db_connection,
             // Chat / message commands
             commands::messages::get_chats,
             commands::messages::get_messages,

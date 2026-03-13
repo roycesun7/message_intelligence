@@ -166,20 +166,21 @@ pub async fn get_wrapped_stats(
     let chat_ids_clone = chat_ids.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<WrappedStats> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         let cids = chat_ids_clone.as_deref();
 
-        let message_count = count_messages_by_year(&conn, year, cids)?;
-        let chat_interactions = count_messages_by_chat(&conn, year, cids)?;
-        let handle_interactions = count_messages_by_handle(&conn, year, cids)?;
-        let weekday_interactions = count_messages_by_weekday(&conn, year, cids)?;
-        let monthly_interactions = count_messages_by_month(&conn, year, cids)?;
-        let yearly_interactions = count_messages_by_year_breakdown(&conn, year, cids)?;
-        let late_night_interactions = late_night_messenger(&conn, year, cids)?;
-        let most_popular_openers = get_most_popular_openers(&conn, year, cids)?;
+        let message_count = count_messages_by_year(conn, year, cids)?;
+        let chat_interactions = count_messages_by_chat(conn, year, cids)?;
+        let handle_interactions = count_messages_by_handle(conn, year, cids)?;
+        let weekday_interactions = count_messages_by_weekday(conn, year, cids)?;
+        let monthly_interactions = count_messages_by_month(conn, year, cids)?;
+        let yearly_interactions = count_messages_by_year_breakdown(conn, year, cids)?;
+        let late_night_interactions = late_night_messenger(conn, year, cids)?;
+        let most_popular_openers = get_most_popular_openers(conn, year, cids)?;
 
         let stats = WrappedStats {
             message_count,
@@ -233,9 +234,10 @@ pub async fn get_temporal_trends(
     let chat_db_mutex = state.chat_db.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<DailyMessageCount>> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         let effective_year = year.unwrap_or(0);
         let (filter_clause, filter_params) =
@@ -288,9 +290,10 @@ pub async fn get_response_time_stats(
     let chat_db_mutex = state.chat_db.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<ResponseTimeStats> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         let sql = "SELECT message.date, message.is_from_me
              FROM message
@@ -380,9 +383,10 @@ pub async fn get_initiation_stats(
     let chat_db_mutex = state.chat_db.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<InitiationStats> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         let sql = "SELECT message.date, message.is_from_me
              FROM message
@@ -450,9 +454,10 @@ pub async fn get_message_length_stats(
     let chat_db_mutex = state.chat_db.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<MessageLengthStats> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         let sql = "SELECT
                  message.is_from_me,
@@ -531,9 +536,10 @@ pub async fn get_active_hours(
     let chat_db_mutex = state.chat_db.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<HourlyActivity>> {
-        let conn = chat_db_mutex
+        let guard = chat_db_mutex
             .lock()
             .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         let sql = "SELECT
                  CAST(strftime('%H', DATETIME(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime')) AS integer) AS hour,

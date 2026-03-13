@@ -9,7 +9,11 @@ use crate::state::AppState;
 #[tauri::command]
 pub fn get_chats(state: State<'_, AppState>) -> AppResult<Vec<Chat>> {
     let conn = state.lock_chat_db()?;
-    chat_db::get_chat_list(&conn, &state.contact_map)
+    let contact_map = state
+        .contact_map
+        .lock()
+        .map_err(|e| crate::error::AppError::Custom(e.to_string()))?;
+    chat_db::get_chat_list(&conn, &contact_map)
 }
 
 /// Return messages for a specific chat, with pagination.
@@ -21,9 +25,13 @@ pub fn get_messages(
     offset: Option<i64>,
 ) -> AppResult<Vec<Message>> {
     let conn = state.lock_chat_db()?;
+    let contact_map = state
+        .contact_map
+        .lock()
+        .map_err(|e| crate::error::AppError::Custom(e.to_string()))?;
     let lim = limit.unwrap_or(i64::MAX);
     let off = offset.unwrap_or(0);
-    chat_db::get_messages_for_chat(&conn, chat_id, lim, off, &state.contact_map)
+    chat_db::get_messages_for_chat(&conn, chat_id, lim, off, &contact_map)
 }
 
 /// Return attachments for a given message ROWID.

@@ -116,3 +116,19 @@ export const getTextingPersonality = (chatId?: number) =>
   invoke<TextingPersonality>("get_texting_personality", {
     chatId: chatId ?? null,
   });
+
+// ────────────────────────────────────────────────────────
+// Onboarding / FDA commands
+// ────────────────────────────────────────────────────────
+
+export interface FdaStatus {
+  hasAccess: boolean;
+  chatDbConnected: boolean;
+  message: string;
+}
+
+/** Check if Full Disk Access has been granted. */
+export const checkFdaStatus = () => invoke<FdaStatus>("check_fda_status");
+
+/** Retry connecting to chat.db after FDA is granted. */
+export const retryChatDbConnection = () => invoke<FdaStatus>("retry_chat_db_connection");

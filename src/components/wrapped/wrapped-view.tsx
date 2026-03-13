@@ -60,6 +60,18 @@ import type {
 
 const CHART_TOOLTIP_STYLE = {
   contentStyle: {
+    backgroundColor: "rgba(250, 250, 247, 0.97)",
+    border: "1px solid rgba(7, 23, 57, 0.08)",
+    borderRadius: "12px",
+    color: "#071739",
+    backdropFilter: "blur(12px)",
+    padding: "10px 14px",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+  },
+};
+
+const CHART_TOOLTIP_STYLE_DARK = {
+  contentStyle: {
     backgroundColor: "rgba(28, 28, 30, 0.95)",
     border: "1px solid rgba(255, 255, 255, 0.08)",
     borderRadius: "12px",
@@ -80,11 +92,11 @@ function YearSelector() {
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-sm text-zinc-400">Year:</label>
+      <label className="text-sm text-[#4B6382] dark:text-zinc-400">Year:</label>
       <select
         value={year}
         onChange={(e) => setYear(Number(e.target.value))}
-        className="h-8 rounded-full border border-white/[0.08] bg-white/[0.06] px-4 text-sm text-zinc-200 outline-none transition-colors hover:bg-white/[0.1] focus:ring-2 focus:ring-blue-500/40"
+        className="h-8 rounded-full border border-[#CDD5DB] dark:border-white/[0.08] bg-white dark:bg-white/[0.06] px-4 text-sm text-[#071739] dark:text-zinc-200 outline-none transition-colors hover:bg-[#F0EDE8] dark:hover:bg-white/[0.1] focus:ring-2 focus:ring-[#4B6382]/40 dark:focus:ring-blue-500/40"
       >
         <option value={0}>All Time</option>
         {years.map((y) => (
@@ -126,23 +138,27 @@ function StatCard({
   );
 }
 
-// ── Bar chart colours ────────────────────────────────────
+// ── Bar chart colours (Navy & Sand palette) ──────────────
 const MONTH_COLORS = [
-  "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7",
-  "#d946ef", "#ec4899", "#f43f5e", "#ef4444",
-  "#f97316", "#eab308", "#22c55e", "#14b8a6",
+  "#071739", "#4B6382", "#A68868", "#A4B5C4",
+  "#E3C39D", "#CDD5DB", "#071739", "#4B6382",
+  "#A68868", "#A4B5C4", "#E3C39D", "#CDD5DB",
 ];
 
 const DAY_COLORS = [
-  "#f97316", "#3b82f6", "#6366f1", "#8b5cf6",
-  "#ec4899", "#22c55e", "#eab308",
+  "#A68868", "#071739", "#4B6382", "#A4B5C4",
+  "#E3C39D", "#CDD5DB", "#071739",
 ];
 
 const YEAR_COLORS = [
-  "#3b82f6", "#8b5cf6", "#ec4899", "#f97316",
-  "#22c55e", "#eab308", "#14b8a6", "#6366f1",
-  "#f43f5e", "#a855f7",
+  "#071739", "#4B6382", "#A68868", "#A4B5C4",
+  "#E3C39D", "#CDD5DB", "#071739", "#4B6382",
+  "#A68868", "#A4B5C4",
 ];
+
+// ── Chart grid / axis colors ─────────────────────────────
+const GRID_STROKE = "rgba(7, 23, 57, 0.06)";
+const AXIS_TICK = { fill: "#A4B5C4", fontSize: 11 };
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -286,13 +302,13 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
     return (
       <Card className="card-glass">
         <CardHeader className="flex flex-row items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-blue-400" />
-          <CardTitle className="text-lg font-semibold text-white">
+          <TrendingUp className="h-5 w-5 text-[#4B6382] dark:text-blue-400" />
+          <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
             Your Conversation Timeline
           </CardTitle>
         </CardHeader>
         <CardContent className="flex h-[300px] items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-blue-500" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#CDD5DB] dark:border-zinc-600 border-t-[#4B6382] dark:border-t-blue-500" />
         </CardContent>
       </Card>
     );
@@ -303,8 +319,8 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
   return (
     <Card className="card-glass">
       <CardHeader className="flex flex-row items-center gap-2">
-        <TrendingUp className="h-5 w-5 text-blue-400" />
-        <CardTitle className="text-lg font-semibold text-white">
+        <TrendingUp className="h-5 w-5 text-[#4B6382] dark:text-blue-400" />
+        <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
           Message Volume Over Time
         </CardTitle>
       </CardHeader>
@@ -313,23 +329,23 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
           <AreaChart data={points} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="gradientSent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
+                <stop offset="0%" stopColor="#071739" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="#071739" stopOpacity={0.05} />
               </linearGradient>
               <linearGradient id="gradientReceived" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.05} />
+                <stop offset="0%" stopColor="#A68868" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="#A68868" stopOpacity={0.05} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fill: "#666", fontSize: 11 }}
+              tick={AXIS_TICK}
               tickFormatter={(v: string) => formatTrendDate(v, granularity)}
               interval="preserveStartEnd"
               minTickGap={40}
             />
-            <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
+            <YAxis tick={AXIS_TICK} width={35} />
             <Tooltip
               {...CHART_TOOLTIP_STYLE}
               labelFormatter={(label) => formatTrendDate(String(label), granularity)}
@@ -342,14 +358,14 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
             <Area
               type="monotone"
               dataKey="received"
-              stroke="#8b5cf6"
+              stroke="#A68868"
               fill="url(#gradientReceived)"
               strokeWidth={1.5}
             />
             <Area
               type="monotone"
               dataKey="sent"
-              stroke="#3b82f6"
+              stroke="#071739"
               fill="url(#gradientSent)"
               strokeWidth={1.5}
             />
@@ -393,8 +409,8 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
     return (
       <div className="mb-8 flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-blue-500" />
-          <p className="text-sm text-zinc-500">Loading relationship metrics...</p>
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#CDD5DB] dark:border-zinc-600 border-t-[#4B6382] dark:border-t-blue-500" />
+          <p className="text-sm text-[#A4B5C4] dark:text-zinc-500">Loading relationship metrics...</p>
         </div>
       </div>
     );
@@ -402,15 +418,15 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
 
   return (
     <div className="mb-8 space-y-6">
-      <p className="text-lg font-semibold text-white">Between You Two</p>
+      <p className="text-lg font-semibold text-[#071739] dark:text-white">Between You Two</p>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* A. Response Time Card */}
         {responseTime && (
           <Card className="card-glass">
             <CardHeader className="flex flex-row items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-lg font-semibold text-white">
+              <Clock className="h-5 w-5 text-[#4B6382] dark:text-blue-400" />
+              <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
                 Who Replies Faster
               </CardTitle>
             </CardHeader>
@@ -418,21 +434,21 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
               <div className="grid grid-cols-2 gap-6">
                 {/* You column */}
                 <div>
-                  <p className="mb-2 text-sm font-medium text-blue-400">You</p>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="mb-2 text-sm font-medium text-[#4B6382] dark:text-blue-400">You</p>
+                  <p className="text-2xl font-bold text-[#071739] dark:text-white">
                     {formatDuration(responseTime.myAvgResponseSecs)}
                   </p>
-                  <p className="mt-0.5 text-xs text-zinc-500">avg response</p>
+                  <p className="mt-0.5 text-xs text-[#A4B5C4] dark:text-zinc-500">avg response</p>
                   <div className="mt-3 space-y-1">
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-[#4B6382] dark:text-zinc-400">
                       Median:{" "}
-                      <span className="text-zinc-200">
+                      <span className="text-[#071739] dark:text-zinc-200">
                         {formatDuration(responseTime.myMedianResponseSecs)}
                       </span>
                     </p>
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-[#4B6382] dark:text-zinc-400">
                       Fastest:{" "}
-                      <span className="text-zinc-200">
+                      <span className="text-[#071739] dark:text-zinc-200">
                         {formatDuration(responseTime.myFastestResponseSecs)}
                       </span>
                     </p>
@@ -440,23 +456,23 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                 </div>
                 {/* Them column */}
                 <div>
-                  <p className="mb-2 text-sm font-medium text-purple-400">
+                  <p className="mb-2 text-sm font-medium text-[#A68868] dark:text-purple-400">
                     Them
                   </p>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-2xl font-bold text-[#071739] dark:text-white">
                     {formatDuration(responseTime.theirAvgResponseSecs)}
                   </p>
-                  <p className="mt-0.5 text-xs text-zinc-500">avg response</p>
+                  <p className="mt-0.5 text-xs text-[#A4B5C4] dark:text-zinc-500">avg response</p>
                   <div className="mt-3 space-y-1">
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-[#4B6382] dark:text-zinc-400">
                       Median:{" "}
-                      <span className="text-zinc-200">
+                      <span className="text-[#071739] dark:text-zinc-200">
                         {formatDuration(responseTime.theirMedianResponseSecs)}
                       </span>
                     </p>
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-[#4B6382] dark:text-zinc-400">
                       Fastest:{" "}
-                      <span className="text-zinc-200">
+                      <span className="text-[#071739] dark:text-zinc-200">
                         {formatDuration(responseTime.theirFastestResponseSecs)}
                       </span>
                     </p>
@@ -465,9 +481,9 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
               </div>
               {/* Visual comparison bar */}
               <div className="mt-4">
-                <div className="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+                <div className="flex h-2 w-full overflow-hidden rounded-full bg-[#CDD5DB]/30 dark:bg-zinc-800">
                   <div
-                    className="bg-blue-500 transition-all"
+                    className="bg-[#4B6382] dark:bg-blue-500 transition-all"
                     style={{
                       width: `${
                         responseTime.myAvgResponseSecs +
@@ -482,7 +498,7 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                     }}
                   />
                   <div
-                    className="bg-purple-500 transition-all"
+                    className="bg-[#A68868] dark:bg-purple-500 transition-all"
                     style={{
                       width: `${
                         responseTime.myAvgResponseSecs +
@@ -497,7 +513,7 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                     }}
                   />
                 </div>
-                <p className="mt-1 text-center text-[10px] text-zinc-600">
+                <p className="mt-1 text-center text-[10px] text-[#A4B5C4] dark:text-zinc-600">
                   Faster responder has more bar
                 </p>
               </div>
@@ -509,27 +525,27 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
         {initiation && (
           <Card className="card-glass">
             <CardHeader className="flex flex-row items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-400" />
-              <CardTitle className="text-lg font-semibold text-white">
+              <MessageCircle className="h-5 w-5 text-[#A68868] dark:text-green-400" />
+              <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
                 Who Texts First
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-1 text-2xl font-bold text-white">
+              <p className="mb-1 text-2xl font-bold text-[#071739] dark:text-white">
                 You start{" "}
-                <span className="text-blue-400">
+                <span className="text-[#4B6382] dark:text-blue-400">
                   {Math.round(initiation.myRatio * 100)}%
                 </span>{" "}
                 of conversations
               </p>
-              <p className="mb-4 text-xs text-zinc-500">
+              <p className="mb-4 text-xs text-[#A4B5C4] dark:text-zinc-500">
                 {initiation.totalConversations.toLocaleString()} total
                 conversations tracked
               </p>
               {/* Ratio bar */}
-              <div className="mb-2 flex h-6 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div className="mb-2 flex h-6 w-full overflow-hidden rounded-full bg-[#CDD5DB]/30 dark:bg-zinc-800">
                 <div
-                  className="flex items-center justify-center bg-blue-500 text-[10px] font-bold text-white transition-all"
+                  className="flex items-center justify-center bg-[#4B6382] dark:bg-blue-500 text-[10px] font-bold text-white transition-all"
                   style={{
                     width: `${Math.max(initiation.myRatio * 100, 5)}%`,
                   }}
@@ -538,7 +554,7 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                     `${initiation.myInitiations}`}
                 </div>
                 <div
-                  className="flex items-center justify-center bg-zinc-600 text-[10px] font-bold text-white transition-all"
+                  className="flex items-center justify-center bg-[#A4B5C4] dark:bg-zinc-600 text-[10px] font-bold text-white transition-all"
                   style={{
                     width: `${Math.max(
                       (1 - initiation.myRatio) * 100,
@@ -550,7 +566,7 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                     `${initiation.theirInitiations}`}
                 </div>
               </div>
-              <div className="flex justify-between text-xs text-zinc-400">
+              <div className="flex justify-between text-xs text-[#4B6382] dark:text-zinc-400">
                 <span>You ({initiation.myInitiations})</span>
                 <span>Them ({initiation.theirInitiations})</span>
               </div>
@@ -562,8 +578,8 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
         {msgLength && (
           <Card className="card-glass">
             <CardHeader className="flex flex-row items-center gap-2">
-              <AlignLeft className="h-5 w-5 text-amber-400" />
-              <CardTitle className="text-lg font-semibold text-white">
+              <AlignLeft className="h-5 w-5 text-[#A68868] dark:text-amber-400" />
+              <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
                 Who Writes More
               </CardTitle>
             </CardHeader>
@@ -571,58 +587,58 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
               <div className="grid grid-cols-2 gap-6">
                 {/* You column */}
                 <div className="space-y-3">
-                  <p className="text-sm font-medium text-blue-400">You</p>
+                  <p className="text-sm font-medium text-[#4B6382] dark:text-blue-400">You</p>
                   <div>
-                    <p className="text-2xl font-bold text-white">
+                    <p className="text-2xl font-bold text-[#071739] dark:text-white">
                       {Math.round(msgLength.myAvgLength).toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-500">avg chars / message</p>
+                    <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">avg chars / message</p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-zinc-200">
+                    <p className="text-sm font-semibold text-[#071739] dark:text-zinc-200">
                       {msgLength.myTotalChars.toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-500">total characters</p>
+                    <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">total characters</p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-zinc-200">
+                    <p className="text-sm font-semibold text-[#071739] dark:text-zinc-200">
                       {msgLength.myTotalMessages.toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-500">messages sent</p>
+                    <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">messages sent</p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-zinc-200">
+                    <p className="text-sm font-semibold text-[#071739] dark:text-zinc-200">
                       {msgLength.myMaxLength.toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-500">longest message</p>
+                    <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">longest message</p>
                   </div>
                 </div>
                 {/* Them column */}
                 <div className="space-y-3">
-                  <p className="text-sm font-medium text-purple-400">Them</p>
+                  <p className="text-sm font-medium text-[#A68868] dark:text-purple-400">Them</p>
                   <div>
-                    <p className="text-2xl font-bold text-white">
+                    <p className="text-2xl font-bold text-[#071739] dark:text-white">
                       {Math.round(msgLength.theirAvgLength).toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-500">avg chars / message</p>
+                    <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">avg chars / message</p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-zinc-200">
+                    <p className="text-sm font-semibold text-[#071739] dark:text-zinc-200">
                       {msgLength.theirTotalChars.toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-500">total characters</p>
+                    <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">total characters</p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-zinc-200">
+                    <p className="text-sm font-semibold text-[#071739] dark:text-zinc-200">
                       {msgLength.theirTotalMessages.toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-500">messages sent</p>
+                    <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">messages sent</p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-zinc-200">
+                    <p className="text-sm font-semibold text-[#071739] dark:text-zinc-200">
                       {msgLength.theirMaxLength.toLocaleString()}
                     </p>
-                    <p className="text-xs text-zinc-500">longest message</p>
+                    <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">longest message</p>
                   </div>
                 </div>
               </div>
@@ -634,8 +650,8 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
         {activeHours && activeHours.length > 0 && (
           <Card className="card-glass">
             <CardHeader className="flex flex-row items-center gap-2">
-              <Activity className="h-5 w-5 text-cyan-400" />
-              <CardTitle className="text-lg font-semibold text-white">
+              <Activity className="h-5 w-5 text-[#4B6382] dark:text-cyan-400" />
+              <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
                 When You Both Text
               </CardTitle>
             </CardHeader>
@@ -645,14 +661,14 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                   data={activeHours}
                   margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                   <XAxis
                     dataKey="hour"
-                    tick={{ fill: "#666", fontSize: 11 }}
+                    tick={AXIS_TICK}
                     tickFormatter={(v: number) => formatHourLabel(v)}
                     interval={2}
                   />
-                  <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
+                  <YAxis tick={AXIS_TICK} width={35} />
                   <Tooltip
                     {...CHART_TOOLTIP_STYLE}
                     labelFormatter={(label) => formatHourLabel(Number(label))}
@@ -668,12 +684,12 @@ function RelationshipMetrics({ chatId }: { chatId: number }) {
                   />
                   <Bar
                     dataKey="myMessages"
-                    fill="#3b82f6"
+                    fill="#071739"
                     radius={[6, 6, 0, 0]}
                   />
                   <Bar
                     dataKey="theirMessages"
-                    fill="#6366f1"
+                    fill="#A68868"
                     radius={[6, 6, 0, 0]}
                   />
                 </BarChart>
@@ -710,9 +726,9 @@ export function WrappedView() {
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center bg-zinc-950 text-zinc-500">
+      <div className="flex h-96 items-center justify-center bg-[#F0EDE8] dark:bg-zinc-950 text-[#A4B5C4] dark:text-zinc-500">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-blue-500" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#CDD5DB] dark:border-zinc-600 border-t-[#4B6382] dark:border-t-blue-500" />
           <p className="text-sm">Crunching your numbers...</p>
         </div>
       </div>
@@ -721,8 +737,8 @@ export function WrappedView() {
 
   if (isError || !stats) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-3 bg-zinc-950 text-zinc-500">
-        <p className="text-lg font-medium text-red-400">
+      <div className="flex h-96 flex-col items-center justify-center gap-3 bg-[#F0EDE8] dark:bg-zinc-950 text-[#A4B5C4] dark:text-zinc-500">
+        <p className="text-lg font-medium text-red-500 dark:text-red-400">
           Failed to load stats
         </p>
         <p className="text-sm">
@@ -790,19 +806,19 @@ export function WrappedView() {
   ]);
 
   return (
-    <div className="bg-zinc-950 p-6">
+    <div className="bg-[#F0EDE8] dark:bg-zinc-950 p-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">
+          <h1 className="text-3xl font-bold tracking-tight text-[#071739] dark:text-white">
             {year === 0 ? "All-Time" : year} Wrapped
             {isPerChat && (
-              <span className="ml-2 text-2xl font-bold text-blue-400">
+              <span className="ml-2 text-2xl font-bold text-[#4B6382] dark:text-blue-400">
                 — {resolveChatName(wrappedChatId, chatMap)}
               </span>
             )}
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-[#A4B5C4] dark:text-zinc-500">
             {isPerChat
               ? `Your conversation at a glance`
               : "Your iMessage story, by the numbers"}
@@ -817,31 +833,30 @@ export function WrappedView() {
           title="Total Messages"
           value={totalMessages}
           icon={MessageSquare}
-          gradient="bg-gradient-to-br from-blue-600 to-blue-800"
+          gradient="bg-gradient-to-br from-[#071739] to-[#4B6382]"
         />
         <StatCard
           title="Sent"
           value={stats.messageCount.sent}
           icon={Send}
-          gradient="bg-gradient-to-br from-green-600 to-green-800"
+          gradient="bg-gradient-to-br from-[#4B6382] to-[#A4B5C4]"
         />
         <StatCard
           title="Received"
           value={stats.messageCount.received}
           icon={Inbox}
-          gradient="bg-gradient-to-br from-purple-600 to-purple-800"
+          gradient="bg-gradient-to-br from-[#A68868] to-[#E3C39D]"
         />
         {!isPerChat && (
           <StatCard
             title="Active Chats"
             value={uniqueChatIds.size}
             icon={Users}
-            gradient="bg-gradient-to-br from-pink-600 to-pink-800"
+            gradient="bg-gradient-to-br from-[#071739] to-[#A68868]"
           />
         )}
       </div>
 
-      {/* Temporal trends — per-chat only */}
       {/* Temporal trends — per-chat only */}
       {isPerChat && (
         <div className="mb-8">
@@ -861,13 +876,13 @@ export function WrappedView() {
         {!isPerChat && (
           <Card className="card-glass">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-white">
+              <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
                 Your Top People
               </CardTitle>
             </CardHeader>
             <CardContent>
               {topChats.length === 0 ? (
-                <p className="text-sm text-zinc-500">No data available.</p>
+                <p className="text-sm text-[#A4B5C4] dark:text-zinc-500">No data available.</p>
               ) : (
                 <ol className="space-y-2">
                   {topChats.map((c, i) => {
@@ -875,21 +890,21 @@ export function WrappedView() {
                     const name = resolveChatName(Number(c.key), chatMap);
                     return (
                       <li key={c.key} className="flex items-center gap-3">
-                        <span className="w-5 text-right text-xs font-bold text-zinc-500">
+                        <span className="w-5 text-right text-xs font-bold text-[#A4B5C4] dark:text-zinc-500">
                           {i + 1}
                         </span>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <span className="truncate text-sm text-zinc-200">
+                            <span className="truncate text-sm text-[#071739] dark:text-zinc-200">
                               {name}
                             </span>
-                            <span className="ml-2 text-xs text-zinc-400">
+                            <span className="ml-2 text-xs text-[#4B6382] dark:text-zinc-400">
                               {c.total.toLocaleString()}
                             </span>
                           </div>
-                          <div className="mt-1 h-1 w-full rounded-full bg-white/[0.06]">
+                          <div className="mt-1 h-1 w-full rounded-full bg-[#CDD5DB]/30 dark:bg-white/[0.06]">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400"
+                              className="h-full rounded-full bg-gradient-to-r from-[#071739] to-[#A68868] dark:from-blue-400 dark:to-purple-400"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
@@ -906,23 +921,23 @@ export function WrappedView() {
         {/* Messages by month */}
         <Card className="card-glass">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-white">
+            <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
               Your Busiest Months
             </CardTitle>
           </CardHeader>
           <CardContent className="h-72">
             {monthlyData.length === 0 ? (
-              <p className="text-sm text-zinc-500">No data available.</p>
+              <p className="text-sm text-[#A4B5C4] dark:text-zinc-500">No data available.</p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                   <XAxis
                     dataKey="key"
-                    tick={{ fill: "#666", fontSize: 11 }}
+                    tick={AXIS_TICK}
                     tickFormatter={(v: string) => v.slice(0, 3)}
                   />
-                  <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
+                  <YAxis tick={AXIS_TICK} width={35} />
                   <Tooltip
                     {...CHART_TOOLTIP_STYLE}
                     formatter={(value, name) => [
@@ -949,19 +964,19 @@ export function WrappedView() {
       {year === 0 && yearlyData.length > 1 && (
         <Card className="mb-8 card-glass">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-white">
+            <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
               Your Year by Year
             </CardTitle>
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={yearlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                 <XAxis
                   dataKey="key"
-                  tick={{ fill: "#666", fontSize: 11 }}
+                  tick={AXIS_TICK}
                 />
-                <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
+                <YAxis tick={AXIS_TICK} width={35} />
                 <Tooltip
                   {...CHART_TOOLTIP_STYLE}
                   formatter={(value, name) => [
@@ -988,23 +1003,23 @@ export function WrappedView() {
         {/* Messages by day of week */}
         <Card className="card-glass">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-white">
+            <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
               Your Favorite Days
             </CardTitle>
           </CardHeader>
           <CardContent className="h-64">
             {weekdayData.length === 0 ? (
-              <p className="text-sm text-zinc-500">No data available.</p>
+              <p className="text-sm text-[#A4B5C4] dark:text-zinc-500">No data available.</p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weekdayData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                   <XAxis
                     dataKey="key"
-                    tick={{ fill: "#666", fontSize: 11 }}
+                    tick={AXIS_TICK}
                     tickFormatter={(v: string) => v.slice(0, 3)}
                   />
-                  <YAxis tick={{ fill: "#666", fontSize: 11 }} width={35} />
+                  <YAxis tick={AXIS_TICK} width={35} />
                   <Tooltip
                     {...CHART_TOOLTIP_STYLE}
                   />
@@ -1025,21 +1040,21 @@ export function WrappedView() {
         {/* Late night chats */}
         <Card className="card-glass">
           <CardHeader className="flex flex-row items-center gap-2">
-            <Moon className="h-5 w-5 text-indigo-400" />
-            <CardTitle className="text-lg font-semibold text-white">
+            <Moon className="h-5 w-5 text-[#071739] dark:text-indigo-400" />
+            <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
               {isPerChat ? "Night Owl Mode" : "Your Late Night Crew"}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="mb-3 text-xs text-zinc-500">Messages sent 10 PM - 5 AM</p>
+            <p className="mb-3 text-xs text-[#A4B5C4] dark:text-zinc-500">Messages sent 10 PM - 5 AM</p>
             {lateNightChats.length === 0 ? (
-              <p className="text-sm text-zinc-500">No late-night activity.</p>
+              <p className="text-sm text-[#A4B5C4] dark:text-zinc-500">No late-night activity.</p>
             ) : isPerChat ? (
               <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-indigo-400">
+                <span className="text-3xl font-bold text-[#071739] dark:text-indigo-400">
                   {lateNightChats.reduce((sum, c) => sum + c.total, 0).toLocaleString()}
                 </span>
-                <span className="text-sm text-zinc-400">late night messages</span>
+                <span className="text-sm text-[#4B6382] dark:text-zinc-400">late night messages</span>
               </div>
             ) : (
               <ol className="space-y-2">
@@ -1048,10 +1063,10 @@ export function WrappedView() {
                   return (
                     <li key={c.key} className="flex items-center justify-between">
                       <span className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-zinc-500">{i + 1}</span>
-                        <span className="truncate text-sm text-zinc-200">{name}</span>
+                        <span className="text-xs font-bold text-[#A4B5C4] dark:text-zinc-500">{i + 1}</span>
+                        <span className="truncate text-sm text-[#071739] dark:text-zinc-200">{name}</span>
                       </span>
-                      <span className="text-xs text-zinc-400">{c.total.toLocaleString()}</span>
+                      <span className="text-xs text-[#4B6382] dark:text-zinc-400">{c.total.toLocaleString()}</span>
                     </li>
                   );
                 })}
@@ -1065,7 +1080,7 @@ export function WrappedView() {
       {topOpeners.length > 0 && (
         <Card className="card-glass">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-white">
+            <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
               How You Start Conversations
             </CardTitle>
           </CardHeader>
@@ -1074,10 +1089,10 @@ export function WrappedView() {
               {topOpeners.map((o) => (
                 <span
                   key={o.text}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#CDD5DB]/30 dark:bg-zinc-800 px-3 py-1.5 text-sm text-[#071739] dark:text-zinc-200"
                 >
                   &ldquo;{o.text}&rdquo;
-                  <span className="text-xs text-zinc-500">x{o.count}</span>
+                  <span className="text-xs text-[#A4B5C4] dark:text-zinc-500">x{o.count}</span>
                 </span>
               ))}
             </div>

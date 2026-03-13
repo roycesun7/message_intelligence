@@ -8,6 +8,8 @@ pub enum AppError {
     Io(#[from] std::io::Error),
     #[error("Chat database not found at ~/Library/Messages/chat.db. Grant Full Disk Access in System Settings.")]
     ChatDbNotFound,
+    #[error("Full Disk Access required. Grant access in System Settings > Privacy & Security > Full Disk Access.")]
+    FullDiskAccessRequired,
     #[error("{0}")]
     Custom(String),
 }

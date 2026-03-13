@@ -14,6 +14,7 @@ import type {
   GroupChatDynamics,
   OnThisDayResult,
   TextingPersonality,
+  AttachmentData,
 } from "@/types";
 
 // ────────────────────────────────────────────────────────
@@ -33,6 +34,10 @@ export const getMessageCount = () => invoke<number>("get_message_count");
 /** Fetch attachments for a given message. */
 export const getMessageAttachments = (messageId: number) =>
   invoke<Attachment[]>("get_message_attachments", { messageId });
+
+/** Fetch attachment data (with base64 image data) for a given message. */
+export const getAttachmentData = (messageId: number) =>
+  invoke<AttachmentData[]>("get_attachment_data", { messageId });
 
 // ────────────────────────────────────────────────────────
 // Contact commands

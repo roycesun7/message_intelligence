@@ -57,6 +57,20 @@ export interface Attachment {
   messageId: number;
 }
 
+/** Attachment with optional inline data URL (images are base64-encoded) */
+export interface AttachmentData {
+  rowid: number;
+  guid: string;
+  filename: string | null;
+  mimeType: string | null;
+  uti: string | null;
+  transferName: string | null;
+  totalBytes: number;
+  isOutgoing: boolean;
+  /** data:image/...;base64,... for image attachments, null otherwise */
+  dataUrl: string | null;
+}
+
 // ── Wrapped / Analytics types (matching Rust backend) ──────────
 
 export interface SentReceived<T> {

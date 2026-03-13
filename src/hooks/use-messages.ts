@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getChats, getMessages, getMessageCount } from "@/lib/commands";
-import type { Chat } from "@/types";
+import { getChats, getMessages, getMessageCount, getAttachmentData } from "@/lib/commands";
+import type { Chat, AttachmentData } from "@/types";
 
 /**
  * Fetch and cache the chat list.
@@ -49,6 +49,16 @@ export const useMessages = (chatId: number | null) => {
     },
     enabled: chatId !== null,
     staleTime: 5 * 60_000, // 5 min — messages don't change underneath us
+  });
+};
+
+/** Fetch attachment data for a message. Only runs when messageId is provided. */
+export const useAttachmentData = (messageId: number | null) => {
+  return useQuery<AttachmentData[]>({
+    queryKey: ["attachmentData", messageId],
+    queryFn: () => getAttachmentData(messageId!),
+    enabled: messageId !== null,
+    staleTime: 30 * 60_000, // 30-minute cache — attachment files don't change
   });
 };
 

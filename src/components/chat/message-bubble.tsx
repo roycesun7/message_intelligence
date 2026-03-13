@@ -2,6 +2,7 @@
 
 import dayjs from "dayjs";
 import type { Message } from "@/types";
+import { AttachmentRenderer } from "./attachment-renderer";
 
 // ── Tapback reactions (associated_message_type 2000-2005) ────────
 const TAPBACK_MAP: Record<number, string> = {
@@ -84,24 +85,29 @@ export function MessageBubble({
             </span>
           )}
 
-          {/* Bubble */}
-          <div
-            className={`relative rounded-[20px] px-4 py-2 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
-              isFromMe
-                ? isGrouped
-                  ? "rounded-br-[8px]"
-                  : "rounded-br-[8px]"
-                : isGrouped
-                ? "rounded-bl-[8px]"
-                : "rounded-bl-[8px]"
-            }`}
-          >
-            {message.text ?? (
-              <span className="italic text-white/60">
-                {message.cacheHasAttachments ? "[Attachment]" : "[No text]"}
-              </span>
-            )}
-          </div>
+          {/* Attachments (rendered above text bubble for image messages) */}
+          {message.cacheHasAttachments && (
+            <AttachmentRenderer messageId={message.rowid} />
+          )}
+
+          {/* Bubble — only render if there is real text content (not whitespace-only) */}
+          {message.text?.trim() ? (
+            <div
+              className={`relative rounded-[20px] px-4 py-2 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
+                isFromMe ? "rounded-br-[8px]" : "rounded-bl-[8px]"
+              }`}
+            >
+              {message.text}
+            </div>
+          ) : !message.cacheHasAttachments ? (
+            <div
+              className={`relative rounded-[20px] px-4 py-2 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
+                isFromMe ? "rounded-br-[8px]" : "rounded-bl-[8px]"
+              }`}
+            >
+              <span className="italic text-white/60">[No text]</span>
+            </div>
+          ) : null}
 
           {/* Timestamp — shown at intervals or on hover via group */}
           {!isGrouped && (

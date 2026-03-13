@@ -21,7 +21,8 @@ pub fn apple_timestamp_to_unix_ms(ts: i64) -> i64 {
         (ts / 1_000_000) + (APPLE_EPOCH_OFFSET_SECS * 1_000)
     } else {
         // Second precision → shift epoch and convert to ms
-        (ts + APPLE_EPOCH_OFFSET_SECS) * 1_000
+        // Use saturating arithmetic to handle corrupt/sentinel values
+        (ts.saturating_add(APPLE_EPOCH_OFFSET_SECS)).saturating_mul(1_000)
     }
 }
 

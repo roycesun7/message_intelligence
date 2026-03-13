@@ -100,6 +100,8 @@ pub fn run() {
             commands::messages::get_messages,
             commands::messages::get_message_attachments,
             commands::messages::get_message_count,
+            // Attachment commands
+            commands::attachments::get_attachment_data,
             // Contact commands
             commands::contacts::get_contact_name,
             commands::contacts::get_contact_map,

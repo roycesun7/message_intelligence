@@ -36,25 +36,27 @@ pub fn encode_texts(
         .encode_batch(texts.to_vec(), true)
         .map_err(|e| AppError::Custom(format!("Tokenization failed: {e}")))?;
 
-    // Find max sequence length for padding
-    let max_len = encodings.iter().map(|e| e.get_ids().len()).max().unwrap_or(0);
+    // CLIP models have a fixed context window of 77 tokens.
+    // Pad shorter sequences and truncate longer ones to exactly 77.
+    const SEQ_LEN: usize = 77;
     let batch_size = encodings.len();
 
-    // Build input_ids and attention_mask as flat Vec<i64> with shape (batch_size, max_len)
-    let mut input_ids_data = vec![0i64; batch_size * max_len];
-    let mut attention_mask_data = vec![0i64; batch_size * max_len];
+    // Build input_ids and attention_mask as flat Vec<i64> with shape (batch_size, SEQ_LEN)
+    let mut input_ids_data = vec![0i64; batch_size * SEQ_LEN];
+    let mut attention_mask_data = vec![0i64; batch_size * SEQ_LEN];
 
     for (i, encoding) in encodings.iter().enumerate() {
         let ids = encoding.get_ids();
         let mask = encoding.get_attention_mask();
-        for (j, (&id, &m)) in ids.iter().zip(mask.iter()).enumerate() {
-            input_ids_data[i * max_len + j] = id as i64;
-            attention_mask_data[i * max_len + j] = m as i64;
+        let len = ids.len().min(SEQ_LEN);
+        for j in 0..len {
+            input_ids_data[i * SEQ_LEN + j] = ids[j] as i64;
+            attention_mask_data[i * SEQ_LEN + j] = mask[j] as i64;
         }
     }
 
     // Create ONNX tensors using the (shape, data) tuple API to avoid ndarray version conflicts
-    let shape = vec![batch_size as i64, max_len as i64];
+    let shape = vec![batch_size as i64, SEQ_LEN as i64];
     let input_ids_tensor = ort::value::Tensor::from_array((shape.clone(), input_ids_data.into_boxed_slice()))
         .map_err(|e| AppError::Custom(format!("Failed to create input_ids tensor: {e}")))?;
     let attention_mask_tensor = ort::value::Tensor::from_array((shape, attention_mask_data.into_boxed_slice()))

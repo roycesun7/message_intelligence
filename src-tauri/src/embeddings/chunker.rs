@@ -67,7 +67,8 @@ pub fn chunk_messages(messages: &[Message]) -> Vec<MessageChunk> {
 
         let sender_changed = msg.is_from_me != current.is_from_me || msg_handle != current.handle_id;
         let chat_changed = msg_chat_id != current.chat_id;
-        let time_gap = (msg.date - current.ended_at).abs() > GAP_THRESHOLD_MS;
+        let time_diff = (msg.date as i128 - current.ended_at as i128).unsigned_abs();
+        let time_gap = time_diff > GAP_THRESHOLD_MS as u128;
 
         if sender_changed || chat_changed || time_gap {
             // Finalize the current chunk and start a new one

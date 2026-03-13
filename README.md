@@ -72,18 +72,24 @@ Message Intelligence transforms your iMessage history into a rich, searchable, a
 ## Development
 
 ```bash
+# Install dependencies
+npm install
+
 # Full app (Tauri manages both frontend + backend)
 npx tauri dev
 
-# Frontend only (backend calls will fail)
+# Frontend only (backend calls will fail without Tauri)
 npm run dev
 
 # Production build
-npm run build && cargo tauri build
+npx tauri build
 
 # Type checking
-npx tsc --noEmit          # Frontend
+npx tsc --noEmit            # Frontend
 cd src-tauri && cargo check  # Backend
+
+# Lint
+npm run lint
 ```
 
 ## Requirements

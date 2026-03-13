@@ -17,17 +17,30 @@ export function SettingsPage() {
   const totalEmbedded = status?.totalEmbedded ?? 0;
   const displayTarget = sliderValue ?? currentTarget;
 
-  const handleSliderChange = async (value: number) => {
+  const handleSliderChange = (value: number) => {
     setSliderValue(value);
-    await setIndexTarget(value);
-    queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
+  };
+
+  const commitSliderValue = async (value: number | null) => {
+    if (value === null) return;
+    try {
+      await setIndexTarget(value);
+      queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
+    } catch (err) {
+      console.error("Failed to set index target:", err);
+    }
   };
 
   const handleRebuild = async () => {
     setRebuilding(true);
-    await rebuildSearchIndex();
-    queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
-    setRebuilding(false);
+    try {
+      await rebuildSearchIndex();
+      queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
+    } catch (err) {
+      console.error("Failed to rebuild index:", err);
+    } finally {
+      setRebuilding(false);
+    }
   };
 
   const isIndexing = totalEmbedded < displayTarget;
@@ -81,6 +94,7 @@ export function SettingsPage() {
               step={500}
               value={displayTarget}
               onChange={(e) => handleSliderChange(Number(e.target.value))}
+              onPointerUp={() => commitSliderValue(sliderValue)}
               className="w-full accent-[#007AFF]"
             />
             <div className="flex justify-between mt-1">

@@ -3,12 +3,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Loader2 } from "lucide-react";
-
-interface EmbeddingProgress {
-  phase: string;
-  processed: number;
-  total: number;
-}
+import type { EmbeddingProgress } from "@/types";
 
 export function IndexingStatusBar() {
   const [progress, setProgress] = useState<EmbeddingProgress | null>(null);

@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 .reference/
 .superpowers/
+
+# ONNX model files (too large for git, use export script to generate)
+src-tauri/resources/models/*.onnx

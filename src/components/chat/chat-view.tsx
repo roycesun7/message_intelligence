@@ -80,24 +80,12 @@ export function ChatView() {
       const prev = index > 0 ? visibleMessages[index - 1] : null;
       const tapbacks = tapbackMap.get(msg.guid) ?? [];
       return (
-        <div className="relative">
-          <MessageBubble
-            message={msg}
-            previousMessage={prev}
-            showSenderName={isGroupChat}
-          />
-          {tapbacks.length > 0 && (
-            <div
-              className={`absolute -bottom-2 flex gap-0.5 rounded-full bg-[#2C2C2E] px-1.5 py-0.5 text-xs shadow-[0_1px_4px_rgba(0,0,0,0.3)] border border-white/[0.06] ${
-                msg.isFromMe ? "right-5" : "left-5"
-              }`}
-            >
-              {tapbacks.map((emoji, i) => (
-                <span key={i}>{emoji}</span>
-              ))}
-            </div>
-          )}
-        </div>
+        <MessageBubble
+          message={msg}
+          previousMessage={prev}
+          showSenderName={isGroupChat}
+          tapbacks={tapbacks}
+        />
       );
     },
     [visibleMessages, tapbackMap, isGroupChat]

@@ -25,12 +25,14 @@ interface MessageBubbleProps {
   message: Message;
   previousMessage: Message | null;
   showSenderName?: boolean;
+  tapbacks?: string[];
 }
 
 export function MessageBubble({
   message,
   previousMessage,
   showSenderName,
+  tapbacks = [],
 }: MessageBubbleProps) {
   // Skip tapback reactions — they are rendered as decorations on the target message.
   if (isTapback(message)) return null;
@@ -92,20 +94,42 @@ export function MessageBubble({
 
           {/* Bubble — only render if there is real text content (not whitespace-only) */}
           {message.text?.trim() ? (
-            <div
-              className={`relative rounded-[20px] px-4 py-2 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
-                isFromMe ? "rounded-br-[8px]" : "rounded-bl-[8px]"
-              }`}
-            >
-              {message.text}
+            <div className="relative">
+              <div
+                className={`rounded-[20px] px-4 py-2 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
+                  isFromMe ? "rounded-br-[8px]" : "rounded-bl-[8px]"
+                }`}
+              >
+                {message.text}
+              </div>
+              {tapbacks.length > 0 && (
+                <div
+                  className={`absolute -top-3 ${isFromMe ? "left-2" : "right-2"} flex gap-0.5 rounded-full bg-[#2C2C2E] px-1.5 py-0.5 text-xs shadow-[0_1px_4px_rgba(0,0,0,0.3)] border border-white/[0.06]`}
+                >
+                  {tapbacks.map((emoji, i) => (
+                    <span key={i}>{emoji}</span>
+                  ))}
+                </div>
+              )}
             </div>
           ) : !message.cacheHasAttachments ? (
-            <div
-              className={`relative rounded-[20px] px-4 py-2 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
-                isFromMe ? "rounded-br-[8px]" : "rounded-bl-[8px]"
-              }`}
-            >
-              <span className="italic text-white/60">[No text]</span>
+            <div className="relative">
+              <div
+                className={`rounded-[20px] px-4 py-2 text-sm leading-relaxed ${bubbleBg} ${bubbleText} ${
+                  isFromMe ? "rounded-br-[8px]" : "rounded-bl-[8px]"
+                }`}
+              >
+                <span className="italic text-white/60">[No text]</span>
+              </div>
+              {tapbacks.length > 0 && (
+                <div
+                  className={`absolute -top-3 ${isFromMe ? "left-2" : "right-2"} flex gap-0.5 rounded-full bg-[#2C2C2E] px-1.5 py-0.5 text-xs shadow-[0_1px_4px_rgba(0,0,0,0.3)] border border-white/[0.06]`}
+                >
+                  {tapbacks.map((emoji, i) => (
+                    <span key={i}>{emoji}</span>
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
 

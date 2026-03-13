@@ -25,13 +25,11 @@ pub struct AttachmentData {
     pub data_url: Option<String>,
 }
 
-/// Maximum file size we'll base64-encode (10 MB).
+/// Maximum file size we'll process (10 MB).
 const MAX_IMAGE_SIZE: u64 = 10 * 1024 * 1024;
 
-/// MIME types we treat as inline-renderable images.
-/// Note: HEIC/HEIF excluded — base64 data URLs for these formats are not
-/// reliably rendered by WebKit's <img> element. They'll show as file cards.
-fn is_image_mime(mime: &str) -> bool {
+/// MIME types we can directly base64-encode (browser-native formats).
+fn is_native_image_mime(mime: &str) -> bool {
     matches!(
         mime,
         "image/jpeg"
@@ -41,6 +39,11 @@ fn is_image_mime(mime: &str) -> bool {
             | "image/tiff"
             | "image/bmp"
     )
+}
+
+/// MIME types we convert to JPEG via macOS sips before base64-encoding.
+fn needs_sips_conversion(mime: &str) -> bool {
+    matches!(mime, "image/heic" | "image/heif")
 }
 
 /// Expand `~` at the start of a path to the user's home directory.
@@ -54,32 +57,68 @@ fn expand_tilde(path: &str) -> Option<std::path::PathBuf> {
     }
 }
 
-/// Read an attachment file and base64-encode it as a data URL.
-fn read_image_as_data_url(filename: &str, mime_type: &str) -> Option<String> {
-    let path = expand_tilde(filename)?;
-
+/// Check that a file exists and is under the size limit.
+fn validate_file(path: &std::path::Path) -> bool {
     if !path.exists() {
         log::debug!("Attachment file not found: {}", path.display());
+        return false;
+    }
+    match std::fs::metadata(path) {
+        Ok(meta) if meta.len() <= MAX_IMAGE_SIZE => true,
+        Ok(meta) => {
+            log::debug!("Attachment too large ({} bytes): {}", meta.len(), path.display());
+            false
+        }
+        Err(_) => false,
+    }
+}
+
+/// Read an image file and base64-encode it as a data URL.
+fn read_image_as_data_url(filename: &str, mime_type: &str) -> Option<String> {
+    let path = expand_tilde(filename)?;
+    if !validate_file(&path) {
         return None;
     }
-
-    let metadata = std::fs::metadata(&path).ok()?;
-    if metadata.len() > MAX_IMAGE_SIZE {
-        log::debug!(
-            "Attachment too large to inline ({} bytes): {}",
-            metadata.len(),
-            path.display()
-        );
-        return None;
-    }
-
     let bytes = std::fs::read(&path).ok()?;
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     Some(format!("data:{};base64,{}", mime_type, b64))
 }
 
+/// Convert a HEIC/HEIF file to JPEG using macOS `sips`, then base64-encode.
+fn convert_heic_to_data_url(filename: &str) -> Option<String> {
+    let path = expand_tilde(filename)?;
+    if !validate_file(&path) {
+        return None;
+    }
+
+    let temp_dir = std::env::temp_dir();
+    let temp_path = temp_dir.join(format!("mi_{}.jpg", std::process::id()));
+
+    let status = std::process::Command::new("sips")
+        .args(["-s", "format", "jpeg", "-s", "formatOptions", "80"])
+        .arg(&path)
+        .arg("--out")
+        .arg(&temp_path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .ok()?;
+
+    if !status.success() {
+        log::debug!("sips conversion failed for: {}", path.display());
+        return None;
+    }
+
+    let bytes = std::fs::read(&temp_path).ok()?;
+    let _ = std::fs::remove_file(&temp_path);
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Some(format!("data:image/jpeg;base64,{}", b64))
+}
+
 /// Fetch attachment data for a given message.
 /// Images are base64-encoded and returned as data URLs.
+/// HEIC/HEIF images are converted to JPEG via macOS sips.
 /// Non-image attachments return metadata only.
 #[tauri::command]
 pub fn get_attachment_data(
@@ -94,8 +133,11 @@ pub fn get_attachment_data(
         .into_iter()
         .map(|a| {
             let data_url = match (&a.filename, &a.mime_type) {
-                (Some(fname), Some(mime)) if is_image_mime(mime) => {
+                (Some(fname), Some(mime)) if is_native_image_mime(mime) => {
                     read_image_as_data_url(fname, mime)
+                }
+                (Some(fname), Some(mime)) if needs_sips_conversion(mime) => {
+                    convert_heic_to_data_url(fname)
                 }
                 _ => None,
             };

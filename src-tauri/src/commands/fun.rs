@@ -89,7 +89,7 @@ pub async fn get_group_chat_dynamics(
     let result = tokio::task::spawn_blocking(move || -> AppResult<GroupChatDynamics> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         // Build handle_id -> handle identifier string map for name resolution
         let handle_map = build_handle_map(&conn)?;
@@ -307,7 +307,7 @@ pub async fn get_on_this_day(
     let result = tokio::task::spawn_blocking(move || -> AppResult<OnThisDayResult> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         let handle_map = build_handle_map(&conn)?;
 
@@ -477,7 +477,7 @@ pub async fn get_texting_personality(
     let result = tokio::task::spawn_blocking(move || -> AppResult<TextingPersonality> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         let chat_filter = if chat_id.is_some() {
             "AND cmj.chat_id = ?1"

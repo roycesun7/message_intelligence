@@ -13,7 +13,7 @@ export function ChatView() {
   const scrollToMessageDate = useAppStore((s) => s.scrollToMessageDate);
   const setScrollToMessageDate = useAppStore((s) => s.setScrollToMessageDate);
   const chat = useChatById(chatId);
-  const { data: messages, isLoading } = useMessages(chatId);
+  const { data: messages, isLoading, isError, error } = useMessages(chatId);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   const isGroupChat = chat ? chat.style === 43 : false;
@@ -133,7 +133,13 @@ export function ChatView() {
             Loading messages...
           </div>
         )}
-        {!isLoading && visibleMessages.length === 0 && (
+        {!isLoading && isError && (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm">
+            <p className="text-red-400">Failed to load messages</p>
+            <p className="text-zinc-600 text-xs max-w-md text-center">{String(error)}</p>
+          </div>
+        )}
+        {!isLoading && !isError && visibleMessages.length === 0 && (
           <div className="flex h-full items-center justify-center text-sm text-zinc-500">
             No messages in this chat.
           </div>

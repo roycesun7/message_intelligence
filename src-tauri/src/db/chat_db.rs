@@ -23,12 +23,12 @@ pub fn get_chat_list(conn: &Connection, contact_map: &HashMap<String, String>) -
             m.text,
             m.attributedBody
          FROM chat AS c
-         INNER JOIN chat_message_join AS cmj ON c.ROWID = cmj.chat_id
-         INNER JOIN message AS m ON cmj.message_id = m.ROWID
-         WHERE cmj.message_date = (
-             SELECT MAX(cmj2.message_date)
+         INNER JOIN message AS m ON m.ROWID = (
+             SELECT cmj2.message_id
              FROM chat_message_join AS cmj2
              WHERE cmj2.chat_id = c.ROWID
+             ORDER BY cmj2.message_date DESC
+             LIMIT 1
          )
          ORDER BY m.date DESC",
     )?;

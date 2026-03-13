@@ -3,7 +3,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::db::chat_db;
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::state::AppState;
 
 /// Attachment data returned to the frontend.
@@ -86,10 +86,7 @@ pub fn get_attachment_data(
     state: State<'_, AppState>,
     message_id: i64,
 ) -> AppResult<Vec<AttachmentData>> {
-    let conn = state
-        .chat_db
-        .lock()
-        .map_err(|e| AppError::Custom(e.to_string()))?;
+    let conn = state.lock_chat_db()?;
 
     let attachments = chat_db::get_attachments_for_message(&conn, message_id)?;
 

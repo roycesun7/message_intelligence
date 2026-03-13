@@ -2,7 +2,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::db::{analytics_db, chat_db};
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Serialize)]
@@ -19,13 +19,9 @@ pub struct EmbeddingStatus {
 #[tauri::command]
 pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<EmbeddingStatus> {
     let chat_conn = state
-        .chat_db
-        .lock()
-        .map_err(|e| AppError::Custom(e.to_string()))?;
+        .lock_chat_db()?;
     let analytics_conn = state
-        .analytics_db
-        .lock()
-        .map_err(|e| AppError::Custom(e.to_string()))?;
+        .lock_analytics_db()?;
 
     let total_messages = chat_db::get_total_message_count(&chat_conn)?;
     let total_embedded = analytics_db::count_embedded(&analytics_conn)?;

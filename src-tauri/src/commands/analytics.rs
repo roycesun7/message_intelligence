@@ -150,9 +150,7 @@ pub async fn get_wrapped_stats(
     // Check cache first
     if use_cache {
         let analytics_conn = state
-            .analytics_db
-            .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .lock_analytics_db()?;
         if let Some(json) = analytics_db::get_cached_wrapped(&analytics_conn, year) {
             if let Ok(stats) = serde_json::from_str::<WrappedStats>(&json) {
                 return Ok(stats);
@@ -170,7 +168,7 @@ pub async fn get_wrapped_stats(
     let result = tokio::task::spawn_blocking(move || -> AppResult<WrappedStats> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         let cids = chat_ids_clone.as_deref();
 
@@ -220,9 +218,7 @@ pub fn invalidate_wrapped_cache(
     year: Option<i64>,
 ) -> AppResult<()> {
     let conn = state
-        .analytics_db
-        .lock()
-        .map_err(|e| AppError::Custom(e.to_string()))?;
+        .lock_analytics_db()?;
     analytics_db::invalidate_wrapped_cache(&conn, year)
 }
 
@@ -239,7 +235,7 @@ pub async fn get_temporal_trends(
     let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<DailyMessageCount>> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         let effective_year = year.unwrap_or(0);
         let (filter_clause, filter_params) =
@@ -294,7 +290,7 @@ pub async fn get_response_time_stats(
     let result = tokio::task::spawn_blocking(move || -> AppResult<ResponseTimeStats> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         let sql = "SELECT message.date, message.is_from_me
              FROM message
@@ -386,7 +382,7 @@ pub async fn get_initiation_stats(
     let result = tokio::task::spawn_blocking(move || -> AppResult<InitiationStats> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         let sql = "SELECT message.date, message.is_from_me
              FROM message
@@ -456,7 +452,7 @@ pub async fn get_message_length_stats(
     let result = tokio::task::spawn_blocking(move || -> AppResult<MessageLengthStats> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         let sql = "SELECT
                  message.is_from_me,
@@ -537,7 +533,7 @@ pub async fn get_active_hours(
     let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<HourlyActivity>> {
         let conn = chat_db_mutex
             .lock()
-            .map_err(|e| AppError::Custom(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
 
         let sql = "SELECT
                  CAST(strftime('%H', DATETIME(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime')) AS integer) AS hour,

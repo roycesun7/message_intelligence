@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Sparkles, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Search, Sparkles, ChevronDown, ChevronUp, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { Input } from "@/components/ui/input";
 import { useAppStore } from "@/stores/app-store";
@@ -119,12 +119,50 @@ function IndexingProgress() {
   );
 }
 
+// ── Index status indicator ────────────────────────────────────────
+
+function IndexStatus() {
+  const { data: status } = useEmbeddingStatus();
+
+  if (!status) return null;
+
+  const { modelsLoaded, totalEmbedded, totalMessages } = status;
+
+  if (!modelsLoaded) {
+    return (
+      <div className="mt-3 mx-auto w-full max-w-xl flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
+        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+        <span>Search models not loaded. Check Settings for details.</span>
+      </div>
+    );
+  }
+
+  if (totalEmbedded === 0) {
+    return (
+      <div className="mt-3 mx-auto w-full max-w-xl flex items-center gap-2 text-[11px] text-[#4B6382] dark:text-zinc-400">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>Building search index...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 mx-auto w-full max-w-xl flex items-center gap-2 text-[11px] text-[#A4B5C4] dark:text-zinc-500">
+      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+      <span>
+        {totalEmbedded.toLocaleString()} of {totalMessages.toLocaleString()} messages indexed
+      </span>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────
 
 export function GlobalSearch() {
   const searchQuery = useAppStore((s) => s.searchQuery);
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
 
+  const { data: status } = useEmbeddingStatus();
   const { data: results, isLoading } = useSemanticSearch(searchQuery);
 
   const [messagesExpanded, setMessagesExpanded] = useState(false);
@@ -175,8 +213,9 @@ export function GlobalSearch() {
         </div>
       </div>
 
-      {/* Indexing progress */}
+      {/* Indexing progress (real-time) or static index status */}
       <IndexingProgress />
+      <IndexStatus />
 
       {/* Content area */}
       <div className="mx-auto mt-8 w-full max-w-xl">
@@ -215,7 +254,11 @@ export function GlobalSearch() {
               No results found
             </h2>
             <p className="mt-1 text-sm text-[#4B6382] dark:text-zinc-500">
-              Try rephrasing your search or using different terms.
+              {status && !status.modelsLoaded
+                ? "Search models are not loaded. Check Settings."
+                : status && status.totalEmbedded === 0
+                  ? "The search index is still building. Results will appear once indexing completes."
+                  : "Try rephrasing your search or using different terms."}
             </p>
           </div>
         )}

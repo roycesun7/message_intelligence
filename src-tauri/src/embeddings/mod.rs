@@ -1,1 +1,2 @@
-// Embeddings module — future home of vector embedding pipeline.
+pub mod chunker;
+pub mod clip;

@@ -27,7 +27,7 @@ pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<Embedding
 
     let total_messages = chat_db::get_total_message_count(&chat_conn)?;
     let total_embedded = analytics_db::count_embeddings(&analytics_conn)?;
-    let models_loaded = state.clip_text.is_some() && state.clip_vision.is_some();
+    let models_loaded = state.models_loaded();
     let index_target = analytics_db::get_search_setting(&analytics_conn, "index_target")
         .and_then(|s| s.parse::<i64>().ok())
         .unwrap_or(1000);
@@ -70,22 +70,27 @@ pub fn semantic_search(
 ) -> AppResult<Vec<SemanticSearchResult>> {
     let limit = limit.unwrap_or(20);
 
-    // Get text session
-    let text_session_arc = state
-        .clip_text
+    // Get text session (behind RwLock)
+    let clip_text_guard = state.clip_text.read().unwrap_or_else(|p| p.into_inner());
+    let text_session_arc = clip_text_guard
         .as_ref()
-        .ok_or_else(|| AppError::Custom("CLIP text model not loaded".into()))?;
-    let tokenizer_arc = state
-        .tokenizer
+        .ok_or_else(|| AppError::Custom("CLIP text model not loaded".into()))?
+        .clone();
+    drop(clip_text_guard);
+
+    let tokenizer_guard = state.tokenizer.read().unwrap_or_else(|p| p.into_inner());
+    let tokenizer_arc = tokenizer_guard
         .as_ref()
-        .ok_or_else(|| AppError::Custom("Tokenizer not loaded".into()))?;
+        .ok_or_else(|| AppError::Custom("Tokenizer not loaded".into()))?
+        .clone();
+    drop(tokenizer_guard);
 
     // Encode query
     let query_embedding = {
         let mut session = text_session_arc
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        let embeddings = clip::encode_texts(&mut session, tokenizer_arc, &[query.as_str()])?;
+        let embeddings = clip::encode_texts(&mut session, &tokenizer_arc, &[query.as_str()])?;
         if embeddings.is_empty() {
             return Err(AppError::Custom("Failed to encode query".into()));
         }

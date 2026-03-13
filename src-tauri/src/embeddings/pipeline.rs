@@ -517,6 +517,7 @@ fn embed_messages_by_direction(
 
     // Process in batches
     let mut processed: i64 = 0;
+    let mut embeddings_created: i64 = 0;
     for batch in messages.chunks(EMBED_BATCH_SIZE) {
         let texts: Vec<&str> = batch
             .iter()
@@ -568,6 +569,8 @@ fn embed_messages_by_direction(
                         &blob,
                     ) {
                         log::debug!("Failed to insert embedding for message {}: {e}", msg.rowid);
+                    } else {
+                        embeddings_created += 1;
                     }
                 }
             }
@@ -580,14 +583,19 @@ fn embed_messages_by_direction(
         emit_progress(app_handle, "text", processed, total);
     }
 
-    // Mark this direction as done
-    let max_rowid = messages.iter().map(|m| m.rowid).max().unwrap_or(0);
-    analytics_db::update_processing_state(
-        analytics_conn,
-        &pipeline_name,
-        max_rowid,
-        processed,
-    )?;
+    // Only mark as done if at least one embedding was created
+    if embeddings_created > 0 {
+        let max_rowid = messages.iter().map(|m| m.rowid).max().unwrap_or(0);
+        analytics_db::update_processing_state(
+            analytics_conn,
+            &pipeline_name,
+            max_rowid,
+            processed,
+        )?;
+        log::info!("Phase 2 ({direction}): created {embeddings_created} embeddings from {processed} messages");
+    } else {
+        log::warn!("Phase 2 ({direction}): no embeddings created from {processed} messages — NOT marking as done");
+    }
 
     Ok(())
 }
@@ -631,6 +639,7 @@ fn run_phase_attachment_embedding(
 
     let total = msg_rows.len() as i64;
     let mut processed: i64 = 0;
+    let mut embeddings_created: i64 = 0;
 
     for (message_rowid, chat_id) in &msg_rows {
         let attachments = chat_db::get_attachments_for_message(chat_conn, *message_rowid)?;
@@ -674,6 +683,8 @@ fn run_phase_attachment_embedding(
                                 "Failed to insert attachment embedding {}: {e}",
                                 attachment.rowid
                             );
+                        } else {
+                            embeddings_created += 1;
                         }
                     }
                     Err(e) => {
@@ -697,16 +708,18 @@ fn run_phase_attachment_embedding(
         }
     }
 
-    let max_rowid = msg_rows.iter().map(|(r, _)| *r).max().unwrap_or(0);
-    analytics_db::update_processing_state(
-        analytics_conn,
-        "embedding_attachments",
-        max_rowid,
-        processed,
-    )?;
+    if embeddings_created > 0 {
+        let max_rowid = msg_rows.iter().map(|(r, _)| *r).max().unwrap_or(0);
+        analytics_db::update_processing_state(
+            analytics_conn,
+            "embedding_attachments",
+            max_rowid,
+            processed,
+        )?;
+    }
 
     emit_progress(app_handle, "attachments", processed, total);
-    log::info!("Phase 3 complete: processed {processed} messages with attachments");
+    log::info!("Phase 3 complete: {embeddings_created} attachment embeddings from {processed} messages");
     Ok(())
 }
 

@@ -1,8 +1,8 @@
-# Message Intelligence - Technical Specification
+# iCapsule - Technical Specification
 
 ## Architecture Overview
 
-Message Intelligence is a native macOS desktop application built with **Tauri v2**, combining a **Rust backend** for performance-critical data processing with a **React/Next.js frontend** for the user interface. The app reads Apple's iMessage database (chat.db) directly in read-only mode and maintains a separate analytics database for cached computations.
+iCapsule is a native macOS desktop application built with **Tauri v2**, combining a **Rust backend** for performance-critical data processing with a **React/Next.js frontend** for the user interface. The app reads Apple's iMessage database (chat.db) directly in read-only mode and maintains a separate analytics database for cached computations.
 
 ```
 +--------------------------------------------------+
@@ -71,7 +71,7 @@ Message Intelligence is a native macOS desktop application built with **Tauri v2
 ## Directory Structure
 
 ```
-message_intelligence/
+icapsule/
 ├── src/                              # Frontend source
 │   ├── app/
 │   │   ├── page.tsx                  # Main page - nav + view routing (glass nav bar)

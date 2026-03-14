@@ -42,6 +42,7 @@ next-env.d.ts
 .reference/
 .superpowers/
 .venv/
+.playwright-mcp/
 
 # Model files (too large for git — run scripts/setup_models.sh to download)
 src-tauri/resources/models/*

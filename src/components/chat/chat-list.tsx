@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, memo } from "react";
+import { useMemo, useCallback, memo, useSyncExternalStore } from "react";
 import { Virtuoso } from "react-virtuoso";
 import Fuse from "fuse.js";
 import dayjs from "dayjs";
@@ -13,6 +13,21 @@ import { Input } from "@/components/ui/input";
 import type { Chat } from "@/types";
 
 dayjs.extend(relativeTime);
+
+function useWindowFocused() {
+  return useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("focus", cb);
+      window.addEventListener("blur", cb);
+      return () => {
+        window.removeEventListener("focus", cb);
+        window.removeEventListener("blur", cb);
+      };
+    },
+    () => document.hasFocus(),
+    () => true
+  );
+}
 
 const FUSE_OPTIONS = {
   keys: ["displayName", "chatIdentifier", "participants.id", "participants.displayName"],
@@ -35,9 +50,12 @@ const ChatEntry = memo(function ChatEntry({
   const setView = useAppStore((s) => s.setView);
   const view = useAppStore((s) => s.view);
   const setWrappedChatId = useAppStore((s) => s.setWrappedChatId);
+  const windowFocused = useWindowFocused();
 
   const name = getChatDisplayName(chat);
   const isGroup = chat.style === 43;
+  const isFocusedActive = isActive && windowFocused;
+  const isUnfocusedActive = isActive && !windowFocused;
 
   const handleClick = useCallback(() => {
     if (view === "wrapped") {
@@ -49,45 +67,55 @@ const ChatEntry = memo(function ChatEntry({
   }, [chat.rowid, view, setSelectedChatId, setView, setWrappedChatId]);
 
   return (
-    <button
-      onClick={handleClick}
-      className={`flex w-full cursor-pointer items-start gap-3 mx-2 px-3 py-2.5 text-left transition-colors duration-200 rounded-[10px] ${
-        isActive
-          ? "bg-[#1B2432]/[0.06] dark:bg-white/[0.08]"
-          : "hover:bg-[#1B2432]/[0.04] dark:hover:bg-white/[0.06]"
-      }`}
-      style={{ width: "calc(100% - 16px)" }}
-    >
-      {/* Avatar circle */}
-      <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
-          isGroup
-            ? "bg-purple-100 text-purple-600 dark:bg-purple-600/30 dark:text-purple-300"
-            : "bg-[#007AFF]/15 text-[#007AFF] dark:bg-[#007AFF]/30 dark:text-[#64ACFF]"
+    <div>
+      <button
+        onClick={handleClick}
+        className={`flex w-full cursor-pointer items-start gap-3 mx-2 px-3 py-2.5 text-left transition-colors duration-200 rounded-[10px] ${
+          isFocusedActive
+            ? "bg-[#007AFF]"
+            : isUnfocusedActive
+              ? "bg-[#1B2432]/[0.08] dark:bg-white/[0.10]"
+              : "hover:bg-[#1B2432]/[0.04] dark:hover:bg-white/[0.06]"
         }`}
+        style={{ width: "calc(100% - 16px)" }}
       >
-        {name.charAt(0).toUpperCase() || "?"}
-      </div>
+        {/* Avatar circle */}
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+            isFocusedActive
+              ? "bg-white/20 text-white shadow-none"
+              : isGroup
+                ? "bg-purple-100 text-purple-600 dark:bg-purple-600/30 dark:text-purple-300 shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
+                : "bg-[#007AFF]/15 text-[#007AFF] dark:bg-[#007AFF]/30 dark:text-[#64ACFF] shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
+          }`}
+        >
+          {name.charAt(0).toUpperCase() || "?"}
+        </div>
 
-      {/* Text content */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[13px] font-medium text-[#1B2432] dark:text-zinc-100 apple-text-sm">
-            {name}
-          </span>
-          {chat.lastMessageDate && (
-            <span className="shrink-0 text-[11px] text-[#94A3B3] dark:text-zinc-500 apple-text-xs">
-              {dayjs(chat.lastMessageDate).fromNow(true)}
+        {/* Text content */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className={`truncate text-[13px] font-medium apple-text-sm ${isFocusedActive ? "text-white" : "text-[#1B2432] dark:text-zinc-100"}`}>
+              {name}
             </span>
+            {chat.lastMessageDate && (
+              <span className={`shrink-0 text-[11px] apple-text-xs ${isFocusedActive ? "text-white/70" : "text-[#94A3B3] dark:text-zinc-500"}`}>
+                {dayjs(chat.lastMessageDate).fromNow(true)}
+              </span>
+            )}
+          </div>
+          {chat.lastMessageText && (
+            <p className={`mt-0.5 truncate text-xs apple-text-xs ${isFocusedActive ? "text-white/60" : "text-[#4E5D6E] dark:text-zinc-500"}`}>
+              {chat.lastMessageText}
+            </p>
           )}
         </div>
-        {chat.lastMessageText && (
-          <p className="mt-0.5 truncate text-xs text-[#4E5D6E] dark:text-zinc-500 apple-text-xs">
-            {chat.lastMessageText}
-          </p>
-        )}
-      </div>
-    </button>
+      </button>
+      {/* Divider — hidden when this entry is active */}
+      {!isActive && (
+        <div className="mx-auto w-[calc(100%-48px)] h-px bg-[#D1D5DB]/20 dark:bg-white/[0.04]" />
+      )}
+    </div>
   );
 });
 
@@ -116,7 +144,7 @@ function AllChatsEntry({ isActive }: { isActive: boolean }) {
       }`}
       style={{ width: "calc(100% - 16px)" }}
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#007AFF]/15 to-purple-200/50 dark:from-[#007AFF]/30 dark:to-purple-600/30 text-sm font-semibold text-[#007AFF] dark:text-[#64ACFF] shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FF3B30]/20 via-[#007AFF]/20 to-[#AF52DE]/20 dark:from-[#FF3B30]/30 dark:via-[#007AFF]/30 dark:to-[#AF52DE]/30 text-sm font-semibold text-[#007AFF] dark:text-[#64ACFF] rainbow-glow">
         <BarChart3 className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
@@ -157,41 +185,44 @@ export function ChatList() {
   }, [chats, chatSearchQuery, fuseIndex]);
 
   const itemContent = useCallback(
-    (_index: number, chat: Chat) => (
-      <ChatEntry chat={chat} isActive={activeChatId === chat.rowid} />
-    ),
-    [activeChatId]
+    (index: number) => {
+      if (isWrappedView && index === 0) {
+        return <AllChatsEntry isActive={wrappedChatId === null} />;
+      }
+      const chatIndex = isWrappedView ? index - 1 : index;
+      const chat = filteredChats[chatIndex];
+      if (!chat) return null;
+      return <ChatEntry chat={chat} isActive={activeChatId === chat.rowid} />;
+    },
+    [activeChatId, isWrappedView, wrappedChatId, filteredChats]
   );
 
+  const totalCount = filteredChats.length + (isWrappedView ? 1 : 0);
+
   return (
-    <div className="flex h-full w-80 min-w-80 flex-col border-r border-[#D1D5DB]/40 dark:border-white/[0.06] bg-[#F7F8FA] dark:bg-[#1C1C1E]/60 dark:backdrop-blur-2xl dark:saturate-[2]">
-      {/* Search bar */}
-      <div className="p-3">
+    <div className="relative h-full w-80 min-w-80 overflow-hidden rounded-2xl bg-[#F7F8FA]/80 dark:bg-[#2A2A2C]/60 backdrop-blur-2xl saturate-[1.2] dark:saturate-[1.8] border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_24px_rgba(0,0,0,0.4)] mr-2">
+      {/* Search bar — floats over list so content scrolls behind the blur */}
+      <div className="absolute top-0 left-0 right-0 pt-3 px-3 pb-1 z-10 backdrop-blur-[1px] bg-[#F7F8FA]/15 dark:bg-[#2A2A2C]/15">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B3] dark:text-zinc-500" />
           <Input
-            placeholder="Search conversations..."
+            placeholder="Search"
             value={chatSearchQuery}
             onChange={(e) => setChatSearchQuery(e.target.value)}
-            className="h-9 pl-9 rounded-lg bg-[#1B2432]/[0.04] dark:bg-white/[0.06] border-[#D1D5DB]/40 dark:border-white/[0.06] text-[#1B2432] dark:text-zinc-200 placeholder:text-[#94A3B3] dark:placeholder:text-zinc-500 focus-visible:ring-[#4E5D6E]/40 dark:focus-visible:ring-[#007AFF]/40 apple-text-sm"
+            className="h-9 pl-9 rounded-full bg-[#F7F8FA] dark:bg-[#2A2A2C] border-[#D1D5DB]/40 dark:border-white/[0.06] text-[#1B2432] dark:text-zinc-200 placeholder:text-[#94A3B3] dark:placeholder:text-zinc-500 focus-visible:ring-[#4E5D6E]/40 dark:focus-visible:ring-[#007AFF]/40 apple-text-sm"
           />
         </div>
       </div>
 
-      {/* "All Chats" entry when in wrapped view */}
-      {isWrappedView && (
-        <AllChatsEntry isActive={wrappedChatId === null} />
-      )}
-
-      {/* List */}
-      <div className="relative min-h-0 flex-1">
+      {/* List — fills entire area, Virtuoso header provides top spacing */}
+      <div className="absolute inset-0">
         {isLoading && (
-          <div className="flex items-center justify-center p-8 text-sm text-[#94A3B3] dark:text-zinc-500">
+          <div className="flex items-center justify-center p-8 pt-[72px] text-sm text-[#94A3B3] dark:text-zinc-500">
             Loading conversations...
           </div>
         )}
         {isError && (
-          <div className="flex flex-col items-center justify-center gap-2 p-8 text-center text-sm text-[#94A3B3] dark:text-zinc-500">
+          <div className="flex flex-col items-center justify-center gap-2 p-8 pt-[72px] text-center text-sm text-[#94A3B3] dark:text-zinc-500">
             <p className="font-medium text-red-500 dark:text-red-400">Unable to load chats</p>
             <p className="text-xs apple-text-xs">
               Make sure Full Disk Access is granted in System Settings.
@@ -199,19 +230,22 @@ export function ChatList() {
           </div>
         )}
         {!isLoading && !isError && filteredChats.length === 0 && (
-          <div className="flex items-center justify-center p-8 text-sm text-[#94A3B3] dark:text-zinc-500">
+          <div className="flex items-center justify-center p-8 pt-[72px] text-sm text-[#94A3B3] dark:text-zinc-500">
             No conversations found.
           </div>
         )}
         {!isLoading && !isError && filteredChats.length > 0 && (
           <div className="absolute inset-0 overflow-hidden">
             <Virtuoso
-              data={filteredChats}
+              totalCount={totalCount}
               itemContent={itemContent}
               defaultItemHeight={68}
               increaseViewportBy={400}
               overscan={100}
               style={{ height: "100%", width: "100%" }}
+              components={{
+                Header: () => <div className="pt-[52px]" />,
+              }}
             />
           </div>
         )}

@@ -27,7 +27,7 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
 
   if (isLoading) {
     return (
-      <div className="mb-8 flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-3">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] dark:border-zinc-600 border-t-[#4E5D6E] dark:border-t-blue-500" />
           <p className="text-sm text-[#94A3B3] dark:text-zinc-500">Loading group dynamics...</p>
@@ -45,7 +45,7 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
   const replyMagnet = findReplyMagnet(data.participants);
 
   return (
-    <div className="mb-8 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-2">
         <Users className="h-6 w-6 text-[#4E5D6E] dark:text-blue-400" />

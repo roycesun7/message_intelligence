@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useCallback } from "react";
+import { useEffect, useRef, useMemo, useCallback, useState } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { Virtuoso } from "react-virtuoso";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
 
 import { useMessages, useChatById, getChatDisplayName } from "@/hooks/use-messages";
 import { useAppStore } from "@/stores/app-store";
@@ -18,6 +18,7 @@ export function ChatView() {
   const chat = useChatById(chatId);
   const { data: messages, isLoading, isError, error } = useMessages(chatId);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   // Use a ref (not state) to track pending scroll so we don't cause re-renders
   const pendingScrollRef = useRef<number | null>(null);
@@ -112,6 +113,26 @@ export function ChatView() {
     };
   }, [visibleMessages, setHighlightedMessageDate]);
 
+  const handleAtBottomChange = useCallback((atBottom: boolean) => {
+    setIsAtBottom(atBottom);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    // Instant jump first to get close, then smooth to land precisely
+    virtuosoRef.current?.scrollToIndex({
+      index: visibleMessages.length - 1,
+      align: "end",
+      behavior: "auto",
+    });
+    setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: visibleMessages.length - 1,
+        align: "end",
+        behavior: "smooth",
+      });
+    }, 100);
+  }, [visibleMessages.length]);
+
   const itemContent = useCallback(
     (index: number) => {
       const msg = visibleMessages[index];
@@ -141,28 +162,30 @@ export function ChatView() {
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-[#ECEEF2] dark:bg-[#1C1C1E]">
-      {/* Header */}
-      <div className="flex h-14 shrink-0 items-center bg-[#F7F8FA] dark:bg-[#1C1C1E]/80 dark:backdrop-blur-xl dark:saturate-[1.8] border-b border-[#D1D5DB]/40 dark:border-white/[0.06] shadow-[0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_6px_rgba(0,0,0,0.2)] px-5 relative z-10">
-        <h2 className="truncate text-[15px] font-semibold text-[#1B2432] dark:text-zinc-100 apple-text-sm">
-          {chatName}
-        </h2>
-        {isGroupChat && chat && (
-          <span className="ml-2 text-xs text-[#94A3B3] dark:text-zinc-500 apple-text-xs">
-            {chat.participants.length} members
-          </span>
-        )}
+    <div className="absolute inset-0 bg-[#ECEEF2] dark:bg-[#1C1C1E]">
+      {/* Header — floats over messages so content scrolls behind the blur */}
+      <div className="absolute top-0 left-0 right-[10px] flex h-14 items-center justify-center backdrop-blur-[1px] bg-[#ECEEF2]/15 dark:bg-[#1C1C1E]/15 saturate-[1.2] dark:saturate-[1.8] border-b border-[#D1D5DB]/15 dark:border-white/[0.04] px-5 z-20 pointer-events-none">
+        <div className="flex items-center rounded-full bg-[#ECEEF2]/90 dark:bg-[#1C1C1E]/90 backdrop-blur-md px-4 py-1 pointer-events-auto">
+          <h2 className="truncate text-[15px] font-semibold text-[#1B2432] dark:text-zinc-100 apple-text-sm">
+            {chatName}
+          </h2>
+          {isGroupChat && chat && (
+            <span className="ml-2 text-xs text-[#94A3B3] dark:text-zinc-500 apple-text-xs">
+              {chat.participants.length} members
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Loading bar */}
       {isLoading && (
-        <div className="h-[2px] w-full overflow-hidden bg-[#D1D5DB]/30 dark:bg-white/[0.04]">
+        <div className="absolute top-14 left-0 right-0 h-[2px] overflow-hidden bg-[#D1D5DB]/30 dark:bg-white/[0.04] z-20">
           <div className="h-full w-1/3 animate-[slide_1.2s_ease-in-out_infinite] rounded-full bg-[#3B82C4] dark:bg-[#60A5FA]" />
         </div>
       )}
 
-      {/* Messages */}
-      <div className="relative min-h-0 flex-1">
+      {/* Messages — full height, top padding so first messages clear the header */}
+      <div className="absolute inset-0">
         <div className="absolute inset-0 overflow-hidden">
           <Virtuoso
             ref={virtuosoRef}
@@ -170,13 +193,16 @@ export function ChatView() {
             itemContent={itemContent}
             initialTopMostItemIndex={Math.max(0, visibleMessages.length - 1)}
             followOutput="auto"
+            atBottomStateChange={handleAtBottomChange}
+            atBottomThreshold={100}
             defaultItemHeight={44}
             increaseViewportBy={800}
             overscan={200}
+            className="chat-scrollbar"
             style={{ height: "100%", width: "100%" }}
             components={{
-              Header: () => <div className="pt-3" />,
-              Footer: () => <div className="pb-16" />,
+              Header: () => <div className="pt-16" />,
+              Footer: () => <div className="pb-4" />,
             }}
           />
         </div>
@@ -199,12 +225,16 @@ export function ChatView() {
         )}
       </div>
 
-      {/* Fixed iMessage bar at bottom */}
-      <div className="shrink-0 flex items-center justify-center px-4 py-2 bg-[#ECEEF2] dark:bg-[#1C1C1E] border-t border-[#D1D5DB]/40 dark:border-white/[0.06]">
-        <div className="flex h-10 w-full max-w-2xl items-center rounded-full bg-[#1B2432]/[0.04] dark:bg-white/[0.06] border border-[#D1D5DB]/40 dark:border-white/[0.06] px-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
-          <span className="text-sm text-[#94A3B3] dark:text-zinc-600 apple-text-sm">iMessage</span>
-        </div>
-      </div>
+      {/* Scroll to bottom button */}
+      {!isAtBottom && visibleMessages.length > 0 && !isLoading && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA]/90 dark:bg-[#2A2A2C]/90 backdrop-blur-md border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] hover:bg-[#ECEEF2] dark:hover:bg-[#3A3A3C] transition-colors cursor-pointer"
+        >
+          <ChevronDown className="h-5 w-5 text-[#4E5D6E] dark:text-zinc-300" />
+        </button>
+      )}
+
     </div>
   );
 }

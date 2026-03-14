@@ -26,7 +26,7 @@ function NavBar() {
   const toggleTheme = useAppStore((s) => s.toggleTheme);
 
   return (
-    <nav className="flex h-11 shrink-0 items-center gap-1 bg-[#F7F8FA] dark:bg-[#1C1C1E]/80 dark:backdrop-blur-xl dark:saturate-[1.8] border-b border-[#D1D5DB]/40 dark:border-white/[0.06] shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_8px_rgba(0,0,0,0.25)] px-4 relative z-10">
+    <nav className="flex h-11 shrink-0 items-center gap-1 rounded-2xl bg-[#F7F8FA]/80 dark:bg-[#2A2A2C]/60 backdrop-blur-2xl saturate-[1.2] dark:saturate-[1.8] border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_24px_rgba(0,0,0,0.4)] px-4 relative z-10 mx-2 mt-2">
       {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
         const isActive = view === id;
         return (
@@ -47,9 +47,6 @@ function NavBar() {
 
       <div className="ml-auto flex items-center gap-3">
         <IndexingStatusBar />
-        <span className="text-xs font-medium text-[#94A3B3] dark:text-zinc-600 apple-text-xs">
-          iCapsule
-        </span>
         <button
           onClick={toggleTheme}
           className="flex h-7 w-7 items-center justify-center rounded-full text-[#4E5D6E] dark:text-zinc-400 hover:bg-[#1B2432]/[0.05] dark:hover:bg-white/[0.05] transition-colors"
@@ -85,7 +82,7 @@ export default function Home() {
     <FdaGate>
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#ECEEF2] dark:bg-[#1C1C1E]">
         <NavBar />
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 gap-0 p-2">
           <ChatList />
           <main className="relative min-h-0 min-w-0 flex-1 overflow-auto">
             <MainContent />

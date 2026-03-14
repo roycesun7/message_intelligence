@@ -3,6 +3,7 @@
 import { useEffect, useRef, useMemo, useCallback } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { Virtuoso } from "react-virtuoso";
+import { Loader2 } from "lucide-react";
 
 import { useMessages, useChatById, getChatDisplayName } from "@/hooks/use-messages";
 import { useAppStore } from "@/stores/app-store";
@@ -153,6 +154,13 @@ export function ChatView() {
         )}
       </div>
 
+      {/* Loading bar */}
+      {isLoading && (
+        <div className="h-[2px] w-full overflow-hidden bg-[#D1D5DB]/30 dark:bg-white/[0.04]">
+          <div className="h-full w-1/3 animate-[slide_1.2s_ease-in-out_infinite] rounded-full bg-[#3B82C4] dark:bg-[#60A5FA]" />
+        </div>
+      )}
+
       {/* Messages */}
       <div className="relative min-h-0 flex-1">
         <div className="absolute inset-0 overflow-hidden">
@@ -173,8 +181,9 @@ export function ChatView() {
           />
         </div>
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#94A3B3] dark:text-zinc-500 bg-[#ECEEF2] dark:bg-[#1C1C1E]">
-            Loading messages...
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#ECEEF2] dark:bg-[#1C1C1E]">
+            <Loader2 className="h-6 w-6 animate-spin text-[#94A3B3] dark:text-zinc-500" />
+            <p className="text-sm text-[#94A3B3] dark:text-zinc-500 apple-text-sm">Loading messages...</p>
           </div>
         )}
         {!isLoading && isError && (

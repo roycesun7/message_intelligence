@@ -1,5 +1,6 @@
 mod commands;
 mod db;
+pub mod embeddings;
 pub mod error;
 pub mod ingestion;
 pub mod state;

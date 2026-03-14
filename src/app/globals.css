@@ -269,3 +269,8 @@
 .animate-highlight-glow {
   animation: highlight-glow 2.5s ease-out forwards;
 }
+
+@keyframes slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}

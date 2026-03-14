@@ -204,6 +204,7 @@ pub fn run() {
                 clip_text: RwLock::new(None),
                 clip_vision: RwLock::new(None),
                 tokenizer: RwLock::new(None),
+                pipeline_running: std::sync::atomic::AtomicBool::new(false),
             });
 
             // Spawn background thread to load CLIP models, then run the pipeline.

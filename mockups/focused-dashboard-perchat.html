@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Focused Dashboard — Per-Chat Wrapped (1:1)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+    background: #ECEEF2;
+    color: #1B2432;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 800px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  /* ── Header ─────────────────────────── */
+  .header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .header .chat-name { font-size: 22px; font-weight: 700; color: #3B82C4; }
+  .header .sub { font-size: 14px; color: #94A3B3; margin-top: 4px; }
+  .year-select {
+    height: 32px; border-radius: 20px; border: 1px solid #D1D5DB;
+    background: white; padding: 0 16px; font-size: 13px; outline: none; cursor: pointer;
+  }
+
+  /* ── Highlights strip ───────────────── */
+  .highlights {
+    display: flex; gap: 12px; margin-bottom: 32px;
+    overflow-x: auto; padding-bottom: 4px;
+    -ms-overflow-style: none; scrollbar-width: none;
+  }
+  .highlights::-webkit-scrollbar { display: none; }
+  .hl-card {
+    min-width: 180px; padding: 20px; border-radius: 20px; color: white;
+    flex-shrink: 0; position: relative; overflow: hidden;
+  }
+  .hl-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%);
+  }
+  .hl-1 { background: linear-gradient(135deg, #1B2432, #3B82C4); }
+  .hl-2 { background: linear-gradient(135deg, #4E5D6E, #1B2432); }
+  .hl-3 { background: linear-gradient(135deg, #3B82C4, #1B2432); }
+  .hl-4 { background: linear-gradient(135deg, #1B2432, #4E5D6E); }
+  .hl-card .val { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; position: relative; }
+  .hl-card .lab { font-size: 11px; opacity: 0.6; margin-top: 4px; position: relative; text-transform: uppercase; letter-spacing: 0.04em; }
+  .hl-card .detail { font-size: 11px; opacity: 0.45; margin-top: 6px; position: relative; }
+
+  /* ── Tab Bar ─────────────────────────── */
+  .tab-bar {
+    display: flex; gap: 4px;
+    background: rgba(27,36,50,0.04); border-radius: 14px; padding: 4px;
+    margin-bottom: 24px;
+  }
+  .tab {
+    flex: 1; text-align: center; padding: 10px 16px;
+    border-radius: 10px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; color: #4E5D6E;
+    border: none; background: none;
+  }
+  .tab.active { background: white; color: #1B2432; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .tab:not(.active):hover { color: #1B2432; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Card ────────────────────────────── */
+  .card {
+    background: #F7F8FA; border: 1px solid rgba(27,36,50,0.06);
+    border-radius: 20px; padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 16px;
+  }
+  .card h3 {
+    font-size: 16px; font-weight: 700; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h3 .icon { font-size: 18px; }
+  .card h3 .badge { margin-left: auto; font-size: 11px; font-weight: 500; color: #94A3B3; }
+
+  /* ── Stat grid ──────────────────────── */
+  .stat-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; margin-bottom: 16px;
+  }
+  .mini-stat {
+    text-align: center; padding: 16px; border-radius: 14px;
+    background: rgba(27,36,50,0.03);
+  }
+  .mini-stat .val { font-size: 22px; font-weight: 700; }
+  .mini-stat .lab {
+    font-size: 10px; color: #94A3B3; margin-top: 4px;
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+  }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── Comparison layout ──────────────── */
+  .vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .vs-col { }
+  .vs-label { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+  .vs-label.you { color: #4E5D6E; }
+  .vs-label.them { color: #3B82C4; }
+  .vs-big { font-size: 28px; font-weight: 800; }
+  .vs-sub { font-size: 12px; color: #94A3B3; margin-top: 4px; }
+  .vs-detail { margin-top: 12px; }
+  .vs-detail-row { font-size: 12px; color: #4E5D6E; margin-bottom: 4px; }
+  .vs-detail-row span { color: #1B2432; font-weight: 500; }
+
+  /* ── Comparison bar ─────────────────── */
+  .compare-bar {
+    height: 8px; border-radius: 4px; display: flex; overflow: hidden;
+    background: rgba(27,36,50,0.06); margin-top: 16px;
+  }
+  .compare-bar .side-you { background: #4E5D6E; transition: all 0.3s; }
+  .compare-bar .side-them { background: #3B82C4; transition: all 0.3s; }
+  .compare-bar-labels {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: #94A3B3; margin-top: 4px;
+  }
+
+  /* ── Initiation bar ─────────────────── */
+  .init-bar {
+    height: 28px; border-radius: 14px; display: flex; overflow: hidden;
+    margin: 12px 0 8px;
+  }
+  .init-you {
+    background: #4E5D6E; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: white;
+  }
+  .init-them {
+    background: #94A3B3; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: white;
+  }
+  .init-labels {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: #4E5D6E;
+  }
+
+  /* ── Mini chart bars ────────────────── */
+  .mini-bars {
+    display: flex; align-items: flex-end; gap: 3px; height: 80px; padding-top: 8px;
+  }
+  .mini-bars .bar-col {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .mini-bars .bar-stack { width: 100%; display: flex; flex-direction: column-reverse; gap: 1px; }
+  .mini-bars .bar {
+    width: 100%; border-radius: 3px 3px 0 0; min-height: 1px;
+  }
+  .mini-bars .bar.you { background: #4E5D6E; }
+  .mini-bars .bar.them { background: #3B82C4; }
+  .mini-bars .bar.solo { background: linear-gradient(180deg, #1B2432, #3B82C4); }
+  .mini-bars .bar-label { font-size: 8px; color: #94A3B3; }
+  .chart-note { text-align: center; margin-top: 8px; font-size: 12px; color: #94A3B3; }
+  .chart-note strong { color: #1B2432; }
+  .chart-legend {
+    display: flex; justify-content: center; gap: 16px;
+    margin-top: 8px; font-size: 11px; color: #94A3B3;
+  }
+  .chart-legend .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 4px; vertical-align: middle;
+  }
+
+  /* ── Timeline area chart (fake) ─────── */
+  .timeline-area {
+    height: 120px; border-radius: 12px; position: relative;
+    background: linear-gradient(180deg, rgba(27,36,50,0.02) 0%, rgba(59,130,196,0.04) 100%);
+    overflow: hidden; margin-bottom: 4px;
+  }
+  .timeline-svg { width: 100%; height: 100%; }
+  .timeline-note { font-size: 11px; color: #94A3B3; text-align: center; }
+
+  /* ── On This Day ────────────────────── */
+  .otd-strip {
+    display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px;
+    -ms-overflow-style: none; scrollbar-width: none;
+  }
+  .otd-strip::-webkit-scrollbar { display: none; }
+  .otd-bubble {
+    min-width: 240px; max-width: 240px;
+    padding: 14px 16px; border-radius: 16px; flex-shrink: 0;
+    cursor: pointer; transition: transform 0.15s;
+  }
+  .otd-bubble:hover { transform: translateY(-2px); }
+  .otd-bubble.sent { background: rgba(78,93,110,0.08); }
+  .otd-bubble.recv { background: rgba(27,36,50,0.04); }
+  .otd-meta { font-size: 11px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .otd-meta .yr { color: #3B82C4; font-weight: 700; }
+  .otd-meta .who { color: #94A3B3; font-weight: 500; }
+  .otd-meta .time { color: #94A3B3; margin-left: auto; }
+  .otd-text { font-size: 13px; line-height: 1.4; margin-top: 6px; }
+
+  /* ── Personality ────────────────────── */
+  .pers-hero { text-align: center; padding: 20px 0 8px; }
+  .pers-hero .emoji { font-size: 56px; margin-bottom: 12px; }
+  .pers-hero .type { font-size: 28px; font-weight: 800; }
+  .pers-hero .sub { font-size: 14px; color: #94A3B3; margin-top: 8px; }
+  .pers-traits { margin-top: 20px; }
+  .pt { margin-bottom: 12px; }
+  .pt-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .pt-name { font-size: 13px; font-weight: 500; }
+  .pt-score { font-size: 12px; color: #94A3B3; }
+  .pt-bar { height: 4px; border-radius: 2px; background: rgba(27,36,50,0.06); }
+  .pt-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #1B2432, #3B82C4); }
+  .pt-desc { font-size: 11px; color: #94A3B3; margin-top: 3px; }
+
+  /* ── Word Cloud ─────────────────────── */
+  .word-cloud {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center; padding: 12px 0;
+  }
+  .wc-tag {
+    padding: 6px 14px; border-radius: 20px; font-weight: 500;
+    transition: transform 0.15s; cursor: default;
+  }
+  .wc-tag:hover { transform: scale(1.06); }
+  .wc-tag.s1 { font-size: 22px; background: rgba(27,36,50,0.1); font-weight: 700; }
+  .wc-tag.s2 { font-size: 18px; background: rgba(59,130,196,0.1); font-weight: 600; }
+  .wc-tag.s3 { font-size: 15px; background: rgba(27,36,50,0.05); }
+  .wc-tag.s4 { font-size: 13px; background: rgba(27,36,50,0.03); color: #4E5D6E; }
+  .wc-tag .wc-count { font-size: 10px; color: #94A3B3; margin-left: 4px; }
+
+  /* ── Toggle ─────────────────────────── */
+  .toggle-group {
+    display: flex; gap: 2px; background: rgba(27,36,50,0.04);
+    border-radius: 8px; padding: 2px; margin-left: auto;
+  }
+  .toggle-btn {
+    padding: 4px 12px; border-radius: 6px; border: none; background: none;
+    font-size: 11px; font-weight: 600; color: #4E5D6E; cursor: pointer;
+  }
+  .toggle-btn.active { background: #1B2432; color: white; }
+
+  /* ── Openers ────────────────────────── */
+  .opener-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .op-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 20px;
+    background: rgba(27,36,50,0.04); font-size: 13px;
+  }
+  .op-count { font-size: 11px; color: #94A3B3; }
+
+  /* ── Late night compact ─────────────── */
+  .ln-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .ln-big { font-size: 28px; font-weight: 800; }
+  .ln-label { font-size: 13px; color: #4E5D6E; }
+  .ln-detail { font-size: 12px; color: #94A3B3; margin-top: 4px; }
+  .ln-bar-bg { height: 6px; border-radius: 3px; background: rgba(27,36,50,0.06); margin-top: 8px; overflow: hidden; }
+  .ln-bar-fg { height: 100%; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header — per-chat shows contact name -->
+  <div class="header">
+    <div>
+      <h1>All-Time Wrapped &mdash; <span class="chat-name">Jake Morrison</span></h1>
+      <div class="sub">Your conversation at a glance</div>
+    </div>
+    <select class="year-select">
+      <option value="0">All Time</option>
+      <option>2025</option>
+      <option>2024</option>
+      <option>2023</option>
+    </select>
+  </div>
+
+  <!-- Highlights — per-chat shows sent/received/days active -->
+  <div class="highlights">
+    <div class="hl-card hl-1">
+      <div class="val">4,932</div>
+      <div class="lab">Total Messages</div>
+      <div class="detail">across 847 active days</div>
+    </div>
+    <div class="hl-card hl-2">
+      <div class="val">2,614</div>
+      <div class="lab">Sent by You</div>
+    </div>
+    <div class="hl-card hl-3">
+      <div class="val">2,318</div>
+      <div class="lab">Sent by Them</div>
+    </div>
+  </div>
+
+  <!-- Tab Bar — different tabs for per-chat -->
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" onclick="switchTab('between')">Between You Two</button>
+    <button class="tab" onclick="switchTab('patterns')">Patterns</button>
+    <button class="tab" onclick="switchTab('fun')">Fun</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- OVERVIEW TAB                            -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-overview">
+
+    <!-- Message Volume Over Time (temporalTrends) -->
+    <div class="card">
+      <h3><span class="icon">&#x1F4C8;</span> Message Volume Over Time</h3>
+      <div class="timeline-area">
+        <svg class="timeline-svg" viewBox="0 0 800 120" preserveAspectRatio="none">
+          <!-- Received area -->
+          <path d="M0,110 C50,105 80,95 120,90 C160,85 200,80 240,70 C280,60 320,55 360,50 C400,45 440,40 480,35 C520,30 560,45 600,40 C640,35 680,30 720,25 C760,20 790,22 800,20 L800,120 L0,120 Z"
+                fill="rgba(59,130,196,0.15)" stroke="none"/>
+          <path d="M0,110 C50,105 80,95 120,90 C160,85 200,80 240,70 C280,60 320,55 360,50 C400,45 440,40 480,35 C520,30 560,45 600,40 C640,35 680,30 720,25 C760,20 790,22 800,20"
+                fill="none" stroke="#3B82C4" stroke-width="1.5"/>
+          <!-- Sent area -->
+          <path d="M0,115 C50,110 80,100 120,95 C160,90 200,85 240,78 C280,70 320,65 360,60 C400,55 440,50 480,45 C520,40 560,52 600,48 C640,42 680,38 720,32 C760,28 790,30 800,28 L800,120 L0,120 Z"
+                fill="rgba(27,36,50,0.1)" stroke="none"/>
+          <path d="M0,115 C50,110 80,100 120,95 C160,90 200,85 240,78 C280,70 320,65 360,60 C400,55 440,50 480,45 C520,40 560,52 600,48 C640,42 680,38 720,32 C760,28 790,30 800,28"
+                fill="none" stroke="#1B2432" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="chart-legend">
+        <span><span class="dot" style="background:#1B2432"></span>Sent</span>
+        <span><span class="dot" style="background:#3B82C4"></span>Received</span>
+      </div>
+      <div class="timeline-note">Monthly &middot; 2019 &ndash; 2025</div>
+    </div>
+
+    <!-- On This Day — per-chat filtered -->
+    <div class="card">
+      <h3>
+        <span class="icon">&#128197;</span> On This Day &mdash; March 13
+        <span class="badge">3 messages across 2 years</span>
+      </h3>
+      <div class="otd-strip">
+        <div class="otd-bubble recv">
+          <div class="otd-meta"><span class="yr">2024</span><span class="who">Jake</span><span class="time">11:02 PM</span></div>
+          <div class="otd-text">dude did you see the game tonight? absolutely insane ending</div>
+        </div>
+        <div class="otd-bubble sent">
+          <div class="otd-meta"><span class="yr">2024</span><span class="who">You</span><span class="time">11:04 PM</span></div>
+          <div class="otd-text">BRO YES that last play was unreal</div>
+        </div>
+        <div class="otd-bubble recv">
+          <div class="otd-meta"><span class="yr">2022</span><span class="who">Jake</span><span class="time">4:15 PM</span></div>
+          <div class="otd-text">you coming to the thing Saturday?</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sent / Received / Days Active -->
+    <div class="stat-grid">
+      <div class="mini-stat">
+        <div class="val">2,614</div>
+        <div class="lab">Sent</div>
+      </div>
+      <div class="mini-stat">
+        <div class="val">2,318</div>
+        <div class="lab">Received</div>
+      </div>
+      <div class="mini-stat">
+        <div class="val">847</div>
+        <div class="lab">Days Active</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- BETWEEN YOU TWO TAB                     -->
+  <!-- (responseTimeStats, initiationStats,    -->
+  <!--  messageLengthStats, activeHours)       -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-between">
+
+    <div class="two-col">
+
+      <!-- Who Replies Faster (responseTimeStats) -->
+      <div class="card">
+        <h3><span class="icon">&#x23F0;</span> Who Replies Faster</h3>
+        <div class="vs-grid">
+          <div class="vs-col">
+            <div class="vs-label you">You</div>
+            <div class="vs-big">4m 23s</div>
+            <div class="vs-sub">avg response time</div>
+            <div class="vs-detail">
+              <div class="vs-detail-row">Median: <span>2m 47s</span></div>
+              <div class="vs-detail-row">Fastest: <span>8s</span></div>
+            </div>
+          </div>
+          <div class="vs-col">
+            <div class="vs-label them">Jake</div>
+            <div class="vs-big">12m 8s</div>
+            <div class="vs-sub">avg response time</div>
+            <div class="vs-detail">
+              <div class="vs-detail-row">Median: <span>7m 12s</span></div>
+              <div class="vs-detail-row">Fastest: <span>14s</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="compare-bar">
+          <div class="side-you" style="width:73%"></div>
+          <div class="side-them" style="width:27%"></div>
+        </div>
+        <div class="compare-bar-labels">
+          <span>&#x2190; Jake faster</span>
+          <span>You faster &#x2192;</span>
+        </div>
+      </div>
+
+      <!-- Who Texts First (initiationStats) -->
+      <div class="card">
+        <h3><span class="icon">&#x1F4AC;</span> Who Texts First</h3>
+        <div style="margin-bottom:4px">
+          <span style="font-size:28px;font-weight:800">You start </span>
+          <span style="font-size:28px;font-weight:800;color:#4E5D6E">62%</span>
+          <span style="font-size:28px;font-weight:800"> of conversations</span>
+        </div>
+        <div style="font-size:12px;color:#94A3B3;margin-bottom:16px">487 total conversations tracked</div>
+        <div class="init-bar">
+          <div class="init-you" style="width:62%">302</div>
+          <div class="init-them" style="width:38%">185</div>
+        </div>
+        <div class="init-labels">
+          <span>You (302)</span>
+          <span>Jake (185)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+
+      <!-- Who Writes More (messageLengthStats) -->
+      <div class="card">
+        <h3><span class="icon">&#x1F4DD;</span> Who Writes More</h3>
+        <div class="vs-grid">
+          <div class="vs-col">
+            <div class="vs-label you">You</div>
+            <div class="vs-big">47</div>
+            <div class="vs-sub">avg chars / message</div>
+            <div class="vs-detail">
+              <div class="vs-detail-row">Total chars: <span>122,858</span></div>
+              <div class="vs-detail-row">Messages: <span>2,614</span></div>
+              <div class="vs-detail-row">Longest: <span>1,247</span></div>
+            </div>
+          </div>
+          <div class="vs-col">
+            <div class="vs-label them">Jake</div>
+            <div class="vs-big">62</div>
+            <div class="vs-sub">avg chars / message</div>
+            <div class="vs-detail">
+              <div class="vs-detail-row">Total chars: <span>143,716</span></div>
+              <div class="vs-detail-row">Messages: <span>2,318</span></div>
+              <div class="vs-detail-row">Longest: <span>2,891</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- When You Both Text (activeHours — 24 hours) -->
+      <div class="card">
+        <h3><span class="icon">&#x1F551;</span> When You Both Text</h3>
+        <div class="mini-bars" style="height:90px">
+          <!-- 24 hour bars, stacked you/them -->
+          <div class="bar-col">
+            <div class="bar-stack">
+              <div class="bar them" style="height:2px"></div>
+              <div class="bar you" style="height:3px"></div>
+            </div>
+            <div class="bar-label">12a</div>
+          </div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:1px"></div><div class="bar you" style="height:2px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:1px"></div><div class="bar you" style="height:1px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:1px"></div><div class="bar you" style="height:1px"></div></div><div class="bar-label">3a</div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:0px"></div><div class="bar you" style="height:1px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:1px"></div><div class="bar you" style="height:2px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:3px"></div><div class="bar you" style="height:4px"></div></div><div class="bar-label">6a</div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:5px"></div><div class="bar you" style="height:6px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:8px"></div><div class="bar you" style="height:10px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:15px"></div><div class="bar you" style="height:18px"></div></div><div class="bar-label">9a</div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:20px"></div><div class="bar you" style="height:22px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:18px"></div><div class="bar you" style="height:20px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:25px"></div><div class="bar you" style="height:28px"></div></div><div class="bar-label">12p</div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:22px"></div><div class="bar you" style="height:24px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:20px"></div><div class="bar you" style="height:22px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:24px"></div><div class="bar you" style="height:26px"></div></div><div class="bar-label">3p</div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:28px"></div><div class="bar you" style="height:30px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:32px"></div><div class="bar you" style="height:35px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:35px"></div><div class="bar you" style="height:38px"></div></div><div class="bar-label">6p</div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:40px"></div><div class="bar you" style="height:42px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:45px"></div><div class="bar you" style="height:48px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:38px"></div><div class="bar you" style="height:40px"></div></div><div class="bar-label">9p</div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:28px"></div><div class="bar you" style="height:32px"></div></div><div class="bar-label"></div></div>
+          <div class="bar-col"><div class="bar-stack"><div class="bar them" style="height:12px"></div><div class="bar you" style="height:15px"></div></div><div class="bar-label">11p</div></div>
+        </div>
+        <div class="chart-legend">
+          <span><span class="dot" style="background:#4E5D6E"></span>You</span>
+          <span><span class="dot" style="background:#3B82C4"></span>Jake</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- PATTERNS TAB                            -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-patterns">
+
+    <div class="two-col">
+      <!-- Monthly (monthlyInteractions) -->
+      <div class="card">
+        <h3><span class="icon">&#x1F4C5;</span> Busiest Months</h3>
+        <div class="mini-bars">
+          <div class="bar-col"><div class="bar solo" style="height:45%"></div><div class="bar-label">Jan</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:52%"></div><div class="bar-label">Feb</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:60%"></div><div class="bar-label">Mar</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:48%"></div><div class="bar-label">Apr</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:55%"></div><div class="bar-label">May</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:70%"></div><div class="bar-label">Jun</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:85%"></div><div class="bar-label">Jul</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:72%"></div><div class="bar-label">Aug</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:65%"></div><div class="bar-label">Sep</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:78%"></div><div class="bar-label">Oct</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:90%"></div><div class="bar-label">Nov</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:100%"></div><div class="bar-label">Dec</div></div>
+        </div>
+        <div class="chart-note">Peak: <strong>December</strong> (612)</div>
+      </div>
+
+      <!-- Weekday (weekdayInteractions) -->
+      <div class="card">
+        <h3><span class="icon">&#x1F4C6;</span> Favorite Days</h3>
+        <div class="mini-bars">
+          <div class="bar-col"><div class="bar solo" style="height:65%"></div><div class="bar-label">Sun</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:80%"></div><div class="bar-label">Mon</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:92%"></div><div class="bar-label">Tue</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:88%"></div><div class="bar-label">Wed</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:100%"></div><div class="bar-label">Thu</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:85%"></div><div class="bar-label">Fri</div></div>
+          <div class="bar-col"><div class="bar solo" style="height:55%"></div><div class="bar-label">Sat</div></div>
+        </div>
+        <div class="chart-note">Peak: <strong>Thursday</strong> (824)</div>
+      </div>
+    </div>
+
+    <!-- Night Owl Mode (lateNightInteractions — per-chat is summary, not list) -->
+    <div class="card">
+      <h3><span class="icon">&#x1F319;</span> Night Owl Mode</h3>
+      <div class="ln-row">
+        <div class="ln-big">387</div>
+        <div class="ln-label">late night messages (7.8% of all)</div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:12px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:10px;height:10px;border-radius:50%;background:#007AFF"></div>
+          <span><strong>224</strong> <span style="color:#94A3B3">sent</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:10px;height:10px;border-radius:50%;background:#94A3B3"></div>
+          <span><strong>163</strong> <span style="color:#94A3B3">received</span></span>
+        </div>
+      </div>
+      <div class="ln-bar-bg" style="margin-top:12px">
+        <div class="ln-bar-fg" style="width:58%;background:#007AFF"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- FUN TAB                                 -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-fun">
+
+    <!-- Personality (textingPersonality — scoped to this chat) -->
+    <div class="card">
+      <div class="pers-hero">
+        <div class="emoji">&#x1F4AC;</div>
+        <div class="type">Conversation Starter</div>
+        <div class="sub">with a touch of &#9889; Rapid Fire</div>
+      </div>
+      <div class="pers-traits">
+        <div class="pt">
+          <div class="pt-top"><span class="pt-name">Conversation Starter</span><span class="pt-score">76%</span></div>
+          <div class="pt-bar"><div class="pt-fill" style="width:76%"></div></div>
+          <div class="pt-desc">You initiate most conversations with Jake</div>
+        </div>
+        <div class="pt">
+          <div class="pt-top"><span class="pt-name">Rapid Fire</span><span class="pt-score">68%</span></div>
+          <div class="pt-bar"><div class="pt-fill" style="width:68%"></div></div>
+          <div class="pt-desc">Quick, short messages back and forth</div>
+        </div>
+        <div class="pt">
+          <div class="pt-top"><span class="pt-name">Night Owl</span><span class="pt-score">42%</span></div>
+          <div class="pt-bar"><div class="pt-fill" style="width:42%"></div></div>
+          <div class="pt-desc">Decent amount of late night texting</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <!-- Words -->
+      <div class="card">
+        <h3>
+          <span class="icon">&#x1F524;</span> Most Used Words
+          <div class="toggle-group">
+            <button class="toggle-btn active">Everyone</button>
+            <button class="toggle-btn">My Words</button>
+          </div>
+        </h3>
+        <div class="word-cloud">
+          <span class="wc-tag s1">lol<span class="wc-count">1,847</span></span>
+          <span class="wc-tag s1">haha<span class="wc-count">1,234</span></span>
+          <span class="wc-tag s2">yeah<span class="wc-count">812</span></span>
+          <span class="wc-tag s2">dude<span class="wc-count">687</span></span>
+          <span class="wc-tag s2">game<span class="wc-count">534</span></span>
+          <span class="wc-tag s3">bro<span class="wc-count">412</span></span>
+          <span class="wc-tag s3">nice<span class="wc-count">387</span></span>
+          <span class="wc-tag s3">bet<span class="wc-count">291</span></span>
+          <span class="wc-tag s4">insane<span class="wc-count">234</span></span>
+          <span class="wc-tag s4">nah<span class="wc-count">198</span></span>
+        </div>
+      </div>
+
+      <!-- Openers -->
+      <div class="card">
+        <h3>How You Start Conversations</h3>
+        <div class="opener-tags">
+          <span class="op-tag">&ldquo;yo&rdquo; <span class="op-count">x87</span></span>
+          <span class="op-tag">&ldquo;dude&rdquo; <span class="op-count">x64</span></span>
+          <span class="op-tag">&ldquo;bro&rdquo; <span class="op-count">x41</span></span>
+          <span class="op-tag">&ldquo;lol&rdquo; <span class="op-count">x38</span></span>
+          <span class="op-tag">&ldquo;hey&rdquo; <span class="op-count">x29</span></span>
+          <span class="op-tag">&ldquo;did you see&rdquo; <span class="op-count">x22</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+</script>
+</body>
+</html>

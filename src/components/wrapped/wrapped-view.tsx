@@ -847,9 +847,9 @@ export function WrappedView() {
   ]);
 
   return (
-    <div className="bg-[#ECEEF2] dark:bg-zinc-950 p-6">
+    <div className="bg-[#ECEEF2] dark:bg-zinc-950 p-6 space-y-[25px]">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#1B2432] dark:text-white">
             {year === 0 ? "All-Time" : year} Wrapped
@@ -869,7 +869,7 @@ export function WrappedView() {
       </div>
 
       {/* Big number cards */}
-      <div className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatCard
           title="Total Messages"
           value={totalMessages}
@@ -907,7 +907,7 @@ export function WrappedView() {
 
       {/* Temporal trends — per-chat only */}
       {isPerChat && (
-        <div className="mb-8">
+        <div>
           <TemporalTrendsChart chatId={wrappedChatId} year={year} />
         </div>
       )}
@@ -919,7 +919,7 @@ export function WrappedView() {
       {isPerChat && isGroupChat && <GroupDynamics chatId={wrappedChatId} />}
 
       {/* Two-column: Top contacts + Messages by month (or just month if per-chat) */}
-      <div className={`mb-8 grid grid-cols-1 gap-6 ${isPerChat ? "" : "lg:grid-cols-2"}`}>
+      <div className={`grid grid-cols-1 gap-6 ${isPerChat ? "" : "lg:grid-cols-2"}`}>
         {/* Top contacts — hidden in per-chat mode */}
         {!isPerChat && (
           <Card className="card-glass">
@@ -1010,7 +1010,7 @@ export function WrappedView() {
 
       {/* Messages by Year — only show for all-time view with multi-year data */}
       {year === 0 && yearlyData.length > 1 && (
-        <Card className="mb-8 card-glass">
+        <Card className="card-glass">
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
               Your Year by Year
@@ -1047,7 +1047,7 @@ export function WrappedView() {
       )}
 
       {/* Two-column: Day of week + Late night */}
-      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Messages by day of week */}
         <Card className="card-glass">
           <CardHeader>

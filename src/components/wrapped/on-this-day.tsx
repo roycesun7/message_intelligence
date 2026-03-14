@@ -3,7 +3,7 @@
 import { useOnThisDay } from "@/hooks/use-analytics";
 import { useAppStore } from "@/stores/app-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, ArrowRight } from "lucide-react";
+import { Calendar } from "lucide-react";
 import type { OnThisDayMessage } from "@/types";
 import dayjs from "dayjs";
 
@@ -27,7 +27,13 @@ function groupByYear(messages: OnThisDayMessage[]): Map<number, OnThisDayMessage
   return grouped;
 }
 
-function OnThisDayMessageItem({ msg }: { msg: OnThisDayMessage }) {
+function OnThisDayBubble({
+  msg,
+  showSender,
+}: {
+  msg: OnThisDayMessage;
+  showSender: boolean;
+}) {
   const setView = useAppStore((s) => s.setView);
   const setSelectedChatId = useAppStore((s) => s.setSelectedChatId);
   const setScrollToMessageDate = useAppStore((s) => s.setScrollToMessageDate);
@@ -38,40 +44,38 @@ function OnThisDayMessageItem({ msg }: { msg: OnThisDayMessage }) {
     setView("chat");
   };
 
-  const timeStr = dayjs(msg.date).format("h:mm A");
+  const bubbleBg = msg.isFromMe
+    ? "bg-[#007AFF]"
+    : "bg-[#E2E4EA] dark:bg-[#3A3A3C]";
+  const bubbleText = msg.isFromMe
+    ? "text-white"
+    : "text-[#1B2432] dark:text-zinc-100";
 
   return (
-    <button
-      onClick={handleClick}
-      className={`group w-full text-left rounded-2xl px-4 py-3 transition-all cursor-pointer ${
-        msg.isFromMe
-          ? "ml-6 bg-[#4E5D6E]/[0.08] hover:bg-[#4E5D6E]/[0.14] dark:bg-blue-500/[0.08] dark:hover:bg-blue-500/[0.14]"
-          : "mr-6 bg-[#1B2432]/[0.04] hover:bg-[#1B2432]/[0.08] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
-      }`}
+    <div
+      className={`flex ${msg.isFromMe ? "justify-end" : "justify-start"} ${showSender ? "mt-1.5" : "mt-0.5"}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[11px] font-medium ${msg.isFromMe ? "text-[#4E5D6E] dark:text-blue-400" : "text-[#3B82C4] dark:text-purple-400"}`}>
-              {msg.isFromMe ? "You" : msg.sender ?? "Unknown"}
-            </span>
-            {msg.chatDisplayName && (
-              <>
-                <span className="text-[10px] text-[#94A3B3] dark:text-zinc-600">in</span>
-                <span className="text-[11px] text-[#4E5D6E] dark:text-zinc-400 truncate">{msg.chatDisplayName}</span>
-              </>
-            )}
-            <span className="text-[10px] text-[#94A3B3] dark:text-zinc-600 ml-auto shrink-0">{timeStr}</span>
-          </div>
-          <p className="text-sm text-[#1B2432] dark:text-zinc-300 leading-relaxed">
-            {msg.text ? truncate(msg.text, 200) : "(attachment)"}
-          </p>
-        </div>
-        <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1B2432]/[0.06] dark:bg-white/[0.08] opacity-60 transition-opacity group-hover:opacity-100">
-          <ArrowRight className="h-3 w-3 text-[#1B2432] dark:text-zinc-300" />
-        </div>
+      <div className={`max-w-[75%] flex flex-col ${msg.isFromMe ? "items-end" : "items-start"}`}>
+        {showSender && !msg.isFromMe && (
+          <span className="mb-0.5 ml-3 text-[11px] text-[#94A3B3] dark:text-zinc-500">
+            {msg.sender ?? "Unknown"}
+          </span>
+        )}
+        <button
+          onClick={handleClick}
+          className={`cursor-pointer rounded-[18px] px-3 py-1.5 text-[13px] leading-snug ${bubbleBg} ${bubbleText} ${
+            msg.isFromMe ? "rounded-br-[6px]" : "rounded-bl-[6px]"
+          } hover:opacity-80 transition-opacity`}
+        >
+          {msg.text ? truncate(msg.text, 200) : "(attachment)"}
+        </button>
+        {showSender && (
+          <span className="mt-0.5 text-[10px] text-[#94A3B3] dark:text-zinc-600 px-1">
+            {dayjs(msg.date).format("h:mm A")}
+          </span>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -80,7 +84,7 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
 
   if (isLoading) {
     return (
-      <div className="mb-8">
+      <div>
         <Card className="card-glass">
           <CardHeader className="flex flex-row items-center gap-2">
             <Calendar className="h-5 w-5 text-[#3B82C4] dark:text-amber-400" />
@@ -98,7 +102,7 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
 
   if (!data || data.messages.length === 0) {
     return (
-      <div className="mb-8">
+      <div>
         <Card className="card-glass">
           <CardHeader className="flex flex-row items-center gap-2">
             <Calendar className="h-5 w-5 text-[#3B82C4] dark:text-amber-400" />
@@ -120,7 +124,7 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
   const sortedYears = Array.from(grouped.keys()).sort((a, b) => b - a);
 
   return (
-    <div className="mb-8">
+    <div>
       <Card className="card-glass">
         <CardHeader className="flex flex-row items-center gap-2">
           <Calendar className="h-5 w-5 text-[#3B82C4] dark:text-amber-400" />
@@ -142,10 +146,14 @@ export function OnThisDaySection({ chatId }: { chatId: number | null }) {
                     <div className="h-px flex-1 bg-[#D1D5DB]/30 dark:bg-white/[0.06]" />
                     <span className="text-xs text-[#94A3B3] dark:text-zinc-600">{msgs.length} messages</span>
                   </div>
-                  <div className="space-y-2">
-                    {msgs.map((msg, i) => (
-                      <OnThisDayMessageItem key={`${year}-${i}`} msg={msg} />
-                    ))}
+                  <div className="px-2">
+                    {msgs.map((msg, i) => {
+                      const prev = i > 0 ? msgs[i - 1] : null;
+                      const showSender = !prev || prev.isFromMe !== msg.isFromMe || prev.sender !== msg.sender;
+                      return (
+                        <OnThisDayBubble key={`${year}-${i}`} msg={msg} showSender={showSender} />
+                      );
+                    })}
                   </div>
                 </div>
               );

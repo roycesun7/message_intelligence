@@ -111,7 +111,7 @@ function TextingPersonalityCard({ chatId }: { chatId: number | null }) {
 
 export function FunStats({ chatId }: { chatId: number | null }) {
   return (
-    <div className="mt-8">
+    <div>
       <TextingPersonalityCard chatId={chatId} />
     </div>
   );

@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Message Intelligence",
+  "productName": "iCapsule",
   "version": "0.1.0",
-  "identifier": "com.placeholder.messageintelligence",
+  "identifier": "com.icapsule.app",
   "build": {
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Message Intelligence",
+        "title": "iCapsule",
         "width": 1200,
         "height": 800,
         "resizable": true,
@@ -49,8 +49,8 @@
       "exceptionDomain": null
     },
     "category": "public.app-category.utilities",
-    "copyright": "Copyright © 2025 Message Intelligence",
-    "shortDescription": "AI-powered iMessage analytics",
-    "longDescription": "A privacy-first desktop application that transforms your iMessage history into searchable, analytically powerful insights. All processing happens locally."
+    "copyright": "Copyright © 2025 iCapsule",
+    "shortDescription": "Privacy-first iMessage analytics",
+    "longDescription": "iCapsule transforms your iMessage history into searchable, analytically powerful insights. All processing happens locally — no data ever leaves your device."
   }
 }

@@ -229,7 +229,7 @@ pub fn invalidate_wrapped_cache(
 #[tauri::command]
 pub async fn get_temporal_trends(
     state: State<'_, AppState>,
-    chat_id: i64,
+    chat_id: Option<i64>,
     year: Option<i64>,
 ) -> AppResult<Vec<DailyMessageCount>> {
     let chat_db_mutex = state.chat_db.clone();
@@ -241,8 +241,9 @@ pub async fn get_temporal_trends(
         let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
 
         let effective_year = year.unwrap_or(0);
+        let chat_ids_vec = chat_id.map(|id| vec![id]);
         let (filter_clause, filter_params) =
-            year_filter_clause(effective_year, Some(&[chat_id]));
+            year_filter_clause(effective_year, chat_ids_vec.as_deref());
 
         let sql = format!(
             "SELECT

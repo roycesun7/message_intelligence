@@ -14,9 +14,13 @@ iCapsule reads your iMessage history directly from Apple's `chat.db` in **read-o
 - Virtualized scrolling for large message histories (react-virtuoso)
 
 ### Wrapped Analytics (Global + Per-Chat)
-- Total / sent / received message counts and active chat count
+- Total / sent / received message counts, active chat count, and active days (per-chat)
+- GitHub-style message activity heatmap (calendar year grid with 5-level color scale)
 - Top conversations with percentage bars
 - Messages by month, day of week, and year
+- Week-by-week relationship timeline (scrollable bar chart with tooltips)
+- "Where It All Began" — first message ever exchanged, rendered as an iMessage bubble
+- Most used emoji with frequency grid and relative bars
 - Late-night texters (10 PM - 5 AM)
 - Most popular conversation openers
 - Most used words with Everyone / My Words toggle
@@ -128,7 +132,7 @@ Tauri v2 desktop app with strict separation between two SQLite databases:
 Rust struct + command → register in lib.rs → TS type in types/index.ts → invoke wrapper in commands.ts → hook in hooks/ → component
 ```
 
-For full architecture details, database schema, all 18 Tauri commands, data flow diagrams, design system tokens, and performance notes, see **[`tech_spec.md`](tech_spec.md)**.
+For full architecture details, database schema, all 20 Tauri commands, data flow diagrams, design system tokens, and performance notes, see **[`tech_spec.md`](tech_spec.md)**.
 
 ## For AI Agents & Contributors
 

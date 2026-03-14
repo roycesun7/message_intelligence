@@ -12,6 +12,7 @@ import { MessageBubble, buildTapbackMap } from "./message-bubble";
 export function ChatView() {
   const chatId = useAppStore((s) => s.selectedChatId);
   const scrollToMessageDate = useAppStore((s) => s.scrollToMessageDate);
+  const scrollToMessageRowid = useAppStore((s) => s.scrollToMessageRowid);
   const setScrollToMessageDate = useAppStore((s) => s.setScrollToMessageDate);
   const highlightedMessageDate = useAppStore((s) => s.highlightedMessageDate);
   const setHighlightedMessageDate = useAppStore((s) => s.setHighlightedMessageDate);
@@ -20,8 +21,9 @@ export function ChatView() {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
-  // Use a ref (not state) to track pending scroll so we don't cause re-renders
+  // Use refs (not state) to track pending scroll so we don't cause re-renders
   const pendingScrollRef = useRef<number | null>(null);
+  const pendingScrollRowidRef = useRef<number | null>(null);
 
   const isGroupChat = chat ? chat.style === 43 : false;
   const chatName = getChatDisplayName(chat);
@@ -42,58 +44,98 @@ export function ChatView() {
   useEffect(() => {
     if (scrollToMessageDate !== null) {
       pendingScrollRef.current = scrollToMessageDate;
+      pendingScrollRowidRef.current = scrollToMessageRowid;
       setScrollToMessageDate(null);
     }
-  }, [scrollToMessageDate, setScrollToMessageDate]);
+  }, [scrollToMessageDate, scrollToMessageRowid, setScrollToMessageDate]);
 
-  // Scroll to bottom on chat change — but only if no pending scroll target
+  // Track chatId changes — when chat switches, we want to scroll to bottom
+  // once messages load (unless there's a pending scroll target).
+  const prevChatIdRef = useRef<number | null>(null);
+  const needsScrollToBottomRef = useRef(false);
+
   useEffect(() => {
-    if (pendingScrollRef.current !== null) return;
-    if (virtuosoRef.current && visibleMessages.length > 0) {
-      requestAnimationFrame(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: visibleMessages.length - 1,
-          align: "end",
-          behavior: "auto",
-        });
-      });
+    if (chatId !== prevChatIdRef.current) {
+      prevChatIdRef.current = chatId;
+      if (pendingScrollRef.current === null) {
+        needsScrollToBottomRef.current = true;
+      }
     }
-  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chatId]);
+
+  // Scroll to bottom when messages actually load for the new chat
+  useEffect(() => {
+    if (!needsScrollToBottomRef.current || visibleMessages.length === 0) return;
+    needsScrollToBottomRef.current = false;
+
+    const lastIndex = visibleMessages.length - 1;
+    // Immediate jump
+    requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: lastIndex,
+        align: "end",
+        behavior: "auto",
+      });
+    });
+    // Correction after Virtuoso settles item measurements
+    const t1 = setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: lastIndex,
+        align: "end",
+        behavior: "auto",
+      });
+    }, 200);
+    const t2 = setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: lastIndex,
+        align: "end",
+        behavior: "auto",
+      });
+    }, 500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [visibleMessages]); // fires when messages load/change
 
   // When messages load (or change) and we have a pending scroll, execute it.
   useEffect(() => {
     if (pendingScrollRef.current === null || visibleMessages.length === 0) return;
 
     const targetDate = pendingScrollRef.current;
+    const targetRowid = pendingScrollRowidRef.current;
 
-    // Find the message closest to the target date
-    let closestIndex = 0;
-    let closestDiff = Infinity;
-    for (let i = 0; i < visibleMessages.length; i++) {
-      const diff = Math.abs(visibleMessages[i].date - targetDate);
-      if (diff < closestDiff) {
-        closestDiff = diff;
-        closestIndex = i;
+    // Try exact match by rowid first, fall back to closest date
+    let closestIndex = -1;
+    if (targetRowid !== null) {
+      closestIndex = visibleMessages.findIndex((m) => m.rowid === targetRowid);
+    }
+    if (closestIndex === -1) {
+      closestIndex = 0;
+      let closestDiff = Infinity;
+      for (let i = 0; i < visibleMessages.length; i++) {
+        const diff = Math.abs(visibleMessages[i].date - targetDate);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closestIndex = i;
+        }
       }
     }
 
     // Clear the pending scroll immediately so we don't re-fire
     pendingScrollRef.current = null;
+    pendingScrollRowidRef.current = null;
 
     // Highlight the matched message
     const matchedDate = visibleMessages[closestIndex].date;
     setHighlightedMessageDate(matchedDate);
 
-    // Give Virtuoso enough time to fully render the list, then scroll.
-    // We use two staggered scrolls: first an instant jump to get close,
-    // then a smooth scroll to center precisely.
+    // Three-stage scroll: instant jump, then two smooth refinements
+    // to ensure Virtuoso has fully measured and rendered surrounding items
     const jumpTimer = setTimeout(() => {
       virtuosoRef.current?.scrollToIndex({
         index: closestIndex,
         align: "center",
         behavior: "auto",
       });
-    }, 100);
+    }, 150);
 
     const smoothTimer = setTimeout(() => {
       virtuosoRef.current?.scrollToIndex({
@@ -101,7 +143,16 @@ export function ChatView() {
         align: "center",
         behavior: "smooth",
       });
-    }, 350);
+    }, 500);
+
+    // Final correction after Virtuoso settles
+    const settleTimer = setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: closestIndex,
+        align: "center",
+        behavior: "smooth",
+      });
+    }, 900);
 
     // Auto-clear highlight after 3 seconds
     const highlightTimer = setTimeout(() => setHighlightedMessageDate(null), 3000);
@@ -109,6 +160,7 @@ export function ChatView() {
     return () => {
       clearTimeout(jumpTimer);
       clearTimeout(smoothTimer);
+      clearTimeout(settleTimer);
       clearTimeout(highlightTimer);
     };
   }, [visibleMessages, setHighlightedMessageDate]);
@@ -155,17 +207,17 @@ export function ChatView() {
   // Empty state — after all hooks
   if (chatId === null) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-[#ECEEF2] dark:bg-[#1C1C1E] text-[#94A3B3] dark:text-zinc-600">
+      <div className="absolute inset-0 flex items-center justify-center bg-[#ECEEF2] dark:bg-zinc-950 text-[#94A3B3] dark:text-zinc-600">
         <p className="text-lg apple-text-sm">Select a conversation to start</p>
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 bg-[#ECEEF2] dark:bg-[#1C1C1E]">
+    <div className="absolute inset-0 bg-[#ECEEF2] dark:bg-zinc-950">
       {/* Header — floats over messages so content scrolls behind the blur */}
-      <div className="absolute top-0 left-0 right-[10px] flex h-14 items-center justify-center backdrop-blur-[1px] bg-[#ECEEF2]/15 dark:bg-[#1C1C1E]/15 saturate-[1.2] dark:saturate-[1.8] border-b border-[#D1D5DB]/15 dark:border-white/[0.04] px-5 z-20 pointer-events-none">
-        <div className="flex items-center rounded-full bg-[#ECEEF2]/90 dark:bg-[#1C1C1E]/90 backdrop-blur-md px-4 py-1 pointer-events-auto">
+      <div className="absolute top-0 left-0 right-[10px] flex h-14 items-center justify-center backdrop-blur-[1px] bg-[#ECEEF2]/15 dark:bg-zinc-950/15 saturate-[1.2] dark:saturate-[1.8] border-b border-[#D1D5DB]/15 dark:border-white/[0.04] px-5 z-20 pointer-events-none">
+        <div className="flex items-center rounded-full bg-[#ECEEF2]/90 dark:bg-zinc-950/90 backdrop-blur-md px-4 py-1 pointer-events-auto">
           <h2 className="truncate text-[15px] font-semibold text-[#1B2432] dark:text-zinc-100 apple-text-sm">
             {chatName}
           </h2>
@@ -202,34 +254,41 @@ export function ChatView() {
             style={{ height: "100%", width: "100%" }}
             components={{
               Header: () => <div className="pt-16" />,
-              Footer: () => <div className="pb-4" />,
+              Footer: () => <div className="pb-14" />,
             }}
           />
         </div>
         {isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#ECEEF2] dark:bg-[#1C1C1E]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#ECEEF2] dark:bg-zinc-950">
             <Loader2 className="h-6 w-6 animate-spin text-[#94A3B3] dark:text-zinc-500" />
             <p className="text-sm text-[#94A3B3] dark:text-zinc-500 apple-text-sm">Loading messages...</p>
           </div>
         )}
         {!isLoading && isError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm bg-[#ECEEF2] dark:bg-[#1C1C1E]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm bg-[#ECEEF2] dark:bg-zinc-950">
             <p className="text-red-500 dark:text-red-400">Failed to load messages</p>
             <p className="text-[#94A3B3] dark:text-zinc-600 text-xs max-w-md text-center">{String(error)}</p>
           </div>
         )}
         {!isLoading && !isError && visibleMessages.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#94A3B3] dark:text-zinc-500 bg-[#ECEEF2] dark:bg-[#1C1C1E]">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#94A3B3] dark:text-zinc-500 bg-[#ECEEF2] dark:bg-zinc-950">
             No messages in this chat.
           </div>
         )}
+      </div>
+
+      {/* Fixed iMessage bar at the bottom */}
+      <div className="absolute bottom-0 left-0 right-[10px] z-20 px-4 pt-2 pb-3 pointer-events-none">
+        <div className="h-[34px] rounded-full border border-[#D1D5DB]/40 dark:border-white/[0.08] bg-[#F7F8FA]/80 dark:bg-[#2C2C2E]/80 backdrop-blur-md flex items-center px-4">
+          <span className="text-[13px] text-[#94A3B3]/50 dark:text-zinc-600/50 select-none">iMessage</span>
+        </div>
       </div>
 
       {/* Scroll to bottom button */}
       {!isAtBottom && visibleMessages.length > 0 && !isLoading && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA]/90 dark:bg-[#2A2A2C]/90 backdrop-blur-md border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] hover:bg-[#ECEEF2] dark:hover:bg-[#3A3A3C] transition-colors cursor-pointer"
+          className="absolute bottom-14 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA]/90 dark:bg-[#2A2A2C]/90 backdrop-blur-md border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] hover:bg-[#ECEEF2] dark:hover:bg-[#3A3A3C] transition-colors cursor-pointer"
         >
           <ChevronDown className="h-5 w-5 text-[#4E5D6E] dark:text-zinc-300" />
         </button>

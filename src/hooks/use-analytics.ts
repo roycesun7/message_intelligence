@@ -10,6 +10,8 @@ import {
   getOnThisDay,
   getTextingPersonality,
   getWordFrequency,
+  getFirstMessage,
+  getEmojiFrequency,
 } from "@/lib/commands";
 import type {
   WrappedStats,
@@ -22,6 +24,8 @@ import type {
   OnThisDayResult,
   TextingPersonality,
   WordFrequency,
+  FirstMessage,
+  EmojiFrequency,
 } from "@/types";
 
 /**
@@ -43,8 +47,7 @@ export const useWrappedStats = (year: number, chatIds?: number[]) => {
 export const useTemporalTrends = (chatId: number | null, year?: number) => {
   return useQuery<DailyMessageCount[]>({
     queryKey: ["temporalTrends", chatId, year ?? null],
-    queryFn: () => getTemporalTrends(chatId!, year),
-    enabled: chatId !== null,
+    queryFn: () => getTemporalTrends(chatId ?? undefined, year),
     staleTime: 5 * 60_000,
   });
 };
@@ -121,6 +124,25 @@ export const useTextingPersonality = (chatId?: number | null) => {
   return useQuery<TextingPersonality>({
     queryKey: ["textingPersonality", chatId ?? null],
     queryFn: () => getTextingPersonality(chatId ?? undefined),
+    staleTime: 5 * 60_000,
+  });
+};
+
+/** Fetch the first message ever sent in a conversation. */
+export const useFirstMessage = (chatId: number | null) => {
+  return useQuery<FirstMessage | null>({
+    queryKey: ["firstMessage", chatId],
+    queryFn: () => getFirstMessage(chatId!),
+    enabled: chatId !== null,
+    staleTime: 60 * 60_000,
+  });
+};
+
+/** Fetch most common emoji. */
+export const useEmojiFrequency = (chatId?: number | null, year?: number) => {
+  return useQuery<EmojiFrequency[]>({
+    queryKey: ["emojiFrequency", chatId ?? null, year ?? null],
+    queryFn: () => getEmojiFrequency(chatId ?? undefined, year),
     staleTime: 5 * 60_000,
   });
 };

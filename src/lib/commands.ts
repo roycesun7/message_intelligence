@@ -15,6 +15,8 @@ import type {
   WordFrequency,
   EmbeddingStatus,
   SemanticSearchResult,
+  FirstMessage,
+  EmojiFrequency,
 } from "@/types";
 
 export const getChats = () => invoke<Chat[]>("get_chats");
@@ -28,8 +30,8 @@ export const getAttachmentData = (messageId: number) =>
 export const getWrappedStats = (year: number, chatIds?: number[]) =>
   invoke<WrappedStats>("get_wrapped_stats", { year, chatIds: chatIds ?? null });
 
-export const getTemporalTrends = (chatId: number, year?: number) =>
-  invoke<DailyMessageCount[]>("get_temporal_trends", { chatId, year: year ?? null });
+export const getTemporalTrends = (chatId?: number, year?: number) =>
+  invoke<DailyMessageCount[]>("get_temporal_trends", { chatId: chatId ?? null, year: year ?? null });
 
 export const getResponseTimeStats = (chatId: number) =>
   invoke<ResponseTimeStats>("get_response_time_stats", { chatId });
@@ -95,4 +97,13 @@ export const getWordFrequency = (year: number, chatIds?: number[], fromMeOnly?: 
     year,
     chatIds: chatIds ?? null,
     fromMeOnly: fromMeOnly ?? false,
+  });
+
+export const getFirstMessage = (chatId: number) =>
+  invoke<FirstMessage | null>("get_first_message", { chatId });
+
+export const getEmojiFrequency = (chatId?: number, year?: number) =>
+  invoke<EmojiFrequency[]>("get_emoji_frequency", {
+    chatId: chatId ?? null,
+    year: year ?? null,
   });

@@ -20,7 +20,7 @@ function PhotoCell({ result }: PhotoCellProps) {
 
   const handleClick = () => {
     setSelectedChatId(result.chatId);
-    setScrollToMessageDate(result.date);
+    setScrollToMessageDate(result.date, result.messageRowid);
     setView("chat");
   };
 

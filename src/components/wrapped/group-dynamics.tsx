@@ -1,16 +1,7 @@
 "use client";
 
 import { useGroupChatDynamics } from "@/hooks/use-analytics";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Users } from "lucide-react";
 import type { ParticipantStats } from "@/types";
-
-// ── Helpers ──────────────────────────────────────────────
 
 function findReplyMagnet(
   participants: ParticipantStats[],
@@ -19,8 +10,6 @@ function findReplyMagnet(
     (a, b) => b.repliesTriggered - a.repliesTriggered,
   )[0];
 }
-
-// ── Component ────────────────────────────────────────────
 
 export function GroupDynamics({ chatId }: { chatId: number }) {
   const { data, isLoading } = useGroupChatDynamics(chatId);
@@ -45,141 +34,100 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
   const replyMagnet = findReplyMagnet(data.participants);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <Users className="h-6 w-6 text-[#4E5D6E] dark:text-blue-400" />
-        <p className="text-lg font-semibold text-[#1B2432] dark:text-white">The Group Chat</p>
-      </div>
-
+    <div className="space-y-4">
       {/* MVP Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Most Active */}
-        <Card className="card-glass">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400">
-              Most Active
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="truncate text-lg font-bold text-[#1B2432] dark:text-white">
-              {data.mostActiveParticipant ?? "Unknown"}
-            </p>
-            <p className="text-xs text-[#94A3B3] dark:text-zinc-500">
-              {sorted[0]?.messageCount.toLocaleString() ?? 0} messages
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Conversation Starter */}
-        <Card className="card-glass">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400">
-              Conversation Starter
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="truncate text-lg font-bold text-[#1B2432] dark:text-white">
-              {data.conversationStarter ?? "Unknown"}
-            </p>
-            <p className="text-xs text-[#94A3B3] dark:text-zinc-500">Initiates the most chats</p>
-          </CardContent>
-        </Card>
-
-        {/* Reply Magnet */}
-        <Card className="card-glass">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400">
-              Reply Magnet
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="truncate text-lg font-bold text-[#1B2432] dark:text-white">
-              {replyMagnet?.displayName ?? "Unknown"}
-            </p>
-            <p className="text-xs text-[#94A3B3] dark:text-zinc-500">
-              {replyMagnet?.repliesTriggered.toLocaleString() ?? 0} replies
-              triggered
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="card-glass rounded-2xl p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400 mb-2">
+            Most Active
+          </p>
+          <p className="text-base font-bold text-[#1B2432] dark:text-white truncate">
+            {data.mostActiveParticipant ?? "Unknown"}
+          </p>
+          <p className="text-[11px] text-[#94A3B3] dark:text-zinc-500 mt-1">
+            {sorted[0]?.messageCount.toLocaleString() ?? 0} messages
+          </p>
+        </div>
+        <div className="card-glass rounded-2xl p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400 mb-2">
+            Conversation Starter
+          </p>
+          <p className="text-base font-bold text-[#1B2432] dark:text-white truncate">
+            {data.conversationStarter ?? "Unknown"}
+          </p>
+          <p className="text-[11px] text-[#94A3B3] dark:text-zinc-500 mt-1">
+            Initiates the most chats
+          </p>
+        </div>
+        <div className="card-glass rounded-2xl p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400 mb-2">
+            Reply Magnet
+          </p>
+          <p className="text-base font-bold text-[#1B2432] dark:text-white truncate">
+            {replyMagnet?.displayName ?? "Unknown"}
+          </p>
+          <p className="text-[11px] text-[#94A3B3] dark:text-zinc-500 mt-1">
+            {replyMagnet?.repliesTriggered.toLocaleString() ?? 0} replies triggered
+          </p>
+        </div>
       </div>
 
-      {/* Participant Table */}
-      <Card className="card-glass">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+      {/* Participants */}
+      <div className="card-glass rounded-[20px] p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">👥</span>
+          <h3 className="text-base font-bold text-[#1B2432] dark:text-white">
             Participants ({sorted.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {sorted.map((p, idx) => {
-              const pct = (p.messageCount / maxMessages) * 100;
-              const highIgnored =
-                p.ignoredCount > 0 &&
-                p.ignoredCount >=
-                  Math.max(
-                    ...sorted.map((s) => s.ignoredCount),
-                  ) *
-                    0.7;
+          </h3>
+        </div>
+        <div className="space-y-3">
+          {sorted.map((p, idx) => {
+            const pct = (p.messageCount / maxMessages) * 100;
+            const highIgnored =
+              p.ignoredCount > 0 &&
+              p.ignoredCount >=
+                Math.max(...sorted.map((s) => s.ignoredCount)) * 0.7;
 
-              return (
-                <div key={p.handleId} className="space-y-1">
-                  {/* Name row */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">
-                        {idx + 1}
-                      </span>
-                      <span className="truncate text-sm font-medium text-[#1B2432] dark:text-zinc-200">
-                        {p.displayName ?? `Handle ${p.handleId}`}
-                      </span>
-                    </div>
-                    <span className="text-xs tabular-nums text-[#4E5D6E] dark:text-zinc-400">
-                      {p.messageCount.toLocaleString()} msgs
+            return (
+              <div key={p.handleId}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">
+                      {idx + 1}
+                    </span>
+                    <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">
+                      {p.displayName ?? `Handle ${p.handleId}`}
                     </span>
                   </div>
-
-                  {/* Progress bar */}
-                  <div className="ml-7 h-1.5 w-full rounded-full bg-[#D1D5DB]/30 dark:bg-white/[0.06]">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#3B82C4]/80 to-[#64ACFF]/80 dark:from-blue-500/80 dark:to-purple-500/80 transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-
-                  {/* Stats row */}
-                  <div className="ml-7 flex gap-4 text-[11px] text-[#94A3B3] dark:text-zinc-500">
-                    <span>
-                      Avg length:{" "}
-                      <span className="text-[#4E5D6E] dark:text-zinc-400">
-                        {Math.round(p.avgMessageLength)}
-                      </span>
-                    </span>
-                    <span>
-                      Replies triggered:{" "}
-                      <span className="text-[#4E5D6E] dark:text-zinc-400">
-                        {p.repliesTriggered.toLocaleString()}
-                      </span>
-                    </span>
-                    <span>
-                      Ignored:{" "}
-                      <span
-                        className={
-                          highIgnored ? "text-red-500 dark:text-red-400" : "text-[#4E5D6E] dark:text-zinc-400"
-                        }
-                      >
-                        {p.ignoredCount.toLocaleString()}
-                      </span>
-                    </span>
-                  </div>
+                  <span className="text-xs text-[#4E5D6E] dark:text-zinc-400">
+                    {p.messageCount.toLocaleString()} msgs
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                <div className="ml-7 h-[5px] rounded-full bg-[#1B2432]/[0.06] dark:bg-white/[0.06] mt-1">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#1B2432]/80 to-[#3B82C4]/80 dark:from-blue-500/80 dark:to-purple-500/80"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="ml-7 flex gap-4 text-[11px] text-[#94A3B3] dark:text-zinc-500 mt-1">
+                  <span>
+                    Avg length: <span className="text-[#4E5D6E] dark:text-zinc-400">{Math.round(p.avgMessageLength)}</span>
+                  </span>
+                  <span>
+                    Replies triggered: <span className="text-[#4E5D6E] dark:text-zinc-400">{p.repliesTriggered.toLocaleString()}</span>
+                  </span>
+                  <span>
+                    Ignored:{" "}
+                    <span className={highIgnored ? "text-red-500 dark:text-red-400" : "text-[#4E5D6E] dark:text-zinc-400"}>
+                      {p.ignoredCount.toLocaleString()}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

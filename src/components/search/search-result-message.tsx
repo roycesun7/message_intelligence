@@ -80,7 +80,7 @@ function ChunkResultCard({ result }: SearchResultMessageProps) {
 
   const handleClick = () => {
     setSelectedChatId(result.chatId);
-    setScrollToMessageDate(result.date);
+    setScrollToMessageDate(result.date, result.messageRowid);
     setView("chat");
   };
 
@@ -133,7 +133,7 @@ function SingleResultCard({ result }: SearchResultMessageProps) {
 
   const handleClick = () => {
     setSelectedChatId(result.chatId);
-    setScrollToMessageDate(result.date);
+    setScrollToMessageDate(result.date, result.messageRowid);
     setView("chat");
   };
 

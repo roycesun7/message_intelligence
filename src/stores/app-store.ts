@@ -38,6 +38,10 @@ export interface AppState {
   wrappedChatId: number | null;
   setWrappedChatId: (id: number | null) => void;
 
+  // ── Wrapped tab ───────────────────────────────────
+  wrappedTab: string;
+  setWrappedTab: (tab: string) => void;
+
   // ── Search ──────────────────────────────────────
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -48,7 +52,8 @@ export interface AppState {
 
   // ── Scroll to message ───────────────────────────
   scrollToMessageDate: number | null;
-  setScrollToMessageDate: (date: number | null) => void;
+  scrollToMessageRowid: number | null;
+  setScrollToMessageDate: (date: number | null, rowid?: number | null) => void;
 
   // ── Highlight a message after scrolling ────────────
   highlightedMessageDate: number | null;
@@ -73,7 +78,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setWrappedYear: (wrappedYear) => set({ wrappedYear }),
 
   wrappedChatId: null,
-  setWrappedChatId: (wrappedChatId) => set({ wrappedChatId }),
+  setWrappedChatId: (wrappedChatId) => set({ wrappedChatId, wrappedTab: "overview" }),
+
+  wrappedTab: "overview",
+  setWrappedTab: (wrappedTab) => set({ wrappedTab }),
 
   searchQuery: "",
   setSearchQuery: (searchQuery) => set({ searchQuery }),
@@ -82,7 +90,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   setChatSearchQuery: (chatSearchQuery) => set({ chatSearchQuery }),
 
   scrollToMessageDate: null,
-  setScrollToMessageDate: (scrollToMessageDate) => set({ scrollToMessageDate }),
+  scrollToMessageRowid: null,
+  setScrollToMessageDate: (scrollToMessageDate, scrollToMessageRowid = null) =>
+    set({ scrollToMessageDate, scrollToMessageRowid }),
 
   highlightedMessageDate: null,
   setHighlightedMessageDate: (highlightedMessageDate) => set({ highlightedMessageDate }),

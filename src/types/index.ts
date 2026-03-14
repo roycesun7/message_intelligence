@@ -235,3 +235,15 @@ export interface TextingPersonality {
   secondaryType: string | null;
   traits: PersonalityTrait[];
 }
+
+export interface FirstMessage {
+  text: string | null;
+  isFromMe: boolean;
+  date: number;
+  senderDisplayName: string | null;
+}
+
+export interface EmojiFrequency {
+  emoji: string;
+  count: number;
+}

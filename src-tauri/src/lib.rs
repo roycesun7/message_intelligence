@@ -290,6 +290,8 @@ pub fn run() {
             commands::fun::get_group_chat_dynamics,
             commands::fun::get_on_this_day,
             commands::fun::get_texting_personality,
+            commands::fun::get_first_message,
+            commands::fun::get_emoji_frequency,
             commands::embeddings::check_embedding_status,
             commands::embeddings::semantic_search,
             commands::embeddings::set_index_target,

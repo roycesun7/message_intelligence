@@ -45,7 +45,7 @@ export function SearchResultLinks({ results }: SearchResultLinksProps) {
 
   const handleClick = (result: SemanticSearchResult) => {
     setSelectedChatId(result.chatId);
-    setScrollToMessageDate(result.date);
+    setScrollToMessageDate(result.date, result.messageRowid);
     setView("chat");
   };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, RotateCcw, Trash2, Play, Bug, ChevronDown, ChevronRight } from "lucide-react";
+import { Settings, RotateCcw, Trash2, Play, Bug, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { useEmbeddingStatus } from "@/hooks/use-search";
 import {
   setIndexTarget,
@@ -13,6 +13,8 @@ import {
   type DebugEmbeddingItem,
 } from "@/lib/commands";
 import { useQueryClient } from "@tanstack/react-query";
+import { listen } from "@tauri-apps/api/event";
+import type { EmbeddingProgress } from "@/types";
 
 function DebugSection({ sourceType, label }: { sourceType: string; label: string }) {
   const [items, setItems] = useState<DebugEmbeddingItem[] | null>(null);
@@ -82,13 +84,32 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const [sliderValue, setSliderValue] = useState<number | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
-  const [indexing, setIndexing] = useState(false);
+  const [pipelineProgress, setPipelineProgress] = useState<EmbeddingProgress | null>(null);
   const [dataDir, setDataDir] = useState<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
+
+  const pipelineRunning = pipelineProgress !== null && pipelineProgress.phase !== "done";
 
   useEffect(() => {
     getDataDir().then(setDataDir).catch(() => {});
   }, []);
+
+  // Listen to pipeline progress events
+  useEffect(() => {
+    let cancelled = false;
+    const unlisten = listen<EmbeddingProgress>("embedding-progress", (event) => {
+      if (!cancelled) {
+        setPipelineProgress(event.payload);
+        if (event.payload.phase === "done") {
+          queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
+        }
+      }
+    });
+    return () => {
+      cancelled = true;
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
+  }, [queryClient]);
 
   const currentTarget = status?.indexTarget ?? 500;
   const totalMessages = status?.totalMessages ?? 0;
@@ -114,14 +135,10 @@ export function SettingsPage() {
     if (sliderValue !== null) {
       await commitSliderValue(sliderValue);
     }
-    setIndexing(true);
     try {
       await runPipeline();
-      queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
-    } catch (err) {
-      console.error("Failed to start indexing:", err);
-    } finally {
-      setIndexing(false);
+    } catch {
+      // Pipeline may already be running — that's fine, progress events will update the UI
     }
   };
 
@@ -146,7 +163,6 @@ export function SettingsPage() {
     }
   };
 
-  const isIndexing = totalEmbedded < displayTarget;
   const progress = displayTarget > 0 ? Math.min(100, (totalEmbedded / displayTarget) * 100) : 0;
   const needsMoreIndexing = totalEmbedded < displayTarget;
 
@@ -172,7 +188,7 @@ export function SettingsPage() {
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-[#4B6382] dark:text-zinc-400">
-                {status?.modelsLoaded ? (isIndexing ? "Indexing..." : "Ready") : "Models not loaded"}
+                {status?.modelsLoaded ? (pipelineRunning ? "Indexing..." : "Ready") : "Models not loaded"}
               </span>
               <span className="text-sm text-[#A4B5C4] dark:text-zinc-500">
                 {totalEmbedded.toLocaleString()} / {displayTarget.toLocaleString()} messages
@@ -245,14 +261,24 @@ export function SettingsPage() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleStartIndexing}
-              disabled={indexing || !needsMoreIndexing || !status?.modelsLoaded}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#007AFF] text-white hover:bg-[#007AFF]/90 transition-colors text-sm disabled:opacity-40 cursor-pointer"
-            >
-              <Play className={`h-4 w-4 ${indexing ? "animate-pulse" : ""}`} />
-              {indexing ? "Indexing..." : needsMoreIndexing ? "Start Indexing" : "Up to Date"}
-            </button>
+            {pipelineRunning ? (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#007AFF]/15 text-[#007AFF] text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>
+                  {pipelineProgress.phase === "chunking" ? "Analyzing" : "Indexing"}...
+                  {pipelineProgress.total > 0 && ` ${Math.round((pipelineProgress.processed / pipelineProgress.total) * 100)}%`}
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={handleStartIndexing}
+                disabled={!needsMoreIndexing || !status?.modelsLoaded}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#007AFF] text-white hover:bg-[#007AFF]/90 transition-colors text-sm disabled:opacity-40 cursor-pointer"
+              >
+                <Play className="h-4 w-4" />
+                {needsMoreIndexing ? "Start Indexing" : "Up to Date"}
+              </button>
+            )}
 
             <button
               onClick={handleRebuild}

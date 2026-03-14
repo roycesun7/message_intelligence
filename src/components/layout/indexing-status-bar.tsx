@@ -9,11 +9,13 @@ export function IndexingStatusBar() {
   const [progress, setProgress] = useState<EmbeddingProgress | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const unlisten = listen<EmbeddingProgress>("embedding-progress", (event) => {
-      setProgress(event.payload);
+      if (!cancelled) setProgress(event.payload);
     });
     return () => {
-      unlisten.then((fn) => fn());
+      cancelled = true;
+      unlisten.then((fn) => fn()).catch(() => {});
     };
   }, []);
 

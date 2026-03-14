@@ -293,9 +293,11 @@ pub fn run() {
             commands::embeddings::check_embedding_status,
             commands::embeddings::semantic_search,
             commands::embeddings::set_index_target,
+            commands::embeddings::run_pipeline,
             commands::embeddings::rebuild_search_index,
             commands::embeddings::get_data_dir,
             commands::embeddings::clear_all_embeddings,
+            commands::embeddings::get_debug_embeddings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

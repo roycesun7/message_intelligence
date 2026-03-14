@@ -222,64 +222,173 @@ pub fn semantic_search(
 
 // ── Index target ───────────────────────────────────────────────────────
 
-/// Set the index target (number of messages to embed).
-/// If the new target is higher than current embeddings and no pipeline is running,
-/// spawn a background pipeline run to index more.
+/// Set the index target (number of messages to embed). Does not trigger indexing.
 #[tauri::command]
 pub fn set_index_target(
     state: State<'_, AppState>,
-    app_handle: AppHandle,
     target: i64,
 ) -> AppResult<()> {
     let analytics_conn = state.lock_analytics_db()?;
     analytics_db::set_search_setting(&analytics_conn, "index_target", &target.to_string())?;
+    Ok(())
+}
 
-    // Check if we need to run the pipeline
-    let current_count = analytics_db::count_embeddings(&analytics_conn)?;
-    drop(analytics_conn);
+/// Manually trigger the indexing pipeline. Respects the current index_target.
+#[tauri::command]
+pub fn run_pipeline(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+) -> AppResult<()> {
+    if state.pipeline_running.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err(AppError::Custom("Pipeline is already running".into()));
+    }
+    if !state.models_loaded() {
+        return Err(AppError::Custom("CLIP models not loaded yet".into()));
+    }
 
-    if current_count < target && state.models_loaded() {
-        // Only dispatch if not already running
-        if !state.pipeline_running.load(std::sync::atomic::Ordering::SeqCst) {
-            let text_arc = {
-                let guard = state.clip_text.read().unwrap_or_else(|p| p.into_inner());
-                guard.clone()
-            };
-            let vision_arc = {
-                let guard = state.clip_vision.read().unwrap_or_else(|p| p.into_inner());
-                guard.clone()
-            };
-            let tok_arc = {
-                let guard = state.tokenizer.read().unwrap_or_else(|p| p.into_inner());
-                guard.clone()
-            };
+    let text_arc = {
+        let guard = state.clip_text.read().unwrap_or_else(|p| p.into_inner());
+        guard.clone()
+    };
+    let vision_arc = {
+        let guard = state.clip_vision.read().unwrap_or_else(|p| p.into_inner());
+        guard.clone()
+    };
+    let tok_arc = {
+        let guard = state.tokenizer.read().unwrap_or_else(|p| p.into_inner());
+        guard.clone()
+    };
 
-            if let (Some(text), Some(vision), Some(tok)) = (text_arc, vision_arc, tok_arc) {
-                let app_handle_clone = app_handle.clone();
-                let state_ref = app_handle.state::<AppState>();
-                state_ref.pipeline_running.store(true, std::sync::atomic::Ordering::SeqCst);
+    if let (Some(text), Some(vision), Some(tok)) = (text_arc, vision_arc, tok_arc) {
+        let app_handle_clone = app_handle.clone();
+        let state_ref = app_handle.state::<AppState>();
+        state_ref.pipeline_running.store(true, std::sync::atomic::Ordering::SeqCst);
 
-                std::thread::spawn(move || {
-                    let mut text_session = text.lock().unwrap_or_else(|p| p.into_inner());
-                    let mut vision_session = vision.lock().unwrap_or_else(|p| p.into_inner());
-                    if let Err(e) = crate::embeddings::pipeline::run_indexing_pipeline(
-                        &app_handle_clone,
-                        &mut text_session,
-                        &mut vision_session,
-                        &tok,
-                    ) {
-                        log::error!("Pipeline (from set_index_target) failed: {e}");
-                    }
-                    // Clear the flag
-                    if let Some(state) = app_handle_clone.try_state::<AppState>() {
-                        state.pipeline_running.store(false, std::sync::atomic::Ordering::SeqCst);
-                    }
-                });
+        std::thread::spawn(move || {
+            let mut text_session = text.lock().unwrap_or_else(|p| p.into_inner());
+            let mut vision_session = vision.lock().unwrap_or_else(|p| p.into_inner());
+            if let Err(e) = crate::embeddings::pipeline::run_indexing_pipeline(
+                &app_handle_clone,
+                &mut text_session,
+                &mut vision_session,
+                &tok,
+            ) {
+                log::error!("Pipeline (from run_pipeline) failed: {e}");
             }
-        }
+            if let Some(state) = app_handle_clone.try_state::<AppState>() {
+                state.pipeline_running.store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+        });
     }
 
     Ok(())
+}
+
+// ── Debug: list embedded items ────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugEmbeddingItem {
+    pub source_type: String,
+    pub source_id: i64,
+    pub chat_id: i64,
+    pub text: Option<String>,
+    pub embedded_at: String,
+}
+
+/// Fetch a sample of embedded items for debug inspection.
+#[tauri::command]
+pub fn get_debug_embeddings(
+    state: State<'_, AppState>,
+    source_type: String,
+    limit: Option<i64>,
+) -> AppResult<Vec<DebugEmbeddingItem>> {
+    let limit = limit.unwrap_or(50);
+    let analytics_conn = state.lock_analytics_db()?;
+
+    let mut items: Vec<DebugEmbeddingItem> = Vec::new();
+
+    if source_type == "chunk" {
+        let mut stmt = analytics_conn.prepare(
+            "SELECT e.source_type, e.source_id, e.chat_id, e.embedded_at, mc.concatenated_text
+             FROM embeddings e
+             LEFT JOIN message_chunks mc ON mc.id = e.source_id
+             WHERE e.source_type = 'chunk'
+             ORDER BY e.id DESC
+             LIMIT ?1"
+        )?;
+        let rows = stmt.query_map(rusqlite::params![limit], |row| {
+            Ok(DebugEmbeddingItem {
+                source_type: row.get(0)?,
+                source_id: row.get(1)?,
+                chat_id: row.get(2)?,
+                embedded_at: row.get(3)?,
+                text: row.get(4)?,
+            })
+        })?;
+        for row in rows {
+            if let Ok(item) = row {
+                items.push(item);
+            }
+        }
+    } else if source_type == "message" {
+        // Need to read text from chat.db
+        let chat_conn = state.lock_chat_db()?;
+        let mut stmt = analytics_conn.prepare(
+            "SELECT e.source_type, e.source_id, e.chat_id, e.embedded_at
+             FROM embeddings e
+             WHERE e.source_type = 'message'
+             ORDER BY e.id DESC
+             LIMIT ?1"
+        )?;
+        let rows: Vec<(String, i64, i64, String)> = stmt.query_map(rusqlite::params![limit], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })?.filter_map(|r| r.ok()).collect();
+
+        for (st, sid, cid, at) in rows {
+            let text: Option<String> = chat_conn.query_row(
+                "SELECT text FROM message WHERE ROWID = ?1",
+                rusqlite::params![sid],
+                |row| row.get(0),
+            ).ok().flatten();
+            items.push(DebugEmbeddingItem {
+                source_type: st,
+                source_id: sid,
+                chat_id: cid,
+                embedded_at: at,
+                text,
+            });
+        }
+    } else if source_type == "attachment" {
+        let chat_conn = state.lock_chat_db()?;
+        let mut stmt = analytics_conn.prepare(
+            "SELECT e.source_type, e.source_id, e.chat_id, e.embedded_at
+             FROM embeddings e
+             WHERE e.source_type = 'attachment'
+             ORDER BY e.id DESC
+             LIMIT ?1"
+        )?;
+        let rows: Vec<(String, i64, i64, String)> = stmt.query_map(rusqlite::params![limit], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })?.filter_map(|r| r.ok()).collect();
+
+        for (st, sid, cid, at) in rows {
+            let text: Option<String> = chat_conn.query_row(
+                "SELECT COALESCE(transfer_name, filename, mime_type) FROM attachment WHERE ROWID = ?1",
+                rusqlite::params![sid],
+                |row| row.get(0),
+            ).ok().flatten();
+            items.push(DebugEmbeddingItem {
+                source_type: st,
+                source_id: sid,
+                chat_id: cid,
+                embedded_at: at,
+                text,
+            });
+        }
+    }
+
+    Ok(items)
 }
 
 /// Clear all embeddings and re-trigger the background pipeline.

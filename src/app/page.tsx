@@ -80,7 +80,7 @@ function MainContent() {
 export default function Home() {
   return (
     <FdaGate>
-      <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#ECEEF2] dark:bg-[#1C1C1E]">
+      <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#ECEEF2] dark:bg-zinc-950">
         <NavBar />
         <div className="flex min-h-0 flex-1 gap-0 p-2">
           <ChatList />

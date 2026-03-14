@@ -73,6 +73,26 @@ pub struct PersonalityTrait {
     pub score: f64,
 }
 
+// -- First Message --
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FirstMessage {
+    pub text: Option<String>,
+    pub is_from_me: bool,
+    pub date: i64,
+    pub sender_display_name: Option<String>,
+}
+
+// -- Emoji Frequency --
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmojiFrequency {
+    pub emoji: String,
+    pub count: i64,
+}
+
 // ── Tauri commands ──────────────────────────────────────────────────────
 
 /// Per-participant analytics for a group chat. Computes message counts,
@@ -459,6 +479,172 @@ pub async fn get_on_this_day(
             messages,
             years_with_messages,
         })
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}
+
+/// Return the very first message ever exchanged in a conversation.
+#[tauri::command]
+pub async fn get_first_message(
+    state: State<'_, AppState>,
+    chat_id: i64,
+) -> AppResult<Option<FirstMessage>> {
+    let chat_db_mutex = state.chat_db.clone();
+    let contact_map = state.contact_map.lock().map_err(|e| AppError::Custom(e.to_string()))?.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<Option<FirstMessage>> {
+        let guard = chat_db_mutex
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
+
+        let handle_map = build_handle_map(conn)?;
+
+        let sql = "SELECT
+                message.text,
+                message.attributedBody,
+                message.is_from_me,
+                message.date,
+                message.handle_id
+             FROM message
+             INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+             WHERE cmj.chat_id = ?
+               AND message.associated_message_type = 0
+             ORDER BY message.date ASC
+             LIMIT 1";
+
+        let mut stmt = conn.prepare(sql)?;
+        let row = stmt.query_row([chat_id], |row| {
+            let text: Option<String> = row.get(0)?;
+            let attributed_body: Option<Vec<u8>> = row.get(1)?;
+            let is_from_me_val: i64 = row.get(2)?;
+            let date: i64 = row.get(3)?;
+            let handle_id: i64 = row.get(4)?;
+            Ok((text, attributed_body, is_from_me_val != 0, date, handle_id))
+        });
+
+        match row {
+            Ok((text, attributed_body, is_from_me, date, handle_id)) => {
+                let resolved_text = resolve_text(&text, &attributed_body);
+
+                let sender_name = if is_from_me {
+                    Some("You".to_string())
+                } else {
+                    handle_map
+                        .get(&handle_id)
+                        .and_then(|h| crate::db::contacts_db::resolve_name(h, &contact_map))
+                        .or_else(|| handle_map.get(&handle_id).cloned())
+                };
+
+                Ok(Some(FirstMessage {
+                    text: resolved_text,
+                    is_from_me,
+                    date: crate::ingestion::timestamp::apple_timestamp_to_unix_ms(date),
+                    sender_display_name: sender_name,
+                }))
+            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}
+
+/// Return the most frequently used emoji across messages.
+/// Optionally filter by chat and year.
+#[tauri::command]
+pub async fn get_emoji_frequency(
+    state: State<'_, AppState>,
+    chat_id: Option<i64>,
+    year: Option<i64>,
+) -> AppResult<Vec<EmojiFrequency>> {
+    let chat_db_mutex = state.chat_db.clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<EmojiFrequency>> {
+        let guard = chat_db_mutex
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
+
+        let mut clauses: Vec<String> = vec![
+            "message.text IS NOT NULL".to_string(),
+            "LENGTH(message.text) > 0".to_string(),
+            "message.associated_message_type = 0".to_string(),
+        ];
+        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+        if let Some(cid) = chat_id {
+            clauses.push("cmj.chat_id = ?".to_string());
+            params.push(Box::new(cid));
+        }
+
+        if let Some(y) = year {
+            if y != 0 {
+                let start_ms = chrono::NaiveDate::from_ymd_opt(y as i32, 1, 1)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_utc()
+                    .timestamp_millis();
+                let end_ms = chrono::NaiveDate::from_ymd_opt((y + 1) as i32, 1, 1)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_utc()
+                    .timestamp_millis();
+                let apple_epoch: i64 = 978_307_200;
+                let start_offset = (start_ms - apple_epoch * 1000) * 1_000_000;
+                let end_offset = (end_ms - apple_epoch * 1000) * 1_000_000;
+                clauses.push("message.date > ?".to_string());
+                params.push(Box::new(start_offset));
+                clauses.push("message.date < ?".to_string());
+                params.push(Box::new(end_offset));
+            }
+        }
+
+        let where_clause = clauses.join(" AND ");
+        let sql = format!(
+            "SELECT message.text, message.attributedBody
+             FROM message
+             INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+             WHERE {where_clause}"
+        );
+
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let texts: Vec<Option<String>> = stmt
+            .query_map(param_refs.as_slice(), |row| {
+                let text: Option<String> = row.get(0)?;
+                let attributed_body: Option<Vec<u8>> = row.get(1)?;
+                Ok(resolve_text(&text, &attributed_body))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Count emoji frequencies
+        let mut freq: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+        for text in texts.iter().flatten() {
+            for c in text.chars() {
+                if is_emoji(c) {
+                    *freq.entry(c.to_string()).or_insert(0) += 1;
+                }
+            }
+        }
+
+        let mut emojis: Vec<EmojiFrequency> = freq
+            .into_iter()
+            .map(|(emoji, count)| EmojiFrequency { emoji, count })
+            .collect();
+        emojis.sort_by(|a, b| b.count.cmp(&a.count));
+        emojis.truncate(30);
+
+        Ok(emojis)
     })
     .await
     .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
@@ -867,6 +1053,36 @@ fn apple_ns_to_date_string(apple_ns: i64) -> String {
         Some(d) => d.format("%Y-%m-%d").to_string(),
         None => "unknown".to_string(),
     }
+}
+
+/// Check if a character is an emoji.
+fn is_emoji(c: char) -> bool {
+    let cp = c as u32;
+    matches!(cp,
+        0x1F600..=0x1F64F |  // Emoticons
+        0x1F300..=0x1F5FF |  // Misc Symbols and Pictographs
+        0x1F680..=0x1F6FF |  // Transport and Map
+        0x1F900..=0x1F9FF |  // Supplemental Symbols and Pictographs
+        0x1FA70..=0x1FAFF |  // Symbols and Pictographs Extended-A
+        0x2600..=0x26FF   |  // Misc Symbols
+        0x2700..=0x27BF   |  // Dingbats
+        0x231A..=0x231B   |
+        0x23E9..=0x23F3   |
+        0x23F8..=0x23FA   |
+        0x25AA..=0x25AB   |
+        0x25B6             |
+        0x25C0             |
+        0x25FB..=0x25FE   |
+        0x2934..=0x2935   |
+        0x1F004            |
+        0x1F0CF            |
+        0x1F170..=0x1F171  |
+        0x1F17E..=0x1F17F  |
+        0x1F18E            |
+        0x1F191..=0x1F19A  |
+        0x1F1E0..=0x1F1FF  |
+        0x1F201..=0x1F251
+    )
 }
 
 /// Determine the primary personality type based on scored traits with thresholds.

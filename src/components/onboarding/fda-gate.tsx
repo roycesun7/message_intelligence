@@ -68,7 +68,7 @@ export function FdaGate({ children }: { children: React.ReactNode }) {
   // Loading state
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#1C1C1E]">
+      <div className="flex h-screen w-screen items-center justify-center bg-zinc-950">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-[#007AFF]" />
           <p className="text-sm text-zinc-500">Checking access...</p>
@@ -84,7 +84,7 @@ export function FdaGate({ children }: { children: React.ReactNode }) {
 
   // FDA not granted — show onboarding
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-[#1C1C1E] p-8">
+    <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-8">
       <div className="flex max-w-lg flex-col items-center gap-8 text-center">
         {/* Icon */}
         <div className="flex h-20 w-20 items-center justify-center rounded-[22px] bg-[#007AFF]/10 ring-1 ring-[#007AFF]/20">

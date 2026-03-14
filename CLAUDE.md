@@ -56,12 +56,13 @@ When adding a new feature: define the Rust struct + command → register in `lib
 
 - **State**: Zustand store (`stores/app-store.ts`) for UI state (selected chat, view, year filter). Data fetching is React Query only — no data in Zustand.
 - **Virtualization**: `react-virtuoso` for chat list and message list. Only visible messages trigger attachment data loading.
-- **Design system**: Apple-native dark theme. iMessage blue `#007AFF`, SMS green `#34C759`, received bubble `#3A3A3C`, background `#1C1C1E`. Glassmorphism classes (`.glass`, `.glass-heavy`) defined in `globals.css`.
+- **Design system**: Apple-native light/dark theme with full theme toggle. Analytics color palette: `#1B2432` (dark navy), `#3B82C4` (blue), `#4E5D6E` (slate), `#94A3B3` (muted), `#D1D5DB` (light border). Glassmorphism classes (`.glass`, `.glass-heavy`, `.card-glass`) defined in `globals.css`.
 - **Tapbacks**: Built as a pre-computed map in a single O(n) pass (`buildTapbackMap` in `message-bubble.tsx`), not per-message filtering.
+- **Wrapped tabs**: The wrapped dashboard is organized into tabs — Overview, Between You Two (per-chat), Patterns, Fun. Components include `message-heatmap.tsx` (SVG calendar grid), `relationship-timeline.tsx` (scrollable weekly bar chart), `first-message.tsx` (first message bubble), `emoji-frequency.tsx` (emoji grid), `word-frequency.tsx`, `fun-stats.tsx`, `group-dynamics.tsx`, `on-this-day.tsx`.
 
 ### Attachment handling
 
-Attachments are lazy-loaded per-message. The `get_attachment_data` command reads files from `~/Library/Messages/Attachments/`, expanding `~` to the home dir, and base64-encodes images (JPEG, PNG, GIF, WebP). HEIC is excluded (base64 data URLs don't render reliably in WebKit). Files ending in `.pluginPayloadAttachment` are Apple's URL preview metadata and are filtered out in the frontend.
+Attachments are lazy-loaded per-message. The `get_attachment_data` command reads files from `~/Library/Messages/Attachments/`, expanding `~` to the home dir, and base64-encodes images (JPEG, PNG, GIF, WebP). HEIC files are converted to JPEG on-the-fly using macOS `sips` (no external dependencies). Files ending in `.pluginPayloadAttachment` are Apple's URL preview metadata and are filtered out in the frontend.
 
 ## Requirements
 

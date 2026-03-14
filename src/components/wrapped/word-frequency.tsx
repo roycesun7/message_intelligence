@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import { useWordFrequency } from "@/hooks/use-analytics";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Type } from "lucide-react";
 
 interface WordFrequencySectionProps {
   year: number;
   chatIds?: number[];
+}
+
+function getSizeClass(index: number): string {
+  if (index < 2) return "s1";
+  if (index < 5) return "s2";
+  if (index < 9) return "s3";
+  return "s4";
 }
 
 export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProps) {
@@ -16,97 +21,77 @@ export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProp
 
   if (isLoading) {
     return (
-      <Card className="card-glass">
-        <CardHeader className="flex flex-row items-center gap-2">
-          <Type className="h-5 w-5 text-[#1B2432] dark:text-blue-400" />
-          <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+      <div className="card-glass rounded-[20px] p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-base font-bold text-[#1B2432] dark:text-white">
             Most Used Words
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] dark:border-zinc-600 border-t-[#1B2432] dark:border-t-blue-400" />
-        </CardContent>
-      </Card>
+          </h3>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#D1D5DB] dark:border-zinc-600 border-t-[#1B2432] dark:border-t-blue-400" />
+        </div>
+      </div>
     );
   }
 
   if (!words || words.length === 0) {
     return (
-      <Card className="card-glass">
-        <CardHeader className="flex flex-row items-center gap-2">
-          <Type className="h-5 w-5 text-[#1B2432] dark:text-blue-400" />
-          <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+      <div className="card-glass rounded-[20px] p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-base font-bold text-[#1B2432] dark:text-white">
             Most Used Words
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-[#94A3B3] dark:text-zinc-500 py-4">
-            No word data available.
-          </p>
-        </CardContent>
-      </Card>
+          </h3>
+        </div>
+        <p className="text-sm text-[#94A3B3] dark:text-zinc-500">
+          No word data available.
+        </p>
+      </div>
     );
   }
 
-  const maxCount = words[0].count;
-
   return (
-    <Card className="card-glass">
-      <CardHeader className="flex flex-row items-center gap-2">
-        <Type className="h-5 w-5 text-[#1B2432] dark:text-blue-400" />
-        <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+    <div className="card-glass rounded-[20px] p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-lg">🔤</span>
+        <h3 className="text-base font-bold text-[#1B2432] dark:text-white">
           Most Used Words
-        </CardTitle>
-        <div className="ml-auto flex items-center gap-1 rounded-full bg-[#1B2432]/[0.04] dark:bg-white/[0.06] p-0.5">
+        </h3>
+        <div className="ml-auto flex items-center gap-0.5 rounded-lg bg-[#1B2432]/[0.04] dark:bg-white/[0.06] p-0.5">
           <button
             onClick={() => setFromMeOnly(false)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-md px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors ${
               !fromMeOnly
-                ? "bg-[#1B2432] text-white dark:bg-[#007AFF] dark:text-white"
-                : "text-[#4E5D6E] dark:text-zinc-400 hover:text-[#1B2432] dark:hover:text-zinc-200"
+                ? "bg-[#1B2432] text-white dark:bg-white/[0.15] dark:text-white"
+                : "text-[#4E5D6E] dark:text-zinc-400"
             }`}
           >
             Everyone
           </button>
           <button
             onClick={() => setFromMeOnly(true)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-md px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors ${
               fromMeOnly
-                ? "bg-[#1B2432] text-white dark:bg-[#007AFF] dark:text-white"
-                : "text-[#4E5D6E] dark:text-zinc-400 hover:text-[#1B2432] dark:hover:text-zinc-200"
+                ? "bg-[#1B2432] text-white dark:bg-white/[0.15] dark:text-white"
+                : "text-[#4E5D6E] dark:text-zinc-400"
             }`}
           >
             My Words
           </button>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-1.5">
-          {words.slice(0, 20).map((w, i) => (
-            <div key={w.word} className="flex items-center gap-3">
-              <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">
-                {i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">
-                    {w.word}
-                  </span>
-                  <span className="shrink-0 text-xs text-[#94A3B3] dark:text-zinc-500">
-                    {w.count.toLocaleString()}
-                  </span>
-                </div>
-                <div className="mt-0.5 h-1.5 w-full rounded-full bg-[#D1D5DB]/30 dark:bg-white/[0.06] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#3B82C4] to-[#64ACFF] dark:from-[#007AFF] dark:to-[#64ACFF]"
-                    style={{ width: `${(w.count / maxCount) * 100}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="flex flex-wrap gap-2 justify-center py-3">
+        {words.slice(0, 14).map((w, i) => (
+          <span
+            key={w.word}
+            className={`wc-tag ${getSizeClass(i)} text-[#1B2432] dark:text-white`}
+          >
+            {w.word}
+            <span className="text-[10px] text-[#94A3B3] dark:text-zinc-500 ml-1">
+              {w.count.toLocaleString()}
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -13,7 +13,7 @@ iCapsule is a native macOS desktop application built with **Tauri v2**, combinin
 |  |                                                | |
 |  |  Components:  Chat | Wrapped | Search          | |
 |  |  State:       Zustand + React Query            | |
-|  |  Charts:      Recharts (Area, Bar)             | |
+|  |  Charts:      Recharts + custom SVG heatmap     | |
 |  |  Design:      Apple glassmorphism, SF Pro      | |
 |  +-------------------+---------------------------+ |
 |                      | Tauri invoke() / IPC        |
@@ -83,7 +83,12 @@ icapsule/
 │   │   │   ├── chat-view.tsx         # Message display with Virtuoso
 │   │   │   └── message-bubble.tsx    # Apple-styled message bubbles + tapbacks
 │   │   ├── wrapped/
-│   │   │   ├── wrapped-view.tsx      # Wrapped dashboard (global + per-chat), temporal trends, relationship metrics
+│   │   │   ├── wrapped-view.tsx      # Wrapped dashboard (global + per-chat) with tabbed layout
+│   │   │   ├── message-heatmap.tsx   # GitHub-style calendar heatmap (SVG, 5-level color scale)
+│   │   │   ├── relationship-timeline.tsx # Week-by-week scrollable bar chart with tooltips
+│   │   │   ├── first-message.tsx     # "Where It All Began" — first message as iMessage bubble
+│   │   │   ├── emoji-frequency.tsx   # Most used emoji grid with frequency bars
+│   │   │   ├── word-frequency.tsx    # Most used words with Everyone / My Words toggle
 │   │   │   ├── group-dynamics.tsx    # Group chat dynamics: MVP cards + ranked participant stats
 │   │   │   ├── fun-stats.tsx         # Texting personality classification
 │   │   │   └── on-this-day.tsx       # "On This Day" interactive section with click-to-navigate
@@ -144,7 +149,7 @@ icapsule/
 
 ## Tauri Commands (Backend API)
 
-All 16 commands are invoked via `invoke()` from the frontend. Heavy queries run on `tokio::task::spawn_blocking` to keep the UI responsive.
+All 20 commands are invoked via `invoke()` from the frontend. Heavy queries run on `tokio::task::spawn_blocking` to keep the UI responsive.
 
 ### Message Commands (`commands/messages.rs`)
 
@@ -159,7 +164,7 @@ All 16 commands are invoked via `invoke()` from the frontend. Heavy queries run 
 | Command | Parameters | Returns | Description |
 |---------|-----------|---------|-------------|
 | `get_wrapped_stats` | `year, chatIds?` | `WrappedStats` | Wrapped analytics. Year 0 = all-time. Optional chat filter. Global results cached in analytics.db. |
-| `get_temporal_trends` | `chatId, year?` | `DailyMessageCount[]` | Daily sent/received counts for a chat over its full history |
+| `get_temporal_trends` | `chatId?, year?` | `DailyMessageCount[]` | Daily sent/received counts. Optional chatId for per-chat or global (null). |
 | `get_response_time_stats` | `chatId` | `ResponseTimeStats` | Avg/median/fastest response times, you vs. them |
 | `get_initiation_stats` | `chatId` | `InitiationStats` | Who starts conversations more (4h gap threshold) |
 | `get_message_length_stats` | `chatId` | `MessageLengthStats` | Avg/max/total chars and message count per side |
@@ -180,6 +185,9 @@ All 16 commands are invoked via `invoke()` from the frontend. Heavy queries run 
 | `get_group_chat_dynamics` | `chatId` | `GroupChatDynamics` | Per-participant stats: message count, avg length, replies triggered, ignored count. MVP cards for most active, conversation starter, reply magnet. |
 | `get_on_this_day` | `chatId?` | `OnThisDayResult` | Messages from today's month+day across all past years, grouped by year. Works global (all chats) and per-chat. |
 | `get_texting_personality` | `chatId?` | `TextingPersonality` | Classifies texting style from 8 traits (Night Owl, Early Bird, Essay Writer, Rapid Fire, Conversation Starter, Slow Burn, Weekend Warrior, Ghost) with scored trait bars. |
+| `get_first_message` | `chatId` | `FirstMessage?` | First message ever exchanged in a conversation (text, sender, date). |
+| `get_emoji_frequency` | `chatId?, year?` | `EmojiFrequency[]` | Top 30 most used emoji across messages, with counts. Unicode code point range detection in Rust. |
+| `get_color_frequency` | `chatId?, year?` | `ColorFrequency[]` | Most referenced colors in messages with hex values and frequency counts. |
 
 ### Embedding Commands (`commands/embeddings.rs`) -- Stubs
 
@@ -240,7 +248,7 @@ wrapped_cache (
 4.   Open analytics.db -> Create if needed, run schema migrations
 5.   Load contacts   -> Query macOS Address Book (ABCDRecord SQLite)
 6.   Build AppState  -> { chat_db, analytics_db, contact_map }
-7.   Register commands -> 16 Tauri IPC handlers
+7.   Register commands -> 20 Tauri IPC handlers
 8.   Create window   -> 1200x800, min 900x600
 9. Frontend loads    -> React Query fetches initial data
 ```
@@ -281,7 +289,7 @@ interface AppState {
 
 ## Design System
 
-Consumer-friendly, conversational UI with Apple-native dark theme and glassmorphism. Uses `.card-glass` utility for glassmorphic cards throughout analytics views.
+Consumer-friendly, conversational UI with Apple-native light/dark theme toggle (localStorage persistence) and glassmorphism. Uses `.card-glass` utility for glassmorphic cards throughout analytics views.
 
 | Element | Style |
 |---------|-------|

@@ -48,38 +48,38 @@
 }
 
 :root {
-  --background: #F0EDE8;
-  --foreground: #071739;
-  --card: #FAFAF7;
-  --card-foreground: #071739;
-  --popover: #FAFAF7;
-  --popover-foreground: #071739;
-  --primary: #071739;
-  --primary-foreground: #FAFAF7;
-  --secondary: #CDD5DB;
-  --secondary-foreground: #071739;
-  --muted: #CDD5DB;
-  --muted-foreground: #4B6382;
-  --accent: #A68868;
-  --accent-foreground: #FAFAF7;
+  --background: #ECEEF2;
+  --foreground: #1B2432;
+  --card: #F7F8FA;
+  --card-foreground: #1B2432;
+  --popover: #F7F8FA;
+  --popover-foreground: #1B2432;
+  --primary: #1B2432;
+  --primary-foreground: #F7F8FA;
+  --secondary: #D1D5DB;
+  --secondary-foreground: #1B2432;
+  --muted: #D1D5DB;
+  --muted-foreground: #4E5D6E;
+  --accent: #3B82C4;
+  --accent-foreground: #F7F8FA;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: rgba(7, 23, 57, 0.08);
-  --input: rgba(7, 23, 57, 0.08);
-  --ring: #4B6382;
-  --chart-1: #071739;
-  --chart-2: #4B6382;
-  --chart-3: #A68868;
-  --chart-4: #A4B5C4;
-  --chart-5: #E3C39D;
+  --border: rgba(27, 36, 50, 0.08);
+  --input: rgba(27, 36, 50, 0.08);
+  --ring: #4E5D6E;
+  --chart-1: #1B2432;
+  --chart-2: #3B82C4;
+  --chart-3: #4E5D6E;
+  --chart-4: #94A3B3;
+  --chart-5: #D1D5DB;
   --radius: 0.625rem;
-  --sidebar: #FAFAF7;
-  --sidebar-foreground: #071739;
-  --sidebar-primary: #071739;
-  --sidebar-primary-foreground: #FAFAF7;
-  --sidebar-accent: #CDD5DB;
-  --sidebar-accent-foreground: #071739;
-  --sidebar-border: rgba(7, 23, 57, 0.08);
-  --sidebar-ring: #4B6382;
+  --sidebar: #F7F8FA;
+  --sidebar-foreground: #1B2432;
+  --sidebar-primary: #1B2432;
+  --sidebar-primary-foreground: #F7F8FA;
+  --sidebar-accent: #D1D5DB;
+  --sidebar-accent-foreground: #1B2432;
+  --sidebar-border: rgba(27, 36, 50, 0.08);
+  --sidebar-ring: #4E5D6E;
 }
 
 .dark {
@@ -130,8 +130,6 @@
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
   }
 
-  /* ── Apple-style scrollbar ──────────────────────────────── */
-  /* Thin auto-hiding scrollbar, macOS native feel */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -152,7 +150,6 @@
     background: rgba(255, 255, 255, 0.25);
   }
 
-  /* Smooth scrolling in virtualized lists */
   [data-virtuoso-scroller] {
     scroll-behavior: auto;
     -webkit-overflow-scrolling: touch;
@@ -177,12 +174,10 @@
     background: rgba(255, 255, 255, 0.2);
   }
 
-  /* Prevent text selection flash during scrolling */
   [data-virtuoso-scroller] * {
     -webkit-user-select: none;
     user-select: none;
   }
-  /* But allow text selection on actual message content */
   [data-virtuoso-scroller] .select-text,
   [data-virtuoso-scroller] p,
   [data-virtuoso-scroller] span {
@@ -191,28 +186,7 @@
   }
 }
 
-/* ── Apple-style glassmorphism utilities ────────────────── */
 @layer utilities {
-  .glass {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-  }
-
-  .glass-heavy {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(40px) saturate(200%);
-    -webkit-backdrop-filter: blur(40px) saturate(200%);
-  }
-
-  .glass-border {
-    border: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .glass-shadow {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  }
-
   .apple-text-sm {
     letter-spacing: 0.01em;
   }
@@ -222,8 +196,8 @@
   }
 
   .card-glass {
-    background: #FAFAF7;
-    border: 1px solid rgba(7, 23, 57, 0.06);
+    background: #F7F8FA;
+    border: 1px solid rgba(27, 36, 50, 0.06);
     border-radius: 16px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   }
@@ -237,7 +211,7 @@
   }
 
   .stat-glow {
-    box-shadow: 0 2px 12px -2px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(7, 23, 57, 0.05) inset;
+    box-shadow: 0 2px 12px -2px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(27, 36, 50, 0.05) inset;
   }
 
   .dark .stat-glow {
@@ -249,7 +223,7 @@
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: #A4B5C4;
+    color: #94A3B3;
   }
 
   .dark .section-header {

@@ -195,13 +195,13 @@ export function GlobalSearch() {
     : messages.slice(0, DEFAULT_MESSAGE_COUNT);
 
   return (
-    <div className="flex flex-1 flex-col bg-[#F0EDE8] dark:bg-zinc-950 p-6 overflow-y-auto">
+    <div className="flex flex-1 flex-col bg-[#ECEEF2] dark:bg-zinc-950 p-6 overflow-y-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-extrabold text-[#071739] dark:text-white">
+        <h1 className="text-3xl font-extrabold text-[#1B2432] dark:text-white">
           Search
         </h1>
-        <p className="mt-1 text-sm text-[#4B6382] dark:text-zinc-400">
+        <p className="mt-1 text-sm text-[#4E5D6E] dark:text-zinc-400">
           Find messages across all your conversations
         </p>
       </div>
@@ -209,12 +209,12 @@ export function GlobalSearch() {
       {/* Search bar */}
       <div className="mx-auto w-full max-w-xl">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#A4B5C4] dark:text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#94A3B3] dark:text-zinc-500" />
           <Input
             placeholder="Search messages..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-12 pl-11 pr-28 text-base bg-white dark:bg-zinc-900 border-[#CDD5DB] dark:border-zinc-700 text-[#071739] dark:text-zinc-200 placeholder:text-[#A4B5C4] dark:placeholder:text-zinc-500 focus-visible:ring-[#4B6382]/40 dark:focus-visible:ring-blue-500/40"
+            className="h-12 pl-11 pr-28 text-base bg-white dark:bg-zinc-900 border-[#D1D5DB] dark:border-zinc-700 text-[#1B2432] dark:text-zinc-200 placeholder:text-[#94A3B3] dark:placeholder:text-zinc-500 focus-visible:ring-[#4E5D6E]/40 dark:focus-visible:ring-blue-500/40"
           />
           {/* Semantic badge */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-500/10 to-blue-500/10 dark:from-purple-500/20 dark:to-blue-500/20 px-2.5 py-1">
@@ -234,8 +234,8 @@ export function GlobalSearch() {
         {/* Loading state */}
         {isLoading && hasQuery && (
           <div className="flex flex-col items-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-[#A4B5C4] dark:text-zinc-500" />
-            <p className="mt-3 text-sm text-[#4B6382] dark:text-zinc-400">
+            <Loader2 className="h-8 w-8 animate-spin text-[#94A3B3] dark:text-zinc-500" />
+            <p className="mt-3 text-sm text-[#4E5D6E] dark:text-zinc-400">
               Searching...
             </p>
           </div>
@@ -244,13 +244,13 @@ export function GlobalSearch() {
         {/* Empty state (no query) */}
         {!hasQuery && !isLoading && (
           <div className="flex flex-col items-center text-center pt-8">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#4B6382]/20 to-[#071739]/20 dark:from-purple-600/20 dark:to-blue-600/20">
-              <Sparkles className="h-8 w-8 text-[#4B6382] dark:text-purple-400" />
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#4E5D6E]/20 to-[#1B2432]/20 dark:from-purple-600/20 dark:to-blue-600/20">
+              <Sparkles className="h-8 w-8 text-[#4E5D6E] dark:text-purple-400" />
             </div>
-            <h2 className="text-lg font-semibold text-[#071739] dark:text-zinc-300">
+            <h2 className="text-lg font-semibold text-[#1B2432] dark:text-zinc-300">
               Semantic Search
             </h2>
-            <p className="mt-2 text-sm text-[#4B6382] dark:text-zinc-500 leading-relaxed max-w-sm">
+            <p className="mt-2 text-sm text-[#4E5D6E] dark:text-zinc-500 leading-relaxed max-w-sm">
               Search by meaning, not just keywords. Type a question or
               description to find relevant messages, links, and photos across all
               your conversations.
@@ -261,11 +261,11 @@ export function GlobalSearch() {
         {/* No results state */}
         {hasQuery && !isLoading && !hasResults && (
           <div className="flex flex-col items-center text-center pt-8">
-            <Search className="h-10 w-10 text-[#CDD5DB] dark:text-zinc-700 mb-3" />
-            <h2 className="text-base font-semibold text-[#071739] dark:text-zinc-300">
+            <Search className="h-10 w-10 text-[#D1D5DB] dark:text-zinc-700 mb-3" />
+            <h2 className="text-base font-semibold text-[#1B2432] dark:text-zinc-300">
               No results found
             </h2>
-            <p className="mt-1 text-sm text-[#4B6382] dark:text-zinc-500">
+            <p className="mt-1 text-sm text-[#4E5D6E] dark:text-zinc-500">
               {status && !status.modelsLoaded
                 ? "Search models are not loaded. Check Settings."
                 : status && status.totalEmbedded === 0

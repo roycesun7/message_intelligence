@@ -29,8 +29,8 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
     return (
       <div className="mb-8 flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#CDD5DB] dark:border-zinc-600 border-t-[#4B6382] dark:border-t-blue-500" />
-          <p className="text-sm text-[#A4B5C4] dark:text-zinc-500">Loading group dynamics...</p>
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] dark:border-zinc-600 border-t-[#4E5D6E] dark:border-t-blue-500" />
+          <p className="text-sm text-[#94A3B3] dark:text-zinc-500">Loading group dynamics...</p>
         </div>
       </div>
     );
@@ -48,8 +48,8 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
     <div className="mb-8 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Users className="h-6 w-6 text-[#4B6382] dark:text-blue-400" />
-        <p className="text-lg font-semibold text-[#071739] dark:text-white">The Group Chat</p>
+        <Users className="h-6 w-6 text-[#4E5D6E] dark:text-blue-400" />
+        <p className="text-lg font-semibold text-[#1B2432] dark:text-white">The Group Chat</p>
       </div>
 
       {/* MVP Cards */}
@@ -57,15 +57,15 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
         {/* Most Active */}
         <Card className="card-glass">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4B6382] dark:text-zinc-400">
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400">
               Most Active
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="truncate text-lg font-bold text-[#071739] dark:text-white">
+            <p className="truncate text-lg font-bold text-[#1B2432] dark:text-white">
               {data.mostActiveParticipant ?? "Unknown"}
             </p>
-            <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">
+            <p className="text-xs text-[#94A3B3] dark:text-zinc-500">
               {sorted[0]?.messageCount.toLocaleString() ?? 0} messages
             </p>
           </CardContent>
@@ -74,30 +74,30 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
         {/* Conversation Starter */}
         <Card className="card-glass">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4B6382] dark:text-zinc-400">
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400">
               Conversation Starter
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="truncate text-lg font-bold text-[#071739] dark:text-white">
+            <p className="truncate text-lg font-bold text-[#1B2432] dark:text-white">
               {data.conversationStarter ?? "Unknown"}
             </p>
-            <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">Initiates the most chats</p>
+            <p className="text-xs text-[#94A3B3] dark:text-zinc-500">Initiates the most chats</p>
           </CardContent>
         </Card>
 
         {/* Reply Magnet */}
         <Card className="card-glass">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4B6382] dark:text-zinc-400">
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-[#4E5D6E] dark:text-zinc-400">
               Reply Magnet
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="truncate text-lg font-bold text-[#071739] dark:text-white">
+            <p className="truncate text-lg font-bold text-[#1B2432] dark:text-white">
               {replyMagnet?.displayName ?? "Unknown"}
             </p>
-            <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">
+            <p className="text-xs text-[#94A3B3] dark:text-zinc-500">
               {replyMagnet?.repliesTriggered.toLocaleString() ?? 0} replies
               triggered
             </p>
@@ -108,7 +108,7 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
       {/* Participant Table */}
       <Card className="card-glass">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold text-[#071739] dark:text-white">
+          <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
             Participants ({sorted.length})
           </CardTitle>
         </CardHeader>
@@ -129,37 +129,37 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
                   {/* Name row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="w-5 text-right text-xs font-bold text-[#A4B5C4] dark:text-zinc-500">
+                      <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">
                         {idx + 1}
                       </span>
-                      <span className="truncate text-sm font-medium text-[#071739] dark:text-zinc-200">
+                      <span className="truncate text-sm font-medium text-[#1B2432] dark:text-zinc-200">
                         {p.displayName ?? `Handle ${p.handleId}`}
                       </span>
                     </div>
-                    <span className="text-xs tabular-nums text-[#4B6382] dark:text-zinc-400">
+                    <span className="text-xs tabular-nums text-[#4E5D6E] dark:text-zinc-400">
                       {p.messageCount.toLocaleString()} msgs
                     </span>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="ml-7 h-1.5 w-full rounded-full bg-[#CDD5DB]/30 dark:bg-white/[0.06]">
+                  <div className="ml-7 h-1.5 w-full rounded-full bg-[#D1D5DB]/30 dark:bg-white/[0.06]">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#071739]/80 to-[#A68868]/80 dark:from-blue-500/80 dark:to-purple-500/80 transition-all"
+                      className="h-full rounded-full bg-gradient-to-r from-[#3B82C4]/80 to-[#64ACFF]/80 dark:from-blue-500/80 dark:to-purple-500/80 transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
 
                   {/* Stats row */}
-                  <div className="ml-7 flex gap-4 text-[11px] text-[#A4B5C4] dark:text-zinc-500">
+                  <div className="ml-7 flex gap-4 text-[11px] text-[#94A3B3] dark:text-zinc-500">
                     <span>
                       Avg length:{" "}
-                      <span className="text-[#4B6382] dark:text-zinc-400">
+                      <span className="text-[#4E5D6E] dark:text-zinc-400">
                         {Math.round(p.avgMessageLength)}
                       </span>
                     </span>
                     <span>
                       Replies triggered:{" "}
-                      <span className="text-[#4B6382] dark:text-zinc-400">
+                      <span className="text-[#4E5D6E] dark:text-zinc-400">
                         {p.repliesTriggered.toLocaleString()}
                       </span>
                     </span>
@@ -167,7 +167,7 @@ export function GroupDynamics({ chatId }: { chatId: number }) {
                       Ignored:{" "}
                       <span
                         className={
-                          highIgnored ? "text-red-500 dark:text-red-400" : "text-[#4B6382] dark:text-zinc-400"
+                          highIgnored ? "text-red-500 dark:text-red-400" : "text-[#4E5D6E] dark:text-zinc-400"
                         }
                       >
                         {p.ignoredCount.toLocaleString()}

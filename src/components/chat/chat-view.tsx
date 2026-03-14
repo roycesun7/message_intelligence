@@ -133,21 +133,21 @@ export function ChatView() {
   // Empty state — after all hooks
   if (chatId === null) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-[#F0EDE8] dark:bg-[#1C1C1E] text-[#A4B5C4] dark:text-zinc-600">
+      <div className="absolute inset-0 flex items-center justify-center bg-[#ECEEF2] dark:bg-[#1C1C1E] text-[#94A3B3] dark:text-zinc-600">
         <p className="text-lg apple-text-sm">Select a conversation to start</p>
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-[#F0EDE8] dark:bg-[#1C1C1E]">
+    <div className="absolute inset-0 flex flex-col bg-[#ECEEF2] dark:bg-[#1C1C1E]">
       {/* Header */}
-      <div className="flex h-14 shrink-0 items-center bg-[#FAFAF7] dark:bg-[#1C1C1E]/80 dark:backdrop-blur-xl dark:saturate-[1.8] border-b border-[#CDD5DB]/40 dark:border-white/[0.06] shadow-[0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_6px_rgba(0,0,0,0.2)] px-5 relative z-10">
-        <h2 className="truncate text-[15px] font-semibold text-[#071739] dark:text-zinc-100 apple-text-sm">
+      <div className="flex h-14 shrink-0 items-center bg-[#F7F8FA] dark:bg-[#1C1C1E]/80 dark:backdrop-blur-xl dark:saturate-[1.8] border-b border-[#D1D5DB]/40 dark:border-white/[0.06] shadow-[0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_6px_rgba(0,0,0,0.2)] px-5 relative z-10">
+        <h2 className="truncate text-[15px] font-semibold text-[#1B2432] dark:text-zinc-100 apple-text-sm">
           {chatName}
         </h2>
         {isGroupChat && chat && (
-          <span className="ml-2 text-xs text-[#A4B5C4] dark:text-zinc-500 apple-text-xs">
+          <span className="ml-2 text-xs text-[#94A3B3] dark:text-zinc-500 apple-text-xs">
             {chat.participants.length} members
           </span>
         )}
@@ -173,27 +173,27 @@ export function ChatView() {
           />
         </div>
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#A4B5C4] dark:text-zinc-500 bg-[#F0EDE8] dark:bg-[#1C1C1E]">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#94A3B3] dark:text-zinc-500 bg-[#ECEEF2] dark:bg-[#1C1C1E]">
             Loading messages...
           </div>
         )}
         {!isLoading && isError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm bg-[#F0EDE8] dark:bg-[#1C1C1E]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm bg-[#ECEEF2] dark:bg-[#1C1C1E]">
             <p className="text-red-500 dark:text-red-400">Failed to load messages</p>
-            <p className="text-[#A4B5C4] dark:text-zinc-600 text-xs max-w-md text-center">{String(error)}</p>
+            <p className="text-[#94A3B3] dark:text-zinc-600 text-xs max-w-md text-center">{String(error)}</p>
           </div>
         )}
         {!isLoading && !isError && visibleMessages.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#A4B5C4] dark:text-zinc-500 bg-[#F0EDE8] dark:bg-[#1C1C1E]">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-[#94A3B3] dark:text-zinc-500 bg-[#ECEEF2] dark:bg-[#1C1C1E]">
             No messages in this chat.
           </div>
         )}
       </div>
 
       {/* Fixed iMessage bar at bottom */}
-      <div className="shrink-0 flex items-center justify-center px-4 py-2 bg-[#F0EDE8] dark:bg-[#1C1C1E] border-t border-[#CDD5DB]/40 dark:border-white/[0.06]">
-        <div className="flex h-10 w-full max-w-2xl items-center rounded-full bg-[#071739]/[0.04] dark:bg-white/[0.06] border border-[#CDD5DB]/40 dark:border-white/[0.06] px-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
-          <span className="text-sm text-[#A4B5C4] dark:text-zinc-600 apple-text-sm">iMessage</span>
+      <div className="shrink-0 flex items-center justify-center px-4 py-2 bg-[#ECEEF2] dark:bg-[#1C1C1E] border-t border-[#D1D5DB]/40 dark:border-white/[0.06]">
+        <div className="flex h-10 w-full max-w-2xl items-center rounded-full bg-[#1B2432]/[0.04] dark:bg-white/[0.06] border border-[#D1D5DB]/40 dark:border-white/[0.06] px-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
+          <span className="text-sm text-[#94A3B3] dark:text-zinc-600 apple-text-sm">iMessage</span>
         </div>
       </div>
     </div>

@@ -60,16 +60,16 @@ export function MessageBubble({
     ? isIMessage
       ? "bg-[#007AFF]"
       : "bg-[#34C759]"
-    : "bg-[#E8E6E1] dark:bg-[#3A3A3C]";
+    : "bg-[#E2E4EA] dark:bg-[#3A3A3C]";
 
-  const bubbleText = isFromMe ? "text-white" : "text-[#071739] dark:text-zinc-100";
+  const bubbleText = isFromMe ? "text-white" : "text-[#1B2432] dark:text-zinc-100";
 
   return (
     <div className="min-h-[1px]">
       {/* Date separator — pill-shaped, centered */}
       {showDate && (
         <div className="flex items-center justify-center py-3">
-          <span className="rounded-full bg-[#071739]/[0.05] dark:bg-white/[0.05] px-3 py-1 text-[11px] font-medium text-[#4B6382] dark:text-zinc-500 apple-text-xs">
+          <span className="rounded-full bg-[#1B2432]/[0.05] dark:bg-white/[0.05] px-3 py-1 text-[11px] font-medium text-[#4E5D6E] dark:text-zinc-500 apple-text-xs">
             {dayjs(message.date).format("ddd, MMM D, YYYY h:mm A")}
           </span>
         </div>
@@ -84,7 +84,7 @@ export function MessageBubble({
         <div className={`max-w-[75%] flex flex-col ${isFromMe ? "items-end" : "items-start"}`}>
           {/* Sender name (group chats, received only) */}
           {showSenderName && !isFromMe && !isGrouped && message.sender && (
-            <span className="mb-0.5 ml-3 text-[11px] text-[#A4B5C4] dark:text-zinc-500 apple-text-xs">
+            <span className="mb-0.5 ml-3 text-[11px] text-[#94A3B3] dark:text-zinc-500 apple-text-xs">
               {message.senderDisplayName || message.sender}
             </span>
           )}
@@ -106,7 +106,7 @@ export function MessageBubble({
               </div>
               {tapbacks.length > 0 && (
                 <div
-                  className={`absolute -top-3 ${isFromMe ? "left-2" : "right-2"} flex gap-0.5 rounded-full bg-[#FAFAF7] dark:bg-[#2C2C2E] px-1.5 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] border border-[#CDD5DB]/40 dark:border-white/[0.06]`}
+                  className={`absolute -top-3 ${isFromMe ? "left-2" : "right-2"} flex gap-0.5 rounded-full bg-[#F7F8FA] dark:bg-[#2C2C2E] px-1.5 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] border border-[#D1D5DB]/40 dark:border-white/[0.06]`}
                 >
                   {tapbacks.map((emoji, i) => (
                     <span key={i}>{emoji}</span>
@@ -121,11 +121,11 @@ export function MessageBubble({
                   isFromMe ? "rounded-br-[8px]" : "rounded-bl-[8px]"
                 }`}
               >
-                <span className={isFromMe ? "italic text-white/60" : "italic text-[#4B6382]/60 dark:text-white/60"}>[No text]</span>
+                <span className={isFromMe ? "italic text-white/60" : "italic text-[#4E5D6E]/60 dark:text-white/60"}>[No text]</span>
               </div>
               {tapbacks.length > 0 && (
                 <div
-                  className={`absolute -top-3 ${isFromMe ? "left-2" : "right-2"} flex gap-0.5 rounded-full bg-[#FAFAF7] dark:bg-[#2C2C2E] px-1.5 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] border border-[#CDD5DB]/40 dark:border-white/[0.06]`}
+                  className={`absolute -top-3 ${isFromMe ? "left-2" : "right-2"} flex gap-0.5 rounded-full bg-[#F7F8FA] dark:bg-[#2C2C2E] px-1.5 py-0.5 text-xs shadow-[0_1px_3px_rgba(0,0,0,0.1)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)] border border-[#D1D5DB]/40 dark:border-white/[0.06]`}
                 >
                   {tapbacks.map((emoji, i) => (
                     <span key={i}>{emoji}</span>
@@ -137,7 +137,7 @@ export function MessageBubble({
 
           {/* Timestamp — shown at intervals or on hover via group */}
           {!isGrouped && (
-            <span className="mt-1 text-[10px] text-[#A4B5C4] dark:text-zinc-600 px-1 apple-text-xs">
+            <span className="mt-1 text-[10px] text-[#94A3B3] dark:text-zinc-600 px-1 apple-text-xs">
               {dayjs(message.date).format("h:mm A")}
             </span>
           )}

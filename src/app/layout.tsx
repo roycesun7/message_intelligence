@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Message Intelligence",
-  description: "iMessage analytics and insights",
+  title: "iCapsule",
+  description: "Privacy-first iMessage analytics and insights",
 };
 
 export default function RootLayout({
@@ -33,7 +33,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F0EDE8] dark:bg-zinc-950 text-[#071739] dark:text-zinc-100`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#ECEEF2] dark:bg-zinc-950 text-[#1B2432] dark:text-zinc-100`}
       >
         <QueryProvider>{children}</QueryProvider>
       </body>

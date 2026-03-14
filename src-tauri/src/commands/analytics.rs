@@ -31,6 +31,7 @@ pub struct WrappedStats {
 pub struct MessageCount {
     pub sent: i64,
     pub received: i64,
+    pub days_active: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -690,9 +691,23 @@ fn count_messages_by_year(
         Ok(count)
     };
 
+    // Count distinct days with any message (sent or received)
+    let (filter_clause, filter_params) = year_filter_clause(year, chat_ids);
+    let days_sql = format!(
+        "SELECT COUNT(DISTINCT date(datetime(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime')))
+         FROM message
+         INNER JOIN chat_message_join AS cmj ON cmj.message_id = message.ROWID
+         INNER JOIN chat AS c ON c.ROWID = cmj.chat_id
+         WHERE 1=1
+         {filter_clause}"
+    );
+    let dp = as_params(&filter_params);
+    let days_active: i64 = conn.query_row(&days_sql, dp.as_slice(), |row| row.get(0))?;
+
     Ok(MessageCount {
         sent: count_for(true)?,
         received: count_for(false)?,
+        days_active,
     })
 }
 

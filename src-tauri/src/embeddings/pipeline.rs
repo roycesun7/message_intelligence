@@ -100,6 +100,10 @@ fn expand_tilde(path: &str) -> Option<std::path::PathBuf> {
 /// Run the full indexing pipeline. This is called from a background thread
 /// and opens its own DB connections. ONNX sessions are passed in to avoid
 /// loading 380MB of models a second time (which deadlocks ort).
+///
+/// The pipeline respects the `index_target` setting from analytics.db as a
+/// hard cap. It checks the current embedding count before each phase and
+/// passes the remaining budget as the phase limit.
 pub fn run_indexing_pipeline(
     app_handle: &AppHandle,
     text_session: &mut ort::session::Session,
@@ -118,39 +122,75 @@ pub fn run_indexing_pipeline(
     };
     let analytics_conn = open_analytics_db_rw(app_handle)?;
 
+    // Read index target
+    let index_target = analytics_db::get_search_setting(&analytics_conn, "index_target")
+        .and_then(|s| s.parse::<i64>().ok())
+        .unwrap_or(500);
+
+    // Check if already at target
+    let current_count = analytics_db::count_embeddings(&analytics_conn)?;
+    if current_count >= index_target {
+        log::info!("Pipeline: already at target ({current_count} >= {index_target}), skipping.");
+        emit_progress(app_handle, "done", 0, 0);
+        return Ok(());
+    }
+
+    log::info!("Pipeline: target={index_target}, current={current_count}, deficit={}", index_target - current_count);
+
+    // Clear processing_state so phases can re-run with the new budget.
+    // The budget cap and INSERT OR REPLACE prevent duplicate embeddings.
+    analytics_conn.execute_batch(
+        "DELETE FROM processing_state WHERE pipeline_name IN ('chunking', 'embedding_recent', 'embedding_oldest', 'embedding_attachments');"
+    )?;
+
     // Build contact map and handle map for sender resolution
     let contact_map = contacts_db::build_contact_map().unwrap_or_default();
     let handle_map = build_handle_map(&chat_conn)?;
 
     // Phase 1: Chunk recent messages into conversation segments
-    run_phase_chunking(
-        app_handle,
-        &chat_conn,
-        &analytics_conn,
-        text_session,
-        tokenizer,
-        &handle_map,
-        &contact_map,
-    )?;
+    let remaining = index_target - analytics_db::count_embeddings(&analytics_conn)?;
+    if remaining > 0 {
+        run_phase_chunking(
+            app_handle,
+            &chat_conn,
+            &analytics_conn,
+            text_session,
+            tokenizer,
+            &handle_map,
+            &contact_map,
+            remaining,
+            index_target,
+        )?;
+    }
 
-    // Phase 2: Embed individual messages (recent 500 + oldest 500)
-    run_phase_text_embedding(
-        app_handle,
-        &chat_conn,
-        &analytics_conn,
-        text_session,
-        tokenizer,
-        &handle_map,
-        &contact_map,
-    )?;
+    // Phase 2: Embed individual messages (newest first)
+    let remaining = index_target - analytics_db::count_embeddings(&analytics_conn)?;
+    if remaining > 0 {
+        run_phase_text_embedding(
+            app_handle,
+            &chat_conn,
+            &analytics_conn,
+            text_session,
+            tokenizer,
+            &handle_map,
+            &contact_map,
+            remaining,
+            index_target,
+        )?;
+    }
 
     // Phase 3: Embed image attachments
-    run_phase_attachment_embedding(
-        app_handle,
-        &chat_conn,
-        &analytics_conn,
-        vision_session,
-    )?;
+    let remaining = index_target - analytics_db::count_embeddings(&analytics_conn)?;
+    if remaining > 0 {
+        run_phase_attachment_embedding(
+            app_handle,
+            &chat_conn,
+            &analytics_conn,
+            vision_session,
+            remaining,
+            index_target,
+        )?;
+    }
 
     emit_progress(app_handle, "done", 0, 0);
     log::info!("Embedding pipeline complete.");
@@ -159,9 +199,6 @@ pub fn run_indexing_pipeline(
 }
 
 // ── Phase 1: Chunking ──────────────────────────────────────────────────
-
-/// Maximum number of recent messages to chunk (keeps Phase 1 fast).
-const CHUNK_LIMIT: i64 = 5000;
 
 /// Fetch the most recent `limit` messages with chat_id, ordered by ROWID DESC.
 fn get_recent_messages_with_chat_id(
@@ -241,6 +278,8 @@ fn run_phase_chunking(
     tokenizer: &Tokenizer,
     handle_map: &HashMap<i64, String>,
     contact_map: &HashMap<String, String>,
+    budget: i64,
+    index_target: i64,
 ) -> AppResult<()> {
     let already_done = analytics_db::get_last_processed_rowid(analytics_conn, "chunking")?;
     if already_done > 0 {
@@ -248,32 +287,35 @@ fn run_phase_chunking(
         return Ok(());
     }
 
-    log::info!("Phase 1: Chunking recent {CHUNK_LIMIT} messages...");
+    // Fetch more messages than budget since chunking groups them (fewer embeddings than messages)
+    let fetch_limit = (budget * 5).min(10000);
+    log::info!("Phase 1: Chunking (budget={budget}, fetching up to {fetch_limit} messages)...");
 
-    // Fetch the most recent CHUNK_LIMIT messages (DESC then reverse to get ASC order)
     let mut messages = get_recent_messages_with_chat_id(
         chat_conn,
-        CHUNK_LIMIT,
+        fetch_limit,
         handle_map,
         contact_map,
     )?;
-    messages.sort_by_key(|m| m.rowid); // sort ASC for chunking
+    messages.sort_by_key(|m| m.rowid);
 
     if messages.is_empty() {
         log::info!("Phase 1: no messages to chunk.");
         return Ok(());
     }
 
-    let total = messages.len() as i64;
     let max_rowid = messages.last().unwrap().rowid;
-
-    // Chunk the messages
     let chunks = chunker::chunk_messages(&messages);
     let mut chunks_created: i64 = 0;
     let mut embeddings_created: i64 = 0;
 
     for chunk in &chunks {
-        // Insert the chunk
+        // Check budget before each embedding
+        if embeddings_created >= budget {
+            log::info!("Phase 1: budget reached ({embeddings_created} embeddings).");
+            break;
+        }
+
         let chunk_db_id = analytics_db::insert_chunk(
             analytics_conn,
             chunk.chat_id,
@@ -287,7 +329,6 @@ fn run_phase_chunking(
             chunk.ended_at,
         )?;
 
-        // Embed the chunk's concatenated text (if non-empty)
         if !chunk.concatenated_text.trim().is_empty() {
             let text_ref: &str = &chunk.concatenated_text;
             match clip::encode_texts(text_session, tokenizer, &[text_ref]) {
@@ -313,7 +354,8 @@ fn run_phase_chunking(
 
         chunks_created += 1;
         if chunks_created % 100 == 0 {
-            emit_progress(app_handle, "chunking", chunks_created, total);
+            let current_total = analytics_db::count_embeddings(analytics_conn)?;
+            emit_progress(app_handle, "chunking", current_total, index_target);
         }
     }
 
@@ -326,7 +368,8 @@ fn run_phase_chunking(
         )?;
     }
 
-    emit_progress(app_handle, "chunking", chunks_created, total);
+    let current_total = analytics_db::count_embeddings(analytics_conn)?;
+    emit_progress(app_handle, "chunking", current_total, index_target);
     log::info!(
         "Phase 1 complete: {} chunks created, {} embedded",
         chunks_created, embeddings_created
@@ -344,10 +387,11 @@ fn run_phase_text_embedding(
     tokenizer: &Tokenizer,
     handle_map: &HashMap<i64, String>,
     contact_map: &HashMap<String, String>,
+    budget: i64,
+    index_target: i64,
 ) -> AppResult<()> {
-    log::info!("Phase 2: Text embedding...");
+    log::info!("Phase 2: Text embedding (budget={budget})...");
 
-    // Embed most recent 500 messages first
     embed_messages_by_direction(
         app_handle,
         chat_conn,
@@ -357,20 +401,8 @@ fn run_phase_text_embedding(
         handle_map,
         contact_map,
         "recent",
-        500,
-    )?;
-
-    // Then oldest 500
-    embed_messages_by_direction(
-        app_handle,
-        chat_conn,
-        analytics_conn,
-        text_session,
-        tokenizer,
-        handle_map,
-        contact_map,
-        "oldest",
-        500,
+        budget,
+        index_target,
     )?;
 
     log::info!("Phase 2 complete.");
@@ -387,6 +419,7 @@ fn embed_messages_by_direction(
     contact_map: &HashMap<String, String>,
     direction: &str, // "recent" or "oldest"
     limit: i64,
+    index_target: i64,
 ) -> AppResult<()> {
     let pipeline_name = format!("embedding_{direction}");
     let already_done = analytics_db::get_last_processed_rowid(analytics_conn, &pipeline_name)?;
@@ -531,7 +564,14 @@ fn embed_messages_by_direction(
         }
 
         processed += batch.len() as i64;
-        emit_progress(app_handle, "text", processed, total);
+
+        // Check if we've hit the global target
+        let current_total = analytics_db::count_embeddings(analytics_conn)?;
+        emit_progress(app_handle, "text", current_total, index_target);
+        if current_total >= index_target {
+            log::info!("Phase 2 ({direction}): global target reached.");
+            break;
+        }
     }
 
     // Only mark as done if at least one embedding was created
@@ -558,8 +598,10 @@ fn run_phase_attachment_embedding(
     chat_conn: &Connection,
     analytics_conn: &Connection,
     vision_session: &mut ort::session::Session,
+    budget: i64,
+    index_target: i64,
 ) -> AppResult<()> {
-    log::info!("Phase 3: Attachment embedding...");
+    log::info!("Phase 3: Attachment embedding (budget={budget})...");
 
     let already_done =
         analytics_db::get_last_processed_rowid(analytics_conn, "embedding_attachments")?;
@@ -576,11 +618,11 @@ fn run_phase_attachment_embedding(
          WHERE m.cache_has_attachments = 1
            AND m.associated_message_type = 0
          ORDER BY m.ROWID DESC
-         LIMIT 500",
+         LIMIT ?1",
     )?;
 
     let msg_rows: Vec<(i64, i64)> = stmt
-        .query_map([], |row| {
+        .query_map(rusqlite::params![budget], |row| {
             let rowid: i64 = row.get(0)?;
             let chat_id: Option<i64> = row.get(1)?;
             Ok((rowid, chat_id.unwrap_or(0)))
@@ -588,7 +630,7 @@ fn run_phase_attachment_embedding(
         .filter_map(|r| r.ok())
         .collect();
 
-    let total = msg_rows.len() as i64;
+    let _total = msg_rows.len() as i64;
     let mut processed: i64 = 0;
     let mut embeddings_created: i64 = 0;
 
@@ -636,6 +678,23 @@ fn run_phase_attachment_embedding(
                             );
                         } else {
                             embeddings_created += 1;
+
+                            // Check if global target reached
+                            let current_total = analytics_db::count_embeddings(analytics_conn)?;
+                            if current_total >= index_target {
+                                log::info!("Phase 3: global target reached.");
+                                emit_progress(app_handle, "attachments", current_total, index_target);
+                                if embeddings_created > 0 {
+                                    let max_rowid = msg_rows.iter().map(|(r, _)| *r).max().unwrap_or(0);
+                                    analytics_db::update_processing_state(
+                                        analytics_conn,
+                                        "embedding_attachments",
+                                        max_rowid,
+                                        processed,
+                                    )?;
+                                }
+                                return Ok(());
+                            }
                         }
                     }
                     Err(e) => {
@@ -655,7 +714,8 @@ fn run_phase_attachment_embedding(
 
         processed += 1;
         if processed % 50 == 0 {
-            emit_progress(app_handle, "attachments", processed, total);
+            let current_total = analytics_db::count_embeddings(analytics_conn)?;
+            emit_progress(app_handle, "attachments", current_total, index_target);
         }
     }
 
@@ -669,7 +729,8 @@ fn run_phase_attachment_embedding(
         )?;
     }
 
-    emit_progress(app_handle, "attachments", processed, total);
+    let current_total = analytics_db::count_embeddings(analytics_conn)?;
+    emit_progress(app_handle, "attachments", current_total, index_target);
     log::info!("Phase 3 complete: {embeddings_created} attachment embeddings from {processed} messages");
     Ok(())
 }

@@ -1,18 +1,117 @@
 "use client";
 
-import { useState } from "react";
-import { Settings, RotateCcw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, RotateCcw, Trash2, Play, Bug, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { useEmbeddingStatus } from "@/hooks/use-search";
-import { setIndexTarget, rebuildSearchIndex } from "@/lib/commands";
+import {
+  setIndexTarget,
+  runPipeline,
+  rebuildSearchIndex,
+  getDataDir,
+  clearAllEmbeddings,
+  getDebugEmbeddings,
+  type DebugEmbeddingItem,
+} from "@/lib/commands";
 import { useQueryClient } from "@tanstack/react-query";
+import { listen } from "@tauri-apps/api/event";
+import type { EmbeddingProgress } from "@/types";
+
+function DebugSection({ sourceType, label }: { sourceType: string; label: string }) {
+  const [items, setItems] = useState<DebugEmbeddingItem[] | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleToggle = async () => {
+    if (!expanded && items === null) {
+      setLoading(true);
+      try {
+        const data = await getDebugEmbeddings(sourceType, 50);
+        setItems(data);
+      } catch (err) {
+        console.error(`Failed to load debug ${sourceType}:`, err);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setExpanded(!expanded);
+  };
+
+  return (
+    <div>
+      <button
+        onClick={handleToggle}
+        className="flex items-center gap-2 w-full text-left text-sm text-[#4B6382] dark:text-zinc-400 hover:text-[#071739] dark:hover:text-zinc-200 transition-colors cursor-pointer py-1"
+      >
+        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        {label}
+        {items !== null && <span className="text-xs text-[#A4B5C4] dark:text-zinc-600">({items.length})</span>}
+      </button>
+      {expanded && (
+        <div className="ml-5 mt-1 space-y-1 max-h-64 overflow-y-auto">
+          {loading && <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">Loading...</p>}
+          {items && items.length === 0 && (
+            <p className="text-xs text-[#A4B5C4] dark:text-zinc-500">No items found.</p>
+          )}
+          {items?.map((item, i) => (
+            <div
+              key={`${item.sourceType}-${item.sourceId}-${i}`}
+              className="rounded-md bg-[#CDD5DB]/15 dark:bg-zinc-800/40 px-2.5 py-1.5 text-xs font-mono"
+            >
+              <div className="flex justify-between gap-2">
+                <span className="text-[#4B6382] dark:text-zinc-400">
+                  #{item.sourceId} · chat {item.chatId}
+                </span>
+                <span className="text-[#A4B5C4] dark:text-zinc-600 shrink-0">
+                  {item.embeddedAt}
+                </span>
+              </div>
+              {item.text && (
+                <p className="mt-0.5 text-[#071739] dark:text-zinc-300 line-clamp-2 break-all select-text">
+                  {item.text}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SettingsPage() {
   const { data: status } = useEmbeddingStatus();
   const queryClient = useQueryClient();
   const [sliderValue, setSliderValue] = useState<number | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
+  const [pipelineProgress, setPipelineProgress] = useState<EmbeddingProgress | null>(null);
+  const [dataDir, setDataDir] = useState<string | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
 
-  const currentTarget = status?.indexTarget ?? 1000;
+  const pipelineRunning = pipelineProgress !== null && pipelineProgress.phase !== "done";
+
+  useEffect(() => {
+    getDataDir().then(setDataDir).catch(() => {});
+  }, []);
+
+  // Listen to pipeline progress events
+  useEffect(() => {
+    let cancelled = false;
+    const unlisten = listen<EmbeddingProgress>("embedding-progress", (event) => {
+      if (!cancelled) {
+        setPipelineProgress(event.payload);
+        if (event.payload.phase === "done") {
+          queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
+        }
+      }
+    });
+    return () => {
+      cancelled = true;
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
+  }, [queryClient]);
+
+  const currentTarget = status?.indexTarget ?? 500;
   const totalMessages = status?.totalMessages ?? 0;
   const totalEmbedded = status?.totalEmbedded ?? 0;
   const displayTarget = sliderValue ?? currentTarget;
@@ -31,6 +130,18 @@ export function SettingsPage() {
     }
   };
 
+  const handleStartIndexing = async () => {
+    // Save the slider value first if changed
+    if (sliderValue !== null) {
+      await commitSliderValue(sliderValue);
+    }
+    try {
+      await runPipeline();
+    } catch {
+      // Pipeline may already be running — that's fine, progress events will update the UI
+    }
+  };
+
   const handleRebuild = async () => {
     setRebuilding(true);
     try {
@@ -43,8 +154,17 @@ export function SettingsPage() {
     }
   };
 
-  const isIndexing = totalEmbedded < displayTarget;
+  const handleClearEmbeddings = async () => {
+    try {
+      await clearAllEmbeddings();
+      queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
+    } catch (err) {
+      console.error("Failed to clear embeddings:", err);
+    }
+  };
+
   const progress = displayTarget > 0 ? Math.min(100, (totalEmbedded / displayTarget) * 100) : 0;
+  const needsMoreIndexing = totalEmbedded < displayTarget;
 
   return (
     <div className="flex flex-1 flex-col bg-[#F0EDE8] dark:bg-zinc-950 p-6 overflow-y-auto">
@@ -68,7 +188,7 @@ export function SettingsPage() {
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-[#4B6382] dark:text-zinc-400">
-                {status?.modelsLoaded ? (isIndexing ? "Indexing..." : "Ready") : "Models not loaded"}
+                {status?.modelsLoaded ? (pipelineRunning ? "Indexing..." : "Ready") : "Models not loaded"}
               </span>
               <span className="text-sm text-[#A4B5C4] dark:text-zinc-500">
                 {totalEmbedded.toLocaleString()} / {displayTarget.toLocaleString()} messages
@@ -81,6 +201,42 @@ export function SettingsPage() {
               />
             </div>
           </div>
+
+          {/* Embedding breakdown */}
+          {status && (
+            <div className="mb-6 rounded-lg bg-[#CDD5DB]/20 dark:bg-zinc-800/50 p-3 space-y-1.5 text-xs font-mono">
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">Total indexed</span>
+                <span className="text-[#071739] dark:text-zinc-200 font-medium">{totalEmbedded.toLocaleString()} embeddings</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">├ Conversation chunks</span>
+                <span className="text-[#071739] dark:text-zinc-200">{status.chunkCount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">├ Individual messages</span>
+                <span className="text-[#071739] dark:text-zinc-200">{status.messageCount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">└ Images / stickers</span>
+                <span className="text-[#071739] dark:text-zinc-200">{status.attachmentCount.toLocaleString()}</span>
+              </div>
+              <div className="border-t border-[#CDD5DB]/30 dark:border-zinc-700 pt-1.5 flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">Target</span>
+                <span className="text-[#071739] dark:text-zinc-200 font-medium">{displayTarget.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">Total messages in DB</span>
+                <span className="text-[#071739] dark:text-zinc-200">{totalMessages.toLocaleString()}</span>
+              </div>
+              {dataDir && (
+                <div className="border-t border-[#CDD5DB]/30 dark:border-zinc-700 pt-1.5">
+                  <span className="text-[#4B6382] dark:text-zinc-400">Storage path</span>
+                  <p className="mt-0.5 text-[#071739] dark:text-zinc-300 break-all select-text">{dataDir}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Slider */}
           <div className="mb-6">
@@ -103,15 +259,69 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Rebuild button */}
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            {pipelineRunning ? (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#007AFF]/15 text-[#007AFF] text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>
+                  {pipelineProgress.phase === "chunking" ? "Analyzing" : "Indexing"}...
+                  {pipelineProgress.total > 0 && ` ${Math.round((pipelineProgress.processed / pipelineProgress.total) * 100)}%`}
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={handleStartIndexing}
+                disabled={!needsMoreIndexing || !status?.modelsLoaded}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#007AFF] text-white hover:bg-[#007AFF]/90 transition-colors text-sm disabled:opacity-40 cursor-pointer"
+              >
+                <Play className="h-4 w-4" />
+                {needsMoreIndexing ? "Start Indexing" : "Up to Date"}
+              </button>
+            )}
+
+            <button
+              onClick={handleRebuild}
+              disabled={rebuilding}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#4B6382] dark:text-zinc-300 hover:bg-[#CDD5DB]/50 dark:hover:bg-zinc-600 transition-colors text-sm disabled:opacity-50 cursor-pointer"
+            >
+              <RotateCcw className={`h-4 w-4 ${rebuilding ? "animate-spin" : ""}`} />
+              {rebuilding ? "Rebuilding..." : "Rebuild Index"}
+            </button>
+
+            <button
+              onClick={handleClearEmbeddings}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 dark:hover:bg-red-500/20 transition-colors text-sm cursor-pointer"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Embeddings
+            </button>
+          </div>
+        </div>
+
+        {/* Debug Section */}
+        <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
           <button
-            onClick={handleRebuild}
-            disabled={rebuilding}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#4B6382] dark:text-zinc-300 hover:bg-[#CDD5DB]/50 dark:hover:bg-zinc-600 transition-colors text-sm disabled:opacity-50 cursor-pointer"
+            onClick={() => setDebugMode(!debugMode)}
+            className="flex items-center gap-3 w-full text-left cursor-pointer"
           >
-            <RotateCcw className={`h-4 w-4 ${rebuilding ? "animate-spin" : ""}`} />
-            {rebuilding ? "Rebuilding..." : "Rebuild Index"}
+            <Bug className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
+            <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Debug Inspector</h2>
+            <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${debugMode ? "bg-green-500/15 text-green-600 dark:text-green-400" : "bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#A4B5C4] dark:text-zinc-500"}`}>
+              {debugMode ? "ON" : "OFF"}
+            </span>
           </button>
+
+          {debugMode && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-[#A4B5C4] dark:text-zinc-500 mb-3">
+                Inspect what has been embedded. Click each section to expand and view up to 50 most recent items.
+              </p>
+              <DebugSection sourceType="chunk" label="Conversation Chunks" />
+              <DebugSection sourceType="message" label="Individual Messages" />
+              <DebugSection sourceType="attachment" label="Images / Stickers" />
+            </div>
+          )}
         </div>
       </div>
     </div>

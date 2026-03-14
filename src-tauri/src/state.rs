@@ -1,5 +1,6 @@
 use rusqlite::Connection;
 use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use crate::error::{AppError, AppResult};
@@ -22,6 +23,8 @@ pub struct AppState {
     pub clip_vision: RwLock<Option<Arc<Mutex<ort::session::Session>>>>,
     /// MobileCLIP-S2 tokenizer. None until tokenizer file is loaded.
     pub tokenizer: RwLock<Option<Arc<tokenizers::Tokenizer>>>,
+    /// True while the embedding pipeline is running. Prevents concurrent runs.
+    pub pipeline_running: AtomicBool,
 }
 
 /// A guard that holds the MutexGuard and provides access to the inner Connection.

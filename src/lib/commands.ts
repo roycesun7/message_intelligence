@@ -52,8 +52,28 @@ export const semanticSearch = (query: string, limit?: number) =>
 export const setIndexTarget = (target: number) =>
   invoke<void>("set_index_target", { target });
 
+export const runPipeline = () =>
+  invoke<void>("run_pipeline");
+
 export const rebuildSearchIndex = () =>
   invoke<void>("rebuild_search_index");
+
+export const getDataDir = () =>
+  invoke<string>("get_data_dir");
+
+export const clearAllEmbeddings = () =>
+  invoke<void>("clear_all_embeddings");
+
+export interface DebugEmbeddingItem {
+  sourceType: string;
+  sourceId: number;
+  chatId: number;
+  text: string | null;
+  embeddedAt: string;
+}
+
+export const getDebugEmbeddings = (sourceType: string, limit?: number) =>
+  invoke<DebugEmbeddingItem[]>("get_debug_embeddings", { sourceType, limit });
 
 export const getGroupChatDynamics = (chatId: number) =>
   invoke<GroupChatDynamics>("get_group_chat_dynamics", { chatId });

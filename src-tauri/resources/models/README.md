@@ -1,13 +1,15 @@
 # CLIP Model Files
 
-Place the following MobileCLIP-S2 model files in this directory:
+This directory holds MobileCLIP-S2 model files for semantic search.
+These files are **not checked into git** — run the setup script to download them:
 
-- `mobileclip_s2_text.onnx` — Text encoder ONNX model
-- `mobileclip_s2_vision.onnx` — Vision (image) encoder ONNX model
-- `tokenizer.json` — HuggingFace tokenizer configuration
+```bash
+./scripts/setup_models.sh
+```
 
-These files are loaded at app startup. If any are missing, semantic search
-will be disabled (the app still functions normally without them).
+Expected files after setup:
+- `mobileclip_s2_text.onnx` — Text encoder (~242 MB)
+- `mobileclip_s2_vision.onnx` — Vision encoder (~137 MB)
+- `tokenizer.json`, `vocab.json`, `merges.txt` — Tokenizer files
 
-See the export script in the project root for instructions on generating
-these files from the MobileCLIP-S2 PyTorch model.
+If any are missing, semantic search is disabled (the app still works normally).

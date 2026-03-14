@@ -69,16 +69,34 @@ Message Intelligence transforms your iMessage history into a rich, searchable, a
 | State | Zustand + TanStack React Query |
 | AI (planned) | Ollama (local inference, fully offline) |
 
-## Development
+## Getting Started
+
+### Prerequisites
+
+- macOS (iMessage is Apple-only)
+- Full Disk Access permission (System Settings > Privacy & Security > Full Disk Access)
+- Rust toolchain + Node.js 18+
+- For ONNX model export: Python 3.10+ with `torch`, `open_clip_torch`, `onnx`, `transformers`
+
+### Setup
 
 ```bash
-# Install dependencies
+# 1. Install frontend dependencies
 npm install
 
-# Full app (Tauri manages both frontend + backend)
-npx tauri dev
+# 2. Download ML models for semantic search (optional — app works without them)
+./scripts/setup_models.sh
 
-# Frontend only (backend calls will fail without Tauri)
+# 3. Run the app
+npx tauri dev
+```
+
+The setup script downloads tokenizer files from HuggingFace and exports the MobileCLIP-S2 ONNX models (~380 MB total). If models are missing, the app runs normally with semantic search disabled.
+
+### Other commands
+
+```bash
+# Frontend only (Tauri backend calls will fail)
 npm run dev
 
 # Production build
@@ -91,12 +109,6 @@ cd src-tauri && cargo check  # Backend
 # Lint
 npm run lint
 ```
-
-## Requirements
-
-- macOS (iMessage is Apple-only)
-- Full Disk Access permission (to read ~/Library/Messages/chat.db)
-- Rust toolchain + Node.js 18+
 
 ## Privacy
 

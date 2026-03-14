@@ -43,5 +43,6 @@ next-env.d.ts
 .superpowers/
 .venv/
 
-# ONNX model files (too large for git, use export script to generate)
-src-tauri/resources/models/*.onnx
+# Model files (too large for git — run scripts/setup_models.sh to download)
+src-tauri/resources/models/*
+!src-tauri/resources/models/README.md

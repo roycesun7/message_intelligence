@@ -114,12 +114,9 @@ The pipeline in `pipeline.rs` loads its own ONNX sessions via `load_pipeline_ses
 
 ## Model files (not in git)
 
-The `.onnx` files are gitignored. To regenerate:
+All model files are gitignored. Run the setup script to download/generate them:
 ```bash
-cd scripts
-python -m venv ../.venv
-source ../.venv/bin/activate
-pip install torch open_clip_torch onnx
-python export_mobileclip.py
+./scripts/setup_models.sh
 ```
-Output goes to `src-tauri/resources/models/`.
+
+This downloads tokenizer files from HuggingFace and exports ONNX models via `scripts/export_mobileclip.py` (requires `pip install torch open_clip_torch onnx transformers`). Output goes to `src-tauri/resources/models/`.

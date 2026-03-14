@@ -101,6 +101,15 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* Breakdown */}
+          {status && totalEmbedded > 0 && (
+            <div className="mb-6 flex gap-4 text-xs text-[#A4B5C4] dark:text-zinc-500">
+              <span>Chunks: <span className="text-[#4B6382] dark:text-zinc-300 font-medium">{status.chunkCount.toLocaleString()}</span></span>
+              <span>Messages: <span className="text-[#4B6382] dark:text-zinc-300 font-medium">{status.messageCount.toLocaleString()}</span></span>
+              <span>Images: <span className="text-[#4B6382] dark:text-zinc-300 font-medium">{status.attachmentCount.toLocaleString()}</span></span>
+            </div>
+          )}
+
           {/* Slider */}
           <div className="mb-6">
             <label className="text-sm text-[#4B6382] dark:text-zinc-400 mb-2 block">

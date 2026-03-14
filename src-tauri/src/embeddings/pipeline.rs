@@ -125,7 +125,7 @@ pub fn run_indexing_pipeline(
     // Read index target
     let index_target = analytics_db::get_search_setting(&analytics_conn, "index_target")
         .and_then(|s| s.parse::<i64>().ok())
-        .unwrap_or(1000);
+        .unwrap_or(500);
 
     // Check if already at target
     let current_count = analytics_db::count_embeddings(&analytics_conn)?;

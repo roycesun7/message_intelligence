@@ -77,6 +77,15 @@ pub fn count_embeddings(conn: &Connection) -> AppResult<i64> {
     Ok(count)
 }
 
+pub fn count_embeddings_by_type(conn: &Connection, source_type: &str) -> AppResult<i64> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM embeddings WHERE source_type = ?1",
+        params![source_type],
+        |row| row.get(0),
+    )?;
+    Ok(count)
+}
+
 pub fn load_all_embeddings(conn: &Connection) -> AppResult<Vec<(i64, String, i64, Option<i64>, i64, Vec<u8>)>> {
     let mut stmt = conn.prepare(
         "SELECT id, source_type, source_id, chunk_id, chat_id, vector FROM embeddings"

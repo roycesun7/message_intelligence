@@ -17,6 +17,9 @@ pub struct EmbeddingStatus {
     pub total_embedded: i64,
     pub total_messages: i64,
     pub index_target: i64,
+    pub chunk_count: i64,
+    pub message_count: i64,
+    pub attachment_count: i64,
 }
 
 /// Check the current status of the embedding pipeline.
@@ -30,13 +33,20 @@ pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<Embedding
     let models_loaded = state.models_loaded();
     let index_target = analytics_db::get_search_setting(&analytics_conn, "index_target")
         .and_then(|s| s.parse::<i64>().ok())
-        .unwrap_or(1000);
+        .unwrap_or(500);
+
+    let chunk_count = analytics_db::count_embeddings_by_type(&analytics_conn, "chunk")?;
+    let message_count = analytics_db::count_embeddings_by_type(&analytics_conn, "message")?;
+    let attachment_count = analytics_db::count_embeddings_by_type(&analytics_conn, "attachment")?;
 
     Ok(EmbeddingStatus {
         models_loaded,
         total_embedded,
         total_messages,
         index_target,
+        chunk_count,
+        message_count,
+        attachment_count,
     })
 }
 

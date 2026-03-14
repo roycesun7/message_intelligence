@@ -148,6 +148,9 @@ export interface EmbeddingStatus {
   totalEmbedded: number;
   totalMessages: number;
   indexTarget: number;
+  chunkCount: number;
+  messageCount: number;
+  attachmentCount: number;
 }
 
 export interface ChunkMessage {

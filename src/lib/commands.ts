@@ -55,6 +55,12 @@ export const setIndexTarget = (target: number) =>
 export const rebuildSearchIndex = () =>
   invoke<void>("rebuild_search_index");
 
+export const getDataDir = () =>
+  invoke<string>("get_data_dir");
+
+export const clearAllEmbeddings = () =>
+  invoke<void>("clear_all_embeddings");
+
 export const getGroupChatDynamics = (chatId: number) =>
   invoke<GroupChatDynamics>("get_group_chat_dynamics", { chatId });
 

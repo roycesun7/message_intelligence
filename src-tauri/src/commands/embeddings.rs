@@ -587,3 +587,23 @@ fn enrich_attachment_result(
         messages: None,
     })
 }
+
+// ── Data directory + clear commands ───────────────────────────────────
+
+/// Return the path to the app data directory (where analytics.db lives).
+#[tauri::command]
+pub fn get_data_dir(app_handle: AppHandle) -> AppResult<String> {
+    let data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::Custom(format!("Cannot resolve app data dir: {e}")))?;
+    Ok(data_dir.to_string_lossy().to_string())
+}
+
+/// Delete all embeddings without triggering a rebuild.
+#[tauri::command]
+pub fn clear_all_embeddings(state: State<'_, AppState>) -> AppResult<()> {
+    let analytics_conn = state.lock_analytics_db()?;
+    analytics_db::clear_embeddings(&analytics_conn)?;
+    Ok(())
+}

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, RotateCcw } from "lucide-react";
+import { Settings, RotateCcw, FolderOpen, Trash2 } from "lucide-react";
 import { useEmbeddingStatus } from "@/hooks/use-search";
-import { setIndexTarget, rebuildSearchIndex } from "@/lib/commands";
+import { setIndexTarget, rebuildSearchIndex, getDataDir, clearAllEmbeddings } from "@/lib/commands";
+import { open } from "@tauri-apps/plugin-shell";
 import { useQueryClient } from "@tanstack/react-query";
 
 export function SettingsPage() {
@@ -40,6 +41,24 @@ export function SettingsPage() {
       console.error("Failed to rebuild index:", err);
     } finally {
       setRebuilding(false);
+    }
+  };
+
+  const handleOpenDataDir = async () => {
+    try {
+      const dir = await getDataDir();
+      await open(dir);
+    } catch (err) {
+      console.error("Failed to open data directory:", err);
+    }
+  };
+
+  const handleClearEmbeddings = async () => {
+    try {
+      await clearAllEmbeddings();
+      queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
+    } catch (err) {
+      console.error("Failed to clear embeddings:", err);
     }
   };
 
@@ -103,15 +122,33 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Rebuild button */}
-          <button
-            onClick={handleRebuild}
-            disabled={rebuilding}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#4B6382] dark:text-zinc-300 hover:bg-[#CDD5DB]/50 dark:hover:bg-zinc-600 transition-colors text-sm disabled:opacity-50 cursor-pointer"
-          >
-            <RotateCcw className={`h-4 w-4 ${rebuilding ? "animate-spin" : ""}`} />
-            {rebuilding ? "Rebuilding..." : "Rebuild Index"}
-          </button>
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleRebuild}
+              disabled={rebuilding}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#4B6382] dark:text-zinc-300 hover:bg-[#CDD5DB]/50 dark:hover:bg-zinc-600 transition-colors text-sm disabled:opacity-50 cursor-pointer"
+            >
+              <RotateCcw className={`h-4 w-4 ${rebuilding ? "animate-spin" : ""}`} />
+              {rebuilding ? "Rebuilding..." : "Rebuild Index"}
+            </button>
+
+            <button
+              onClick={handleClearEmbeddings}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 dark:hover:bg-red-500/20 transition-colors text-sm cursor-pointer"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Embeddings
+            </button>
+
+            <button
+              onClick={handleOpenDataDir}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#4B6382] dark:text-zinc-300 hover:bg-[#CDD5DB]/50 dark:hover:bg-zinc-600 transition-colors text-sm cursor-pointer"
+            >
+              <FolderOpen className="h-4 w-4" />
+              Open Data Folder
+            </button>
+          </div>
         </div>
       </div>
     </div>

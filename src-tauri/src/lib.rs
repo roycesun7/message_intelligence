@@ -294,6 +294,8 @@ pub fn run() {
             commands::embeddings::semantic_search,
             commands::embeddings::set_index_target,
             commands::embeddings::rebuild_search_index,
+            commands::embeddings::get_data_dir,
+            commands::embeddings::clear_all_embeddings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

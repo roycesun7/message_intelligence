@@ -600,18 +600,14 @@ fn enrich_attachment_result(
 
 // ── Data directory + clear commands ───────────────────────────────────
 
-/// Open the app data directory in Finder.
+/// Return the app data directory path as a string.
 #[tauri::command]
-pub fn open_data_dir(app_handle: AppHandle) -> AppResult<()> {
+pub fn get_data_dir(app_handle: AppHandle) -> AppResult<String> {
     let data_dir = app_handle
         .path()
         .app_data_dir()
         .map_err(|e| AppError::Custom(format!("Cannot resolve app data dir: {e}")))?;
-    std::process::Command::new("open")
-        .arg(&data_dir)
-        .spawn()
-        .map_err(|e| AppError::Custom(format!("Failed to open Finder: {e}")))?;
-    Ok(())
+    Ok(data_dir.to_string_lossy().to_string())
 }
 
 /// Delete all embeddings without triggering a rebuild.

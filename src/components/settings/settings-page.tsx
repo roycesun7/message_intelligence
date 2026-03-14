@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Settings, RotateCcw, FolderOpen, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, RotateCcw, Trash2 } from "lucide-react";
 import { useEmbeddingStatus } from "@/hooks/use-search";
-import { setIndexTarget, rebuildSearchIndex, openDataDir, clearAllEmbeddings } from "@/lib/commands";
+import { setIndexTarget, rebuildSearchIndex, getDataDir, clearAllEmbeddings } from "@/lib/commands";
 import { useQueryClient } from "@tanstack/react-query";
 
 export function SettingsPage() {
@@ -11,6 +11,11 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const [sliderValue, setSliderValue] = useState<number | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
+  const [dataDir, setDataDir] = useState<string | null>(null);
+
+  useEffect(() => {
+    getDataDir().then(setDataDir).catch(() => {});
+  }, []);
 
   const currentTarget = status?.indexTarget ?? 1000;
   const totalMessages = status?.totalMessages ?? 0;
@@ -40,14 +45,6 @@ export function SettingsPage() {
       console.error("Failed to rebuild index:", err);
     } finally {
       setRebuilding(false);
-    }
-  };
-
-  const handleOpenDataDir = async () => {
-    try {
-      await openDataDir();
-    } catch (err) {
-      console.error("Failed to open data directory:", err);
     }
   };
 
@@ -126,6 +123,12 @@ export function SettingsPage() {
                 <span className="text-[#4B6382] dark:text-zinc-400">Total messages in DB</span>
                 <span className="text-[#071739] dark:text-zinc-200">{totalMessages.toLocaleString()}</span>
               </div>
+              {dataDir && (
+                <div className="border-t border-[#CDD5DB]/30 dark:border-zinc-700 pt-1.5">
+                  <span className="text-[#4B6382] dark:text-zinc-400">Storage path</span>
+                  <p className="mt-0.5 text-[#071739] dark:text-zinc-300 break-all select-text">{dataDir}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -169,13 +172,6 @@ export function SettingsPage() {
               Delete Embeddings
             </button>
 
-            <button
-              onClick={handleOpenDataDir}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#4B6382] dark:text-zinc-300 hover:bg-[#CDD5DB]/50 dark:hover:bg-zinc-600 transition-colors text-sm cursor-pointer"
-            >
-              <FolderOpen className="h-4 w-4" />
-              Open Data Folder
-            </button>
           </div>
         </div>
       </div>

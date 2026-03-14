@@ -55,6 +55,13 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS processing_state (
+            pipeline_name    TEXT PRIMARY KEY,
+            last_rowid       INTEGER NOT NULL,
+            processed_count  INTEGER NOT NULL DEFAULT 0,
+            updated_at       TEXT NOT NULL
+        );
         ",
     )?;
 

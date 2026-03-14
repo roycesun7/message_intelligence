@@ -10,8 +10,9 @@ pub mod state;
 use error::{AppError, AppResult};
 use rusqlite::Connection;
 use state::AppState;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use tauri::Manager;
+use tokenizers::Tokenizer;
 
 /// Resolve the path to Apple's chat.db.
 fn chat_db_path() -> AppResult<std::path::PathBuf> {
@@ -48,8 +49,114 @@ fn open_analytics_db(app: &tauri::App) -> AppResult<Connection> {
     Ok(conn)
 }
 
+/// Load a single ONNX model file into a Session.
+fn load_onnx_session(path: &std::path::Path) -> ort::error::Result<ort::session::Session> {
+    let mut builder = ort::session::Session::builder()?;
+    builder.commit_from_file(path)
+}
+
+/// Load MobileCLIP-S2 ONNX sessions and tokenizer on a background thread.
+fn load_clip_sessions_from_handle(
+    app: &tauri::AppHandle,
+) -> (
+    Option<Arc<Mutex<ort::session::Session>>>,
+    Option<Arc<Mutex<ort::session::Session>>>,
+    Option<Arc<Tokenizer>>,
+) {
+    let models_dir = {
+        let from_resource = app
+            .path()
+            .resource_dir()
+            .ok()
+            .map(|d| d.join("models"));
+        let from_source = {
+            let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            manifest.join("resources/models")
+        };
+        if from_resource
+            .as_ref()
+            .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
+        {
+            from_resource.unwrap()
+        } else if from_source.join("mobileclip_s2_text.onnx").exists() {
+            from_source
+        } else {
+            log::warn!(
+                "CLIP model files not found — semantic search disabled. \
+                 Checked {:?} and {:?}",
+                from_resource,
+                from_source
+            );
+            return (None, None, None);
+        }
+    };
+
+    let text_path = models_dir.join("mobileclip_s2_text.onnx");
+    let vision_path = models_dir.join("mobileclip_s2_vision.onnx");
+    let tokenizer_path = models_dir.join("tokenizer.json");
+
+    if !text_path.exists() || !vision_path.exists() || !tokenizer_path.exists() {
+        log::warn!("One or more CLIP model files missing in {:?}", models_dir);
+        return (None, None, None);
+    }
+
+    eprintln!("[models] Loading text encoder from {:?}...", text_path);
+    let text_session = match load_onnx_session(&text_path) {
+        Ok(session) => {
+            eprintln!("[models] Text encoder loaded OK");
+            Arc::new(Mutex::new(session))
+        }
+        Err(e) => {
+            eprintln!("[models] FAILED to load text encoder: {e}");
+            return (None, None, None);
+        }
+    };
+
+    eprintln!("[models] Loading vision encoder from {:?}...", vision_path);
+    let vision_session = match load_onnx_session(&vision_path) {
+        Ok(session) => {
+            eprintln!("[models] Vision encoder loaded OK");
+            Arc::new(Mutex::new(session))
+        }
+        Err(e) => {
+            eprintln!("[models] FAILED to load vision encoder: {e}");
+            return (None, None, None);
+        }
+    };
+
+    eprintln!("[models] Loading tokenizer from {:?}...", tokenizer_path);
+    let tokenizer = match Tokenizer::from_file(&tokenizer_path) {
+        Ok(tok) => {
+            eprintln!("[models] Tokenizer loaded OK");
+            Arc::new(tok)
+        }
+        Err(e) => {
+            eprintln!("[models] FAILED to load tokenizer: {e}");
+            return (None, None, None);
+        }
+    };
+
+    (Some(text_session), Some(vision_session), Some(tokenizer))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Ensure ORT_DYLIB_PATH is set for ort's load-dynamic feature.
+    // Without this, Session::builder() hangs trying to find libonnxruntime.
+    if std::env::var("ORT_DYLIB_PATH").is_err() {
+        // Check common Homebrew paths
+        let candidates = [
+            "/opt/homebrew/lib/libonnxruntime.dylib", // Apple Silicon
+            "/usr/local/lib/libonnxruntime.dylib",    // Intel Mac
+        ];
+        for path in &candidates {
+            if std::path::Path::new(path).exists() {
+                std::env::set_var("ORT_DYLIB_PATH", path);
+                break;
+            }
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -96,10 +203,64 @@ pub fn run() {
                 std::collections::HashMap::new()
             };
 
+            // Initialize state with empty CLIP slots — models loaded on background thread
             app.manage(AppState {
                 chat_db: Arc::new(Mutex::new(chat_db)),
                 analytics_db: Arc::new(Mutex::new(analytics_db)),
                 contact_map: Arc::new(Mutex::new(contact_map)),
+                clip_text: RwLock::new(None),
+                clip_vision: RwLock::new(None),
+                tokenizer: RwLock::new(None),
+            });
+
+            // Spawn background thread to load CLIP models, then run the pipeline.
+            // Loading 380MB of ONNX models is too slow for the setup closure.
+            // Models are loaded ONCE and shared between AppState (for search queries)
+            // and the pipeline (for indexing). Loading twice deadlocks ort.
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                eprintln!("[pipeline] Loading CLIP models...");
+                let (clip_text, clip_vision, tokenizer) = load_clip_sessions_from_handle(&app_handle);
+                eprintln!("[pipeline] Model load result: text={} vision={} tokenizer={}",
+                    clip_text.is_some(), clip_vision.is_some(), tokenizer.is_some());
+
+                // Update AppState with loaded models (for search queries from the UI)
+                let has_models = clip_text.is_some() && clip_vision.is_some() && tokenizer.is_some();
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    if let Some(ref ct) = clip_text {
+                        state.set_clip_text(ct.clone());
+                    }
+                    if let Some(ref cv) = clip_vision {
+                        state.set_clip_vision(cv.clone());
+                    }
+                    if let Some(ref tok) = tokenizer {
+                        state.set_tokenizer(tok.clone());
+                    }
+                }
+
+                if !has_models {
+                    eprintln!("[pipeline] Models not loaded — skipping pipeline");
+                    return;
+                }
+
+                // Unwrap the Arc<Mutex<Session>> to get owned sessions for the pipeline.
+                // We lock and hold the sessions for the pipeline's duration.
+                let text_arc = clip_text.unwrap();
+                let vision_arc = clip_vision.unwrap();
+                let tok = tokenizer.unwrap();
+
+                let mut text_session = text_arc.lock().unwrap_or_else(|p| p.into_inner());
+                let mut vision_session = vision_arc.lock().unwrap_or_else(|p| p.into_inner());
+
+                if let Err(e) = embeddings::pipeline::run_indexing_pipeline(
+                    &app_handle,
+                    &mut text_session,
+                    &mut vision_session,
+                    &tok,
+                ) {
+                    log::error!("Embedding pipeline failed: {e}");
+                    eprintln!("[pipeline] ERROR: {e}");
+                }
             });
 
             Ok(())
@@ -131,9 +292,11 @@ pub fn run() {
             commands::fun::get_group_chat_dynamics,
             commands::fun::get_on_this_day,
             commands::fun::get_texting_personality,
-            // Embedding commands (stubs)
+            // Embedding / search commands
             commands::embeddings::check_embedding_status,
             commands::embeddings::semantic_search,
+            commands::embeddings::set_index_target,
+            commands::embeddings::rebuild_search_index,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

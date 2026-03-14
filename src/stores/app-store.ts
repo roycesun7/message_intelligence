@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type AppView = "chat" | "wrapped" | "search";
+export type AppView = "chat" | "wrapped" | "search" | "settings";
 export type Theme = "light" | "dark";
 
 function getStoredTheme(): Theme {
@@ -49,6 +49,10 @@ export interface AppState {
   // ── Scroll to message ───────────────────────────
   scrollToMessageDate: number | null;
   setScrollToMessageDate: (date: number | null) => void;
+
+  // ── Highlight a message after scrolling ────────────
+  highlightedMessageDate: number | null;
+  setHighlightedMessageDate: (date: number | null) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -79,4 +83,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   scrollToMessageDate: null,
   setScrollToMessageDate: (scrollToMessageDate) => set({ scrollToMessageDate }),
+
+  highlightedMessageDate: null,
+  setHighlightedMessageDate: (highlightedMessageDate) => set({ highlightedMessageDate }),
 }));

@@ -26,6 +26,7 @@ interface MessageBubbleProps {
   previousMessage: Message | null;
   showSenderName?: boolean;
   tapbacks?: string[];
+  highlighted?: boolean;
 }
 
 export function MessageBubble({
@@ -33,6 +34,7 @@ export function MessageBubble({
   previousMessage,
   showSenderName,
   tapbacks = [],
+  highlighted = false,
 }: MessageBubbleProps) {
   // Skip tapback reactions — they are rendered as decorations on the target message.
   if (isTapback(message)) return null;
@@ -77,7 +79,7 @@ export function MessageBubble({
       <div
         className={`flex ${isFromMe ? "justify-end" : "justify-start"} px-3 ${
           isGrouped ? "mt-0.5" : "mt-2"
-        }`}
+        } ${highlighted ? "animate-highlight-glow rounded-xl" : ""}`}
       >
         <div className={`max-w-[75%] flex flex-col ${isFromMe ? "items-end" : "items-start"}`}>
           {/* Sender name (group chats, received only) */}

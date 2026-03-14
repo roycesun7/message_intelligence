@@ -168,16 +168,44 @@ export interface HourlyActivity {
 
 /** Embedding / semantic search status */
 export interface EmbeddingStatus {
-  ollamaRunning: boolean;
-  modelAvailable: boolean;
+  modelsLoaded: boolean;
   totalEmbedded: number;
   totalMessages: number;
+  indexTarget: number;
+}
+
+export interface ChunkMessage {
+  rowid: number;
+  text: string | null;
+  isFromMe: boolean;
+  senderDisplayName: string | null;
+  date: number;
 }
 
 export interface SemanticSearchResult {
+  sourceType: string;
+  sourceId: number;
   messageRowid: number;
+  chatId: number;
   score: number;
-  text: string;
+  text: string | null;
+  isFromMe: boolean;
+  senderDisplayName: string | null;
+  date: number;
+  mimeType: string | null;
+  attachmentPath: string | null;
+  linkUrl: string | null;
+  linkDomain: string | null;
+  linkTitle: string | null;
+  /** Individual messages within a chunk (only for sourceType = "chunk") */
+  messages: ChunkMessage[] | null;
+}
+
+/** Progress event from the indexing pipeline */
+export interface EmbeddingProgress {
+  phase: string;
+  processed: number;
+  total: number;
 }
 
 // ── Group Chat Dynamics ────────────────────────────────

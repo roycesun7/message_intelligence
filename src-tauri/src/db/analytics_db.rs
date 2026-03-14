@@ -54,26 +54,105 @@ pub fn store_sentiment(
     Ok(())
 }
 
-// ── Embedding state ─────────────────────────────────────────────────────
+// ── Embeddings (MobileCLIP-S2) ─────────────────────────────────────────
 
-/// Mark a message as having been embedded by a specific model.
-pub fn mark_embedded(conn: &Connection, message_rowid: i64, model: &str) -> AppResult<()> {
+/// Insert a message chunk.
+pub fn insert_chunk(
+    conn: &Connection,
+    chat_id: i64,
+    is_from_me: bool,
+    handle_id: Option<i64>,
+    first_rowid: i64,
+    last_rowid: i64,
+    message_count: i64,
+    concatenated_text: &str,
+    started_at: i64,
+    ended_at: i64,
+) -> AppResult<i64> {
     conn.execute(
-        "INSERT OR REPLACE INTO embedding_state (message_rowid, model, embedded_at)
-         VALUES (?1, ?2, datetime('now'))",
-        params![message_rowid, model],
+        "INSERT INTO message_chunks
+            (chat_id, is_from_me, handle_id, first_rowid, last_rowid, message_count, concatenated_text, started_at, ended_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![chat_id, is_from_me, handle_id, first_rowid, last_rowid, message_count, concatenated_text, started_at, ended_at],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+/// Insert an embedding vector.
+pub fn insert_embedding(
+    conn: &Connection,
+    source_type: &str,
+    source_id: i64,
+    chunk_id: Option<i64>,
+    chat_id: i64,
+    model: &str,
+    vector: &[u8],
+) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO embeddings
+            (source_type, source_id, chunk_id, chat_id, model, vector, embedded_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
+        params![source_type, source_id, chunk_id, chat_id, model, vector],
     )?;
     Ok(())
 }
 
-/// Count total embedded messages.
-pub fn count_embedded(conn: &Connection) -> AppResult<i64> {
+/// Count total embeddings.
+pub fn count_embeddings(conn: &Connection) -> AppResult<i64> {
     let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM embedding_state",
+        "SELECT COUNT(*) FROM embeddings",
         [],
         |row| row.get(0),
     )?;
     Ok(count)
+}
+
+/// Load all embedding vectors for brute-force search.
+/// Returns (id, source_type, source_id, chunk_id, chat_id, vector_blob).
+pub fn load_all_embeddings(conn: &Connection) -> AppResult<Vec<(i64, String, i64, Option<i64>, i64, Vec<u8>)>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, source_type, source_id, chunk_id, chat_id, vector FROM embeddings"
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get(0)?,
+            row.get(1)?,
+            row.get(2)?,
+            row.get(3)?,
+            row.get(4)?,
+            row.get(5)?,
+        ))
+    })?
+    .filter_map(|r| r.ok())
+    .collect();
+    Ok(rows)
+}
+
+/// Get or set a search setting.
+pub fn get_search_setting(conn: &Connection, key: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT value FROM search_settings WHERE key = ?1",
+        params![key],
+        |row| row.get(0),
+    ).ok()
+}
+
+pub fn set_search_setting(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO search_settings (key, value) VALUES (?1, ?2)",
+        params![key, value],
+    )?;
+    Ok(())
+}
+
+/// Clear all embedding data (for rebuild).
+pub fn clear_embeddings(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "DELETE FROM embeddings;
+         DELETE FROM message_chunks;
+         DELETE FROM processing_state WHERE pipeline_name IN ('chunking', 'embedding_recent', 'embedding_oldest', 'embedding_attachments');"
+    )?;
+    Ok(())
 }
 
 // ── Wrapped cache ──────────────────────────────────────────────────────

@@ -1,10 +1,7 @@
-mod analysis;
 mod commands;
 mod db;
-mod embeddings;
 pub mod error;
 pub mod ingestion;
-mod sidecar;
 pub mod state;
 
 use error::{AppError, AppResult};
@@ -14,7 +11,6 @@ use std::sync::{Arc, Mutex, RwLock};
 use tauri::Manager;
 use tokenizers::Tokenizer;
 
-/// Resolve the path to Apple's chat.db.
 fn chat_db_path() -> AppResult<std::path::PathBuf> {
     let home = dirs::home_dir().ok_or_else(|| AppError::Custom("Cannot determine home directory".into()))?;
     let path = home.join("Library/Messages/chat.db");
@@ -24,7 +20,6 @@ fn chat_db_path() -> AppResult<std::path::PathBuf> {
     Ok(path)
 }
 
-/// Open the chat database in read-only mode.
 fn open_chat_db() -> AppResult<Connection> {
     let path = chat_db_path()?;
     let conn = Connection::open_with_flags(
@@ -35,7 +30,6 @@ fn open_chat_db() -> AppResult<Connection> {
     Ok(conn)
 }
 
-/// Open (or create) the analytics database in the app data directory.
 fn open_analytics_db(app: &tauri::App) -> AppResult<Connection> {
     let data_dir = app
         .path()
@@ -170,7 +164,6 @@ pub fn run() {
                 )?;
             }
 
-            // Try to open chat.db — but don't crash if it fails
             let chat_db = match open_chat_db() {
                 Ok(conn) => {
                     log::info!("Successfully opened chat.db");
@@ -187,7 +180,6 @@ pub fn run() {
                 Box::new(e) as Box<dyn std::error::Error>
             })?;
 
-            // Build contact map only if chat.db is available
             let contact_map = if chat_db.is_some() {
                 match db::contacts_db::build_contact_map() {
                     Ok(map) => {
@@ -266,20 +258,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            // FDA / onboarding commands
             commands::onboarding::check_fda_status,
             commands::onboarding::retry_chat_db_connection,
-            // Chat / message commands
             commands::messages::get_chats,
             commands::messages::get_messages,
             commands::messages::get_message_attachments,
             commands::messages::get_message_count,
-            // Attachment commands
             commands::attachments::get_attachment_data,
-            // Contact commands
             commands::contacts::get_contact_name,
             commands::contacts::get_contact_map,
-            // Analytics / wrapped commands
             commands::analytics::get_wrapped_stats,
             commands::analytics::invalidate_wrapped_cache,
             commands::analytics::get_temporal_trends,
@@ -288,11 +275,9 @@ pub fn run() {
             commands::analytics::get_message_length_stats,
             commands::analytics::get_active_hours,
             commands::analytics::get_word_frequency,
-            // Fun / shareable commands
             commands::fun::get_group_chat_dynamics,
             commands::fun::get_on_this_day,
             commands::fun::get_texting_personality,
-            // Embedding / search commands
             commands::embeddings::check_embedding_status,
             commands::embeddings::semantic_search,
             commands::embeddings::set_index_target,

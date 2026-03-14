@@ -1,45 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { getChats, getMessages, getMessageCount, getAttachmentData } from "@/lib/commands";
+import { getChats, getMessages, getAttachmentData } from "@/lib/commands";
 import type { Chat, AttachmentData } from "@/types";
 
-/**
- * Fetch and cache the chat list.
- * Sorted by most-recent message first (backend does this).
- */
 export const useChats = () => {
   return useQuery<Chat[]>({
     queryKey: ["chats"],
     queryFn: getChats,
-    staleTime: 5 * 60_000, // 5 min — chat.db is read-only, no need to refetch often
+    staleTime: 5 * 60_000,
   });
 };
 
-/**
- * Build a lookup map: chatId -> Chat
- */
-export const useChatMap = () => {
-  const { data: chats } = useChats();
-  const map = new Map<number, Chat>();
-  if (chats) {
-    for (const chat of chats) {
-      map.set(chat.rowid, chat);
-    }
-  }
-  return map;
-};
-
-/**
- * Return a single chat by id (from the cached list).
- */
 export const useChatById = (chatId: number | null): Chat | undefined => {
-  const map = useChatMap();
-  if (chatId === null) return undefined;
-  return map.get(chatId);
+  const { data: chats } = useChats();
+  if (chatId === null || !chats) return undefined;
+  return chats.find((c) => c.rowid === chatId);
 };
 
-/**
- * Fetch messages for a specific chat.
- */
 export const useMessages = (chatId: number | null) => {
   return useQuery({
     queryKey: ["messages", chatId],
@@ -48,35 +24,19 @@ export const useMessages = (chatId: number | null) => {
       return getMessages(chatId);
     },
     enabled: chatId !== null,
-    staleTime: 5 * 60_000, // 5 min — messages don't change underneath us
+    staleTime: 5 * 60_000,
   });
 };
 
-/** Fetch attachment data for a message. Only runs when messageId is provided. */
 export const useAttachmentData = (messageId: number | null) => {
   return useQuery<AttachmentData[]>({
     queryKey: ["attachmentData", messageId],
     queryFn: () => getAttachmentData(messageId!),
     enabled: messageId !== null,
-    staleTime: 30 * 60_000, // 30-minute cache — attachment files don't change
+    staleTime: 30 * 60_000,
   });
 };
 
-/**
- * Total message count across all chats.
- */
-export const useMessageCount = () => {
-  return useQuery<number>({
-    queryKey: ["messageCount"],
-    queryFn: getMessageCount,
-    staleTime: 60_000,
-  });
-};
-
-/**
- * Resolve a display name for a chat.
- * Uses contact display names when available, falls back to raw identifiers.
- */
 export const getChatDisplayName = (chat: Chat | undefined | null): string => {
   if (!chat) return "";
   if (chat.displayName) return chat.displayName;

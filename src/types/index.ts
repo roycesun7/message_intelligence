@@ -1,4 +1,3 @@
-/** A handle (phone number or email) */
 export interface Handle {
   rowid: number;
   id: string;
@@ -7,7 +6,6 @@ export interface Handle {
   displayName: string | null;
 }
 
-/** A chat conversation (1:1 or group) */
 export interface Chat {
   rowid: number;
   guid: string;
@@ -21,13 +19,11 @@ export interface Chat {
   lastMessageText: string | null;
 }
 
-/** A single iMessage / SMS message */
 export interface Message {
   rowid: number;
   guid: string;
   text: string | null;
   isFromMe: boolean;
-  /** Unix milliseconds */
   date: number;
   dateRead: number | null;
   dateDelivered: number | null;
@@ -44,20 +40,6 @@ export interface Message {
   chatId: number | null;
 }
 
-/** A file attachment linked to a message */
-export interface Attachment {
-  rowid: number;
-  guid: string;
-  filename: string | null;
-  mimeType: string | null;
-  uti: string | null;
-  transferName: string | null;
-  totalBytes: number;
-  isOutgoing: boolean;
-  messageId: number;
-}
-
-/** Attachment with optional inline data URL (images are base64-encoded) */
 export interface AttachmentData {
   rowid: number;
   guid: string;
@@ -67,11 +49,8 @@ export interface AttachmentData {
   transferName: string | null;
   totalBytes: number;
   isOutgoing: boolean;
-  /** data:image/...;base64,... for image attachments, null otherwise */
   dataUrl: string | null;
 }
-
-// ── Wrapped / Analytics types (matching Rust backend) ──────────
 
 export interface SentReceived<T> {
   sent: T;
@@ -111,6 +90,7 @@ export interface OpenerStat {
 export interface MessageCount {
   sent: number;
   received: number;
+  daysActive: number;
 }
 
 export interface WrappedStats {
@@ -124,14 +104,11 @@ export interface WrappedStats {
   mostPopularOpeners: SentReceived<OpenerStat[]>;
 }
 
-/** Daily message count for temporal trend charts */
 export interface DailyMessageCount {
   date: string;
   sent: number;
   received: number;
 }
-
-// ── Relationship metrics (per-chat Wrapped) ────────────
 
 export interface ResponseTimeStats {
   myAvgResponseSecs: number;
@@ -166,7 +143,6 @@ export interface HourlyActivity {
   theirMessages: number;
 }
 
-/** Embedding / semantic search status */
 export interface EmbeddingStatus {
   modelsLoaded: boolean;
   totalEmbedded: number;
@@ -197,18 +173,14 @@ export interface SemanticSearchResult {
   linkUrl: string | null;
   linkDomain: string | null;
   linkTitle: string | null;
-  /** Individual messages within a chunk (only for sourceType = "chunk") */
   messages: ChunkMessage[] | null;
 }
 
-/** Progress event from the indexing pipeline */
 export interface EmbeddingProgress {
   phase: string;
   processed: number;
   total: number;
 }
-
-// ── Group Chat Dynamics ────────────────────────────────
 
 export interface ParticipantStats {
   handleId: number;
@@ -228,8 +200,6 @@ export interface GroupChatDynamics {
   conversationStarter: string | null;
 }
 
-// ── On This Day ────────────────────────────────────────
-
 export interface OnThisDayMessage {
   year: number;
   text: string | null;
@@ -246,14 +216,10 @@ export interface OnThisDayResult {
   yearsWithMessages: number[];
 }
 
-// ── Word Frequency ───────────────────────────────────
-
 export interface WordFrequency {
   word: string;
   count: number;
 }
-
-// ── Texting Personality ────────────────────────────────
 
 export interface PersonalityTrait {
   name: string;

@@ -387,14 +387,16 @@
   cursor: default;
 }
 .wc-tag:hover { transform: scale(1.06); }
-.wc-tag.s1 { font-size: 22px; background: rgba(27, 36, 50, 0.1); font-weight: 700; }
-.wc-tag.s2 { font-size: 18px; background: rgba(59, 130, 196, 0.1); font-weight: 600; }
-.wc-tag.s3 { font-size: 15px; background: rgba(27, 36, 50, 0.05); }
-.wc-tag.s4 { font-size: 13px; background: rgba(27, 36, 50, 0.03); color: #4E5D6E; }
-.dark .wc-tag.s1 { background: rgba(59, 130, 196, 0.15); color: white; }
-.dark .wc-tag.s2 { background: rgba(59, 130, 196, 0.1); color: rgba(255, 255, 255, 0.9); }
-.dark .wc-tag.s3 { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.7); }
-.dark .wc-tag.s4 { background: rgba(255, 255, 255, 0.03); color: rgba(255, 255, 255, 0.5); }
+.wc-tag.s1 { font-size: 22px; font-weight: 700; }
+.wc-tag.s2 { font-size: 18px; font-weight: 600; }
+.wc-tag.s3 { font-size: 15px; }
+.wc-tag.s4 { font-size: 13px; color: #4E5D6E; }
+.dark .wc-tag.s4 { color: rgba(255, 255, 255, 0.6); }
+/* Alternating blue / gray backgrounds */
+.wc-tag.wc-blue { background: rgba(59, 130, 196, 0.12); }
+.wc-tag.wc-gray { background: rgba(27, 36, 50, 0.07); }
+.dark .wc-tag.wc-blue { background: rgba(59, 130, 196, 0.18); color: white; }
+.dark .wc-tag.wc-gray { background: rgba(255, 255, 255, 0.07); color: rgba(255, 255, 255, 0.85); }
 
 /* ── Wrapped: Personality hero ───────────────── */
 .pers-hero {

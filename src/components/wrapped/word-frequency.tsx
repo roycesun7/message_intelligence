@@ -52,7 +52,6 @@ export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProp
   return (
     <div className="card-glass rounded-[20px] p-6">
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">🔤</span>
         <h3 className="text-base font-bold text-[#1B2432] dark:text-white">
           Most Used Words
         </h3>
@@ -83,7 +82,7 @@ export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProp
         {words.slice(0, 14).map((w, i) => (
           <span
             key={w.word}
-            className={`wc-tag ${getSizeClass(i)} text-[#1B2432] dark:text-white`}
+            className={`wc-tag ${getSizeClass(i)} ${i % 2 === 0 ? "wc-blue" : "wc-gray"} text-[#1B2432] dark:text-white`}
           >
             {w.word}
             <span className="text-[10px] text-[#94A3B3] dark:text-zinc-500 ml-1">

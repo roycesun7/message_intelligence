@@ -841,11 +841,13 @@ pub async fn get_texting_personality(
                 }
             }
 
-            // Burst gap tracking for Ghost
+            // Burst gap tracking for Ghost — only within same conversation session
+            // Gaps > 4h are separate sessions and don't count as ghosting
             if is_from_me {
                 if let Some(last) = last_my_msg_date {
                     let gap_secs = (date as f64 - last as f64) / 1_000_000_000.0;
-                    if gap_secs > 0.0 {
+                    let session_max_secs = gap_threshold_ns as f64 / 1_000_000_000.0;
+                    if gap_secs > 0.0 && gap_secs <= session_max_secs {
                         my_burst_gaps.push(gap_secs);
                     }
                 }
@@ -966,9 +968,10 @@ pub async fn get_texting_personality(
             },
         });
 
-        // Ghost
-        let ghost_score = if avg_burst_gap_secs > 3600.0 {
-            ((avg_burst_gap_secs - 3600.0) / 7200.0).min(1.0)
+        // Ghost — based on within-session gaps only (gaps > 4h excluded)
+        // 10 min avg = 0 score, 30+ min avg = max score (slow within convos)
+        let ghost_score = if avg_burst_gap_secs > 600.0 {
+            ((avg_burst_gap_secs - 600.0) / 1200.0).min(1.0)
         } else {
             0.0
         };

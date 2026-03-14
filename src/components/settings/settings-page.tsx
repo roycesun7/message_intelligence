@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { Settings, RotateCcw, FolderOpen, Trash2 } from "lucide-react";
 import { useEmbeddingStatus } from "@/hooks/use-search";
-import { setIndexTarget, rebuildSearchIndex, getDataDir, clearAllEmbeddings } from "@/lib/commands";
-import { open } from "@tauri-apps/plugin-shell";
+import { setIndexTarget, rebuildSearchIndex, openDataDir, clearAllEmbeddings } from "@/lib/commands";
 import { useQueryClient } from "@tanstack/react-query";
 
 export function SettingsPage() {
@@ -46,8 +45,7 @@ export function SettingsPage() {
 
   const handleOpenDataDir = async () => {
     try {
-      const dir = await getDataDir();
-      await open(dir);
+      await openDataDir();
     } catch (err) {
       console.error("Failed to open data directory:", err);
     }
@@ -101,12 +99,33 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Breakdown */}
-          {status && totalEmbedded > 0 && (
-            <div className="mb-6 flex gap-4 text-xs text-[#A4B5C4] dark:text-zinc-500">
-              <span>Chunks: <span className="text-[#4B6382] dark:text-zinc-300 font-medium">{status.chunkCount.toLocaleString()}</span></span>
-              <span>Messages: <span className="text-[#4B6382] dark:text-zinc-300 font-medium">{status.messageCount.toLocaleString()}</span></span>
-              <span>Images: <span className="text-[#4B6382] dark:text-zinc-300 font-medium">{status.attachmentCount.toLocaleString()}</span></span>
+          {/* Embedding breakdown */}
+          {status && (
+            <div className="mb-6 rounded-lg bg-[#CDD5DB]/20 dark:bg-zinc-800/50 p-3 space-y-1.5 text-xs font-mono">
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">Total indexed</span>
+                <span className="text-[#071739] dark:text-zinc-200 font-medium">{totalEmbedded.toLocaleString()} embeddings</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">├ Conversation chunks</span>
+                <span className="text-[#071739] dark:text-zinc-200">{status.chunkCount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">├ Individual messages</span>
+                <span className="text-[#071739] dark:text-zinc-200">{status.messageCount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">└ Images / stickers</span>
+                <span className="text-[#071739] dark:text-zinc-200">{status.attachmentCount.toLocaleString()}</span>
+              </div>
+              <div className="border-t border-[#CDD5DB]/30 dark:border-zinc-700 pt-1.5 flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">Target</span>
+                <span className="text-[#071739] dark:text-zinc-200 font-medium">{displayTarget.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#4B6382] dark:text-zinc-400">Total messages in DB</span>
+                <span className="text-[#071739] dark:text-zinc-200">{totalMessages.toLocaleString()}</span>
+              </div>
             </div>
           )}
 

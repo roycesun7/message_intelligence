@@ -600,14 +600,18 @@ fn enrich_attachment_result(
 
 // ── Data directory + clear commands ───────────────────────────────────
 
-/// Return the path to the app data directory (where analytics.db lives).
+/// Open the app data directory in Finder.
 #[tauri::command]
-pub fn get_data_dir(app_handle: AppHandle) -> AppResult<String> {
+pub fn open_data_dir(app_handle: AppHandle) -> AppResult<()> {
     let data_dir = app_handle
         .path()
         .app_data_dir()
         .map_err(|e| AppError::Custom(format!("Cannot resolve app data dir: {e}")))?;
-    Ok(data_dir.to_string_lossy().to_string())
+    std::process::Command::new("open")
+        .arg(&data_dir)
+        .spawn()
+        .map_err(|e| AppError::Custom(format!("Failed to open Finder: {e}")))?;
+    Ok(())
 }
 
 /// Delete all embeddings without triggering a rebuild.

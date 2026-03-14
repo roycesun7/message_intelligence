@@ -44,6 +44,16 @@ pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<Embedding
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ChunkMessage {
+    pub rowid: i64,
+    pub text: Option<String>,
+    pub is_from_me: bool,
+    pub sender_display_name: Option<String>,
+    pub date: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SemanticSearchResult {
     pub source_type: String,
     pub source_id: i64,
@@ -59,6 +69,8 @@ pub struct SemanticSearchResult {
     pub link_url: Option<String>,
     pub link_domain: Option<String>,
     pub link_title: Option<String>,
+    /// Individual messages within a chunk (only for source_type = "chunk")
+    pub messages: Option<Vec<ChunkMessage>>,
 }
 
 /// Semantic search across all embeddings using CLIP text encoder.
@@ -115,11 +127,39 @@ pub fn semantic_search(
 
     // Deduplicate: keep best score per (source_type, source_id)
     let mut seen: std::collections::HashSet<(String, i64)> = std::collections::HashSet::new();
-    let deduped: Vec<_> = scored
+    let all_deduped: Vec<_> = scored
         .into_iter()
         .filter(|(_, _, st, sid, _, _)| seen.insert((st.clone(), *sid)))
-        .take(limit as usize)
         .collect();
+
+    // Ensure a mix of result types: text-to-image cross-modal scores are
+    // inherently lower than text-to-text, so guarantee some attachment results.
+    let text_limit = (limit * 3 / 4) as usize; // ~75% for messages/chunks
+    let attachment_limit = (limit / 4).max(5) as usize; // ~25% for attachments, min 5
+
+    let mut text_results: Vec<_> = Vec::new();
+    let mut attachment_results: Vec<_> = Vec::new();
+
+    for item in &all_deduped {
+        match item.2.as_str() {
+            "attachment" => {
+                if attachment_results.len() < attachment_limit {
+                    attachment_results.push(item.clone());
+                }
+            }
+            _ => {
+                if text_results.len() < text_limit {
+                    text_results.push(item.clone());
+                }
+            }
+        }
+    }
+
+    // Merge and sort by score
+    let mut deduped = text_results;
+    deduped.extend(attachment_results);
+    deduped.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    deduped.truncate(limit as usize);
 
     // Now enrich each result with message data from chat.db
     let chat_conn = state.lock_chat_db()?;
@@ -143,7 +183,10 @@ pub fn semantic_search(
                 score,
             ),
             "chunk" => enrich_chunk_result(
+                &chat_conn,
                 &analytics_conn,
+                &contact_map,
+                &handle_map,
                 source_id,
                 chat_id,
                 score,
@@ -191,12 +234,39 @@ pub fn rebuild_search_index(
     analytics_db::clear_embeddings(&analytics_conn)?;
     drop(analytics_conn);
 
-    // Spawn pipeline again in the background
-    std::thread::spawn(move || {
-        if let Err(e) = crate::embeddings::pipeline::run_indexing_pipeline(&app_handle) {
-            log::error!("Rebuild pipeline failed: {e}");
+    // Get sessions from AppState
+    let text_arc = {
+        let guard = state.clip_text.read().unwrap_or_else(|p| p.into_inner());
+        guard.clone()
+    };
+    let vision_arc = {
+        let guard = state.clip_vision.read().unwrap_or_else(|p| p.into_inner());
+        guard.clone()
+    };
+    let tok_arc = {
+        let guard = state.tokenizer.read().unwrap_or_else(|p| p.into_inner());
+        guard.clone()
+    };
+
+    match (text_arc, vision_arc, tok_arc) {
+        (Some(text), Some(vision), Some(tok)) => {
+            std::thread::spawn(move || {
+                let mut text_session = text.lock().unwrap_or_else(|p| p.into_inner());
+                let mut vision_session = vision.lock().unwrap_or_else(|p| p.into_inner());
+                if let Err(e) = crate::embeddings::pipeline::run_indexing_pipeline(
+                    &app_handle,
+                    &mut text_session,
+                    &mut vision_session,
+                    &tok,
+                ) {
+                    log::error!("Rebuild pipeline failed: {e}");
+                }
+            });
         }
-    });
+        _ => {
+            return Err(AppError::Custom("CLIP models not loaded yet".into()));
+        }
+    }
 
     Ok(())
 }
@@ -273,18 +343,22 @@ fn enrich_message_result(
         link_url: None,
         link_domain: None,
         link_title: None,
+        messages: None,
     })
 }
 
 fn enrich_chunk_result(
+    chat_conn: &rusqlite::Connection,
     analytics_conn: &rusqlite::Connection,
+    contact_map: &HashMap<String, String>,
+    handle_map: &HashMap<i64, String>,
     chunk_id: i64,
     chat_id: i64,
     score: f64,
 ) -> Option<SemanticSearchResult> {
     let row = analytics_conn
         .query_row(
-            "SELECT concatenated_text, is_from_me, first_rowid, started_at FROM message_chunks WHERE id = ?1",
+            "SELECT concatenated_text, is_from_me, first_rowid, last_rowid, started_at FROM message_chunks WHERE id = ?1",
             rusqlite::params![chunk_id],
             |row| {
                 Ok((
@@ -292,12 +366,18 @@ fn enrich_chunk_result(
                     row.get::<_, bool>(1)?,
                     row.get::<_, i64>(2)?,
                     row.get::<_, i64>(3)?,
+                    row.get::<_, i64>(4)?,
                 ))
             },
         )
         .ok()?;
 
-    let (text, is_from_me, first_rowid, started_at) = row;
+    let (text, is_from_me, first_rowid, last_rowid, started_at) = row;
+
+    // Fetch individual messages within this chunk from chat.db
+    let chunk_messages = fetch_chunk_messages(
+        chat_conn, contact_map, handle_map, first_rowid, last_rowid, chat_id,
+    );
 
     Some(SemanticSearchResult {
         source_type: "chunk".into(),
@@ -314,7 +394,71 @@ fn enrich_chunk_result(
         link_url: None,
         link_domain: None,
         link_title: None,
+        messages: if chunk_messages.is_empty() { None } else { Some(chunk_messages) },
     })
+}
+
+/// Fetch individual messages from chat.db that belong to a chunk (by rowid range + chat_id).
+fn fetch_chunk_messages(
+    chat_conn: &rusqlite::Connection,
+    contact_map: &HashMap<String, String>,
+    handle_map: &HashMap<i64, String>,
+    first_rowid: i64,
+    last_rowid: i64,
+    chat_id: i64,
+) -> Vec<ChunkMessage> {
+    let mut stmt = match chat_conn.prepare(
+        "SELECT m.ROWID, m.text, m.attributedBody, m.is_from_me, m.date, m.handle_id
+         FROM message AS m
+         LEFT JOIN chat_message_join AS cmj ON cmj.message_id = m.ROWID
+         WHERE m.ROWID >= ?1 AND m.ROWID <= ?2
+           AND (cmj.chat_id = ?3 OR cmj.chat_id IS NULL)
+           AND m.associated_message_type = 0
+         ORDER BY m.ROWID ASC",
+    ) {
+        Ok(s) => s,
+        Err(_) => return vec![],
+    };
+
+    let rows: Vec<_> = stmt
+        .query_map(rusqlite::params![first_rowid, last_rowid, chat_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<Vec<u8>>>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+            ))
+        })
+        .ok()
+        .map(|r| r.filter_map(|v| v.ok()).collect())
+        .unwrap_or_default();
+
+    rows.into_iter()
+        .map(|(rowid, text, attributed_body, is_from_me_i64, date_raw, handle_id)| {
+            let resolved_text = text.or_else(|| {
+                attributed_body
+                    .as_ref()
+                    .and_then(|blob| {
+                        crate::ingestion::message_parser::extract_text_from_attributed_body(blob)
+                    })
+            });
+
+            let sender = handle_map.get(&handle_id).cloned();
+            let sender_display_name = sender
+                .as_ref()
+                .and_then(|s| contacts_db::resolve_name(s, contact_map));
+
+            ChunkMessage {
+                rowid,
+                text: resolved_text,
+                is_from_me: is_from_me_i64 != 0,
+                sender_display_name,
+                date: apple_timestamp_to_unix_ms(date_raw),
+            }
+        })
+        .collect()
 }
 
 fn enrich_attachment_result(
@@ -384,5 +528,6 @@ fn enrich_attachment_result(
         link_url: None,
         link_domain: None,
         link_title: None,
+        messages: None,
     })
 }

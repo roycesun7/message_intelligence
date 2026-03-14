@@ -12,20 +12,23 @@ export function ChatView() {
   const chatId = useAppStore((s) => s.selectedChatId);
   const scrollToMessageDate = useAppStore((s) => s.scrollToMessageDate);
   const setScrollToMessageDate = useAppStore((s) => s.setScrollToMessageDate);
+  const highlightedMessageDate = useAppStore((s) => s.highlightedMessageDate);
+  const setHighlightedMessageDate = useAppStore((s) => s.setHighlightedMessageDate);
   const chat = useChatById(chatId);
   const { data: messages, isLoading, isError, error } = useMessages(chatId);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
+  // Use a ref (not state) to track pending scroll so we don't cause re-renders
+  const pendingScrollRef = useRef<number | null>(null);
+
   const isGroupChat = chat ? chat.style === 43 : false;
   const chatName = getChatDisplayName(chat);
 
-  // Pre-compute tapback map once instead of O(n) per visible message
   const tapbackMap = useMemo(() => {
     if (!messages) return new Map<string, string[]>();
     return buildTapbackMap(messages);
   }, [messages]);
 
-  // Filter out tapback reactions from the visible list
   const visibleMessages = useMemo(() => {
     if (!messages) return [];
     return messages.filter(
@@ -33,8 +36,17 @@ export function ChatView() {
     );
   }, [messages]);
 
-  // Scroll to bottom when chat changes
+  // Capture scroll target from store into ref immediately
   useEffect(() => {
+    if (scrollToMessageDate !== null) {
+      pendingScrollRef.current = scrollToMessageDate;
+      setScrollToMessageDate(null);
+    }
+  }, [scrollToMessageDate, setScrollToMessageDate]);
+
+  // Scroll to bottom on chat change — but only if no pending scroll target
+  useEffect(() => {
+    if (pendingScrollRef.current !== null) return;
     if (virtuosoRef.current && visibleMessages.length > 0) {
       requestAnimationFrame(() => {
         virtuosoRef.current?.scrollToIndex({
@@ -44,51 +56,78 @@ export function ChatView() {
         });
       });
     }
-  }, [chatId]); // Only on chat change, not message count
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll to a specific message date (from "On This Day" navigation)
+  // When messages load (or change) and we have a pending scroll, execute it.
   useEffect(() => {
-    if (scrollToMessageDate === null || !visibleMessages.length || !virtuosoRef.current) return;
+    if (pendingScrollRef.current === null || visibleMessages.length === 0) return;
+
+    const targetDate = pendingScrollRef.current;
 
     // Find the message closest to the target date
     let closestIndex = 0;
     let closestDiff = Infinity;
     for (let i = 0; i < visibleMessages.length; i++) {
-      const diff = Math.abs(visibleMessages[i].date - scrollToMessageDate);
+      const diff = Math.abs(visibleMessages[i].date - targetDate);
       if (diff < closestDiff) {
         closestDiff = diff;
         closestIndex = i;
       }
     }
 
-    // Wait a tick for Virtuoso to be ready, then scroll
-    requestAnimationFrame(() => {
+    // Clear the pending scroll immediately so we don't re-fire
+    pendingScrollRef.current = null;
+
+    // Highlight the matched message
+    const matchedDate = visibleMessages[closestIndex].date;
+    setHighlightedMessageDate(matchedDate);
+
+    // Give Virtuoso enough time to fully render the list, then scroll.
+    // We use two staggered scrolls: first an instant jump to get close,
+    // then a smooth scroll to center precisely.
+    const jumpTimer = setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: closestIndex,
+        align: "center",
+        behavior: "auto",
+      });
+    }, 100);
+
+    const smoothTimer = setTimeout(() => {
       virtuosoRef.current?.scrollToIndex({
         index: closestIndex,
         align: "center",
         behavior: "smooth",
       });
-    });
+    }, 350);
 
-    // Clear the scroll target after navigating
-    setScrollToMessageDate(null);
-  }, [scrollToMessageDate, visibleMessages, setScrollToMessageDate]);
+    // Auto-clear highlight after 3 seconds
+    const highlightTimer = setTimeout(() => setHighlightedMessageDate(null), 3000);
+
+    return () => {
+      clearTimeout(jumpTimer);
+      clearTimeout(smoothTimer);
+      clearTimeout(highlightTimer);
+    };
+  }, [visibleMessages, setHighlightedMessageDate]);
 
   const itemContent = useCallback(
     (index: number) => {
       const msg = visibleMessages[index];
       const prev = index > 0 ? visibleMessages[index - 1] : null;
       const tapbacks = tapbackMap.get(msg.guid) ?? [];
+      const isHighlighted = highlightedMessageDate !== null && msg.date === highlightedMessageDate;
       return (
         <MessageBubble
           message={msg}
           previousMessage={prev}
           showSenderName={isGroupChat}
           tapbacks={tapbacks}
+          highlighted={isHighlighted}
         />
       );
     },
-    [visibleMessages, tapbackMap, isGroupChat]
+    [visibleMessages, tapbackMap, isGroupChat, highlightedMessageDate]
   );
 
   // Empty state — after all hooks
@@ -116,7 +155,6 @@ export function ChatView() {
 
       {/* Messages */}
       <div className="relative min-h-0 flex-1">
-        {/* Always render Virtuoso so it has dimensions before data arrives */}
         <div className="absolute inset-0 overflow-hidden">
           <Virtuoso
             ref={virtuosoRef}
@@ -134,7 +172,6 @@ export function ChatView() {
             }}
           />
         </div>
-        {/* Overlay status messages on top */}
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-[#A4B5C4] dark:text-zinc-500 bg-[#F0EDE8] dark:bg-[#1C1C1E]">
             Loading messages...

@@ -174,6 +174,14 @@ export interface EmbeddingStatus {
   indexTarget: number;
 }
 
+export interface ChunkMessage {
+  rowid: number;
+  text: string | null;
+  isFromMe: boolean;
+  senderDisplayName: string | null;
+  date: number;
+}
+
 export interface SemanticSearchResult {
   sourceType: string;
   sourceId: number;
@@ -189,6 +197,8 @@ export interface SemanticSearchResult {
   linkUrl: string | null;
   linkDomain: string | null;
   linkTitle: string | null;
+  /** Individual messages within a chunk (only for sourceType = "chunk") */
+  messages: ChunkMessage[] | null;
 }
 
 /** Progress event from the indexing pipeline */

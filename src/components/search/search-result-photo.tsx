@@ -29,6 +29,8 @@ function PhotoCell({ result }: PhotoCellProps) {
     (a) => a.dataUrl && a.mimeType?.startsWith("image/")
   );
 
+  const similarityPct = Math.round(result.score * 100);
+
   return (
     <button
       onClick={handleClick}
@@ -47,6 +49,18 @@ function PhotoCell({ result }: PhotoCellProps) {
           </span>
         </div>
       )}
+      {/* Similarity score badge */}
+      <span
+        className={`absolute top-1.5 right-1.5 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
+          similarityPct >= 70
+            ? "bg-green-100/80 text-green-700 dark:bg-green-900/60 dark:text-green-400"
+            : similarityPct >= 50
+              ? "bg-blue-100/80 text-blue-700 dark:bg-blue-900/60 dark:text-blue-400"
+              : "bg-zinc-100/80 text-zinc-600 dark:bg-zinc-800/80 dark:text-zinc-400"
+        }`}
+      >
+        {similarityPct}%
+      </span>
     </button>
   );
 }

@@ -100,35 +100,38 @@ fn load_clip_sessions_from_handle(
         return (None, None, None);
     }
 
+    eprintln!("[models] Loading text encoder from {:?}...", text_path);
     let text_session = match load_onnx_session(&text_path) {
         Ok(session) => {
-            log::info!("Loaded CLIP text encoder from {:?}", text_path);
+            eprintln!("[models] Text encoder loaded OK");
             Arc::new(Mutex::new(session))
         }
         Err(e) => {
-            log::warn!("Failed to load CLIP text encoder: {e}");
+            eprintln!("[models] FAILED to load text encoder: {e}");
             return (None, None, None);
         }
     };
 
+    eprintln!("[models] Loading vision encoder from {:?}...", vision_path);
     let vision_session = match load_onnx_session(&vision_path) {
         Ok(session) => {
-            log::info!("Loaded CLIP vision encoder from {:?}", vision_path);
+            eprintln!("[models] Vision encoder loaded OK");
             Arc::new(Mutex::new(session))
         }
         Err(e) => {
-            log::warn!("Failed to load CLIP vision encoder: {e}");
+            eprintln!("[models] FAILED to load vision encoder: {e}");
             return (None, None, None);
         }
     };
 
+    eprintln!("[models] Loading tokenizer from {:?}...", tokenizer_path);
     let tokenizer = match Tokenizer::from_file(&tokenizer_path) {
         Ok(tok) => {
-            log::info!("Loaded CLIP tokenizer from {:?}", tokenizer_path);
+            eprintln!("[models] Tokenizer loaded OK");
             Arc::new(tok)
         }
         Err(e) => {
-            log::warn!("Failed to load CLIP tokenizer: {e}");
+            eprintln!("[models] FAILED to load tokenizer: {e}");
             return (None, None, None);
         }
     };
@@ -138,6 +141,22 @@ fn load_clip_sessions_from_handle(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Ensure ORT_DYLIB_PATH is set for ort's load-dynamic feature.
+    // Without this, Session::builder() hangs trying to find libonnxruntime.
+    if std::env::var("ORT_DYLIB_PATH").is_err() {
+        // Check common Homebrew paths
+        let candidates = [
+            "/opt/homebrew/lib/libonnxruntime.dylib", // Apple Silicon
+            "/usr/local/lib/libonnxruntime.dylib",    // Intel Mac
+        ];
+        for path in &candidates {
+            if std::path::Path::new(path).exists() {
+                std::env::set_var("ORT_DYLIB_PATH", path);
+                break;
+            }
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -196,28 +215,51 @@ pub fn run() {
 
             // Spawn background thread to load CLIP models, then run the pipeline.
             // Loading 380MB of ONNX models is too slow for the setup closure.
+            // Models are loaded ONCE and shared between AppState (for search queries)
+            // and the pipeline (for indexing). Loading twice deadlocks ort.
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-                log::info!("Background: loading CLIP models...");
+                eprintln!("[pipeline] Loading CLIP models...");
                 let (clip_text, clip_vision, tokenizer) = load_clip_sessions_from_handle(&app_handle);
+                eprintln!("[pipeline] Model load result: text={} vision={} tokenizer={}",
+                    clip_text.is_some(), clip_vision.is_some(), tokenizer.is_some());
 
-                // Update AppState with loaded models
+                // Update AppState with loaded models (for search queries from the UI)
+                let has_models = clip_text.is_some() && clip_vision.is_some() && tokenizer.is_some();
                 if let Some(state) = app_handle.try_state::<AppState>() {
-                    if let Some(ct) = clip_text {
-                        // We need to set these on the state. Since the fields are Option<Arc<...>>,
-                        // we store them in a secondary holder that the state can access.
-                        state.set_clip_text(ct);
+                    if let Some(ref ct) = clip_text {
+                        state.set_clip_text(ct.clone());
                     }
-                    if let Some(cv) = clip_vision {
-                        state.set_clip_vision(cv);
+                    if let Some(ref cv) = clip_vision {
+                        state.set_clip_vision(cv.clone());
                     }
-                    if let Some(tok) = tokenizer {
-                        state.set_tokenizer(tok);
+                    if let Some(ref tok) = tokenizer {
+                        state.set_tokenizer(tok.clone());
                     }
                 }
 
-                if let Err(e) = embeddings::pipeline::run_indexing_pipeline(&app_handle) {
+                if !has_models {
+                    eprintln!("[pipeline] Models not loaded — skipping pipeline");
+                    return;
+                }
+
+                // Unwrap the Arc<Mutex<Session>> to get owned sessions for the pipeline.
+                // We lock and hold the sessions for the pipeline's duration.
+                let text_arc = clip_text.unwrap();
+                let vision_arc = clip_vision.unwrap();
+                let tok = tokenizer.unwrap();
+
+                let mut text_session = text_arc.lock().unwrap_or_else(|p| p.into_inner());
+                let mut vision_session = vision_arc.lock().unwrap_or_else(|p| p.into_inner());
+
+                if let Err(e) = embeddings::pipeline::run_indexing_pipeline(
+                    &app_handle,
+                    &mut text_session,
+                    &mut vision_session,
+                    &tok,
+                ) {
                     log::error!("Embedding pipeline failed: {e}");
+                    eprintln!("[pipeline] ERROR: {e}");
                 }
             });
 

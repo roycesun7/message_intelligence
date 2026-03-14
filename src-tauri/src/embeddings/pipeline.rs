@@ -18,9 +18,6 @@ pub struct EmbeddingProgress {
     pub total: i64,
 }
 
-/// Batch size for fetching messages from chat.db.
-const BATCH_SIZE: i64 = 5000;
-
 /// Number of texts to encode in a single ONNX batch.
 const EMBED_BATCH_SIZE: usize = 32;
 
@@ -56,133 +53,8 @@ fn open_analytics_db_rw(app_handle: &AppHandle) -> AppResult<Connection> {
     Ok(conn)
 }
 
-fn load_pipeline_sessions(
-    app_handle: &AppHandle,
-) -> AppResult<(ort::session::Session, ort::session::Session, Tokenizer)> {
-    // Try resource_dir first (production builds), then fall back to the source
-    // resources directory (during `tauri dev`, resource_dir points to target/debug/).
-    let models_dir = {
-        let from_resource = app_handle
-            .path()
-            .resource_dir()
-            .ok()
-            .map(|d| d.join("models"));
-        let from_source = {
-            let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            manifest.join("resources/models")
-        };
-        if from_resource
-            .as_ref()
-            .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
-        {
-            from_resource.unwrap()
-        } else if from_source.join("mobileclip_s2_text.onnx").exists() {
-            from_source
-        } else {
-            return Err(AppError::Custom(
-                "CLIP model files not found — pipeline cannot run".into(),
-            ));
-        }
-    };
-
-    let text_path = models_dir.join("mobileclip_s2_text.onnx");
-    let vision_path = models_dir.join("mobileclip_s2_vision.onnx");
-    let tokenizer_path = models_dir.join("tokenizer.json");
-
-    if !text_path.exists() || !vision_path.exists() || !tokenizer_path.exists() {
-        return Err(AppError::Custom(
-            "CLIP model files not found — pipeline cannot run".into(),
-        ));
-    }
-
-    let text_session = ort::session::Session::builder()
-        .and_then(|mut b| b.commit_from_file(&text_path))
-        .map_err(|e| AppError::Custom(format!("Failed to load CLIP text encoder: {e}")))?;
-
-    let vision_session = ort::session::Session::builder()
-        .and_then(|mut b| b.commit_from_file(&vision_path))
-        .map_err(|e| AppError::Custom(format!("Failed to load CLIP vision encoder: {e}")))?;
-
-    let tokenizer = Tokenizer::from_file(&tokenizer_path)
-        .map_err(|e| AppError::Custom(format!("Failed to load tokenizer: {e}")))?;
-
-    Ok((text_session, vision_session, tokenizer))
-}
 
 // ── Query helpers that join through chat_message_join ───────────────────
-
-/// Fetch messages for embedding with real chat_id from chat_message_join.
-/// Returns messages ordered by ROWID ASC with rowid > after_rowid.
-fn get_messages_with_chat_id(
-    conn: &Connection,
-    after_rowid: i64,
-    batch_size: i64,
-    handle_map: &HashMap<i64, String>,
-    contact_map: &HashMap<String, String>,
-) -> AppResult<Vec<crate::db::models::Message>> {
-    use crate::db::models::RawMessageRow;
-
-    let mut stmt = conn.prepare(
-        "SELECT
-            m.ROWID,
-            m.guid,
-            m.text,
-            m.attributedBody,
-            m.is_from_me,
-            m.date,
-            m.date_read,
-            m.date_delivered,
-            m.handle_id,
-            m.service,
-            m.associated_message_type,
-            m.associated_message_guid,
-            m.cache_has_attachments,
-            m.thread_originator_guid,
-            m.group_title,
-            m.is_audio_message,
-            cmj.chat_id
-         FROM message AS m
-         LEFT JOIN chat_message_join AS cmj ON cmj.message_id = m.ROWID
-         WHERE m.ROWID > ?1
-           AND m.associated_message_type = 0
-         ORDER BY m.ROWID ASC
-         LIMIT ?2",
-    )?;
-
-    let messages: Vec<crate::db::models::Message> = stmt
-        .query_map(rusqlite::params![after_rowid, batch_size], |row| {
-            Ok(RawMessageRow {
-                rowid: row.get(0)?,
-                guid: row.get(1)?,
-                text: row.get(2)?,
-                attributed_body: row.get(3)?,
-                is_from_me: row.get(4)?,
-                date: row.get(5)?,
-                date_read: row.get(6)?,
-                date_delivered: row.get(7)?,
-                handle_id: row.get(8)?,
-                service: row.get(9)?,
-                associated_message_type: row.get(10)?,
-                associated_message_guid: row.get(11)?,
-                cache_has_attachments: row.get(12)?,
-                thread_originator_guid: row.get(13)?,
-                group_title: row.get(14)?,
-                is_audio_message: row.get(15)?,
-                chat_id: row.get(16)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
-        .map(|raw| {
-            let sender = handle_map.get(&raw.handle_id).cloned();
-            let sender_display_name = sender
-                .as_ref()
-                .and_then(|s| contacts_db::resolve_name(s, contact_map));
-            raw.into_message(sender, sender_display_name)
-        })
-        .collect();
-
-    Ok(messages)
-}
 
 /// Build handle_id -> identifier map.
 fn build_handle_map(conn: &Connection) -> AppResult<HashMap<i64, String>> {
@@ -226,9 +98,14 @@ fn expand_tilde(path: &str) -> Option<std::path::PathBuf> {
 // ── Main pipeline entry point ──────────────────────────────────────────
 
 /// Run the full indexing pipeline. This is called from a background thread
-/// (via `tokio::task::spawn_blocking`) and opens its own DB connections and
-/// ONNX sessions to avoid blocking the UI.
-pub fn run_indexing_pipeline(app_handle: &AppHandle) -> AppResult<()> {
+/// and opens its own DB connections. ONNX sessions are passed in to avoid
+/// loading 380MB of models a second time (which deadlocks ort).
+pub fn run_indexing_pipeline(
+    app_handle: &AppHandle,
+    text_session: &mut ort::session::Session,
+    vision_session: &mut ort::session::Session,
+    tokenizer: &Tokenizer,
+) -> AppResult<()> {
     log::info!("Embedding pipeline starting...");
 
     // Open our own connections
@@ -241,48 +118,38 @@ pub fn run_indexing_pipeline(app_handle: &AppHandle) -> AppResult<()> {
     };
     let analytics_conn = open_analytics_db_rw(app_handle)?;
 
-    // Load our own ONNX sessions and tokenizer
-    let (mut text_session, mut vision_session, tokenizer) = match load_pipeline_sessions(app_handle)
-    {
-        Ok(sessions) => sessions,
-        Err(e) => {
-            log::warn!("Pipeline: cannot load CLIP models: {e}");
-            return Ok(());
-        }
-    };
-
     // Build contact map and handle map for sender resolution
     let contact_map = contacts_db::build_contact_map().unwrap_or_default();
     let handle_map = build_handle_map(&chat_conn)?;
 
-    // Phase 1: Chunking
+    // Phase 1: Chunk recent messages into conversation segments
     run_phase_chunking(
         app_handle,
         &chat_conn,
         &analytics_conn,
-        &mut text_session,
-        &tokenizer,
+        text_session,
+        tokenizer,
         &handle_map,
         &contact_map,
     )?;
 
-    // Phase 2: Text embedding (recent 500, then oldest 500)
+    // Phase 2: Embed individual messages (recent 500 + oldest 500)
     run_phase_text_embedding(
         app_handle,
         &chat_conn,
         &analytics_conn,
-        &mut text_session,
-        &tokenizer,
+        text_session,
+        tokenizer,
         &handle_map,
         &contact_map,
     )?;
 
-    // Phase 3: Attachment embedding
+    // Phase 3: Embed image attachments
     run_phase_attachment_embedding(
         app_handle,
         &chat_conn,
         &analytics_conn,
-        &mut vision_session,
+        vision_session,
     )?;
 
     emit_progress(app_handle, "done", 0, 0);
@@ -293,6 +160,79 @@ pub fn run_indexing_pipeline(app_handle: &AppHandle) -> AppResult<()> {
 
 // ── Phase 1: Chunking ──────────────────────────────────────────────────
 
+/// Maximum number of recent messages to chunk (keeps Phase 1 fast).
+const CHUNK_LIMIT: i64 = 5000;
+
+/// Fetch the most recent `limit` messages with chat_id, ordered by ROWID DESC.
+fn get_recent_messages_with_chat_id(
+    conn: &Connection,
+    limit: i64,
+    handle_map: &HashMap<i64, String>,
+    contact_map: &HashMap<String, String>,
+) -> AppResult<Vec<crate::db::models::Message>> {
+    use crate::db::models::RawMessageRow;
+
+    let mut stmt = conn.prepare(
+        "SELECT
+            m.ROWID,
+            m.guid,
+            m.text,
+            m.attributedBody,
+            m.is_from_me,
+            m.date,
+            m.date_read,
+            m.date_delivered,
+            m.handle_id,
+            m.service,
+            m.associated_message_type,
+            m.associated_message_guid,
+            m.cache_has_attachments,
+            m.thread_originator_guid,
+            m.group_title,
+            m.is_audio_message,
+            cmj.chat_id
+         FROM message AS m
+         LEFT JOIN chat_message_join AS cmj ON cmj.message_id = m.ROWID
+         WHERE m.associated_message_type = 0
+         ORDER BY m.ROWID DESC
+         LIMIT ?1",
+    )?;
+
+    let messages: Vec<crate::db::models::Message> = stmt
+        .query_map(rusqlite::params![limit], |row| {
+            Ok(RawMessageRow {
+                rowid: row.get(0)?,
+                guid: row.get(1)?,
+                text: row.get(2)?,
+                attributed_body: row.get(3)?,
+                is_from_me: row.get(4)?,
+                date: row.get(5)?,
+                date_read: row.get(6)?,
+                date_delivered: row.get(7)?,
+                handle_id: row.get(8)?,
+                service: row.get(9)?,
+                associated_message_type: row.get(10)?,
+                associated_message_guid: row.get(11)?,
+                cache_has_attachments: row.get(12)?,
+                thread_originator_guid: row.get(13)?,
+                group_title: row.get(14)?,
+                is_audio_message: row.get(15)?,
+                chat_id: row.get(16)?,
+            })
+        })?
+        .filter_map(|r| r.ok())
+        .map(|raw| {
+            let sender = handle_map.get(&raw.handle_id).cloned();
+            let sender_display_name = sender
+                .as_ref()
+                .and_then(|s| contacts_db::resolve_name(s, contact_map));
+            raw.into_message(sender, sender_display_name)
+        })
+        .collect();
+
+    Ok(messages)
+}
+
 fn run_phase_chunking(
     app_handle: &AppHandle,
     chat_conn: &Connection,
@@ -302,83 +242,94 @@ fn run_phase_chunking(
     handle_map: &HashMap<i64, String>,
     contact_map: &HashMap<String, String>,
 ) -> AppResult<()> {
-    log::info!("Phase 1: Chunking messages...");
-    let mut last_rowid = analytics_db::get_last_processed_rowid(analytics_conn, "chunking")?;
-    let total_messages = chat_db::get_total_message_count(chat_conn)?;
-    let mut total_chunks_created: i64 = 0;
+    let already_done = analytics_db::get_last_processed_rowid(analytics_conn, "chunking")?;
+    if already_done > 0 {
+        log::info!("Phase 1: already processed, skipping.");
+        return Ok(());
+    }
 
-    loop {
-        let messages = get_messages_with_chat_id(
-            chat_conn,
-            last_rowid,
-            BATCH_SIZE,
-            handle_map,
-            contact_map,
+    log::info!("Phase 1: Chunking recent {CHUNK_LIMIT} messages...");
+
+    // Fetch the most recent CHUNK_LIMIT messages (DESC then reverse to get ASC order)
+    let mut messages = get_recent_messages_with_chat_id(
+        chat_conn,
+        CHUNK_LIMIT,
+        handle_map,
+        contact_map,
+    )?;
+    messages.sort_by_key(|m| m.rowid); // sort ASC for chunking
+
+    if messages.is_empty() {
+        log::info!("Phase 1: no messages to chunk.");
+        return Ok(());
+    }
+
+    let total = messages.len() as i64;
+    let max_rowid = messages.last().unwrap().rowid;
+
+    // Chunk the messages
+    let chunks = chunker::chunk_messages(&messages);
+    let mut chunks_created: i64 = 0;
+    let mut embeddings_created: i64 = 0;
+
+    for chunk in &chunks {
+        // Insert the chunk
+        let chunk_db_id = analytics_db::insert_chunk(
+            analytics_conn,
+            chunk.chat_id,
+            chunk.is_from_me,
+            chunk.handle_id,
+            chunk.first_rowid,
+            chunk.last_rowid,
+            chunk.message_count,
+            &chunk.concatenated_text,
+            chunk.started_at,
+            chunk.ended_at,
         )?;
-        if messages.is_empty() {
-            break;
-        }
 
-        let batch_last_rowid = messages.last().unwrap().rowid;
-
-        // Chunk the messages
-        let chunks = chunker::chunk_messages(&messages);
-
-        for chunk in &chunks {
-            // Insert the chunk
-            let chunk_db_id = analytics_db::insert_chunk(
-                analytics_conn,
-                chunk.chat_id,
-                chunk.is_from_me,
-                chunk.handle_id,
-                chunk.first_rowid,
-                chunk.last_rowid,
-                chunk.message_count,
-                &chunk.concatenated_text,
-                chunk.started_at,
-                chunk.ended_at,
-            )?;
-
-            // Embed the chunk's concatenated text (if non-empty)
-            if !chunk.concatenated_text.trim().is_empty() {
-                let text_ref: &str = &chunk.concatenated_text;
-                match clip::encode_texts(text_session, tokenizer, &[text_ref]) {
-                    Ok(embeddings) if !embeddings.is_empty() => {
-                        let blob = clip::embedding_to_blob(&embeddings[0]);
-                        analytics_db::insert_embedding(
-                            analytics_conn,
-                            "chunk",
-                            chunk_db_id,
-                            Some(chunk_db_id),
-                            chunk.chat_id,
-                            "mobileclip-s2",
-                            &blob,
-                        )?;
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::debug!("Failed to embed chunk {}: {e}", chunk_db_id);
-                    }
+        // Embed the chunk's concatenated text (if non-empty)
+        if !chunk.concatenated_text.trim().is_empty() {
+            let text_ref: &str = &chunk.concatenated_text;
+            match clip::encode_texts(text_session, tokenizer, &[text_ref]) {
+                Ok(embs) if !embs.is_empty() => {
+                    let blob = clip::embedding_to_blob(&embs[0]);
+                    analytics_db::insert_embedding(
+                        analytics_conn,
+                        "chunk",
+                        chunk_db_id,
+                        Some(chunk_db_id),
+                        chunk.chat_id,
+                        "mobileclip-s2",
+                        &blob,
+                    )?;
+                    embeddings_created += 1;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    log::debug!("Failed to embed chunk {}: {e}", chunk_db_id);
                 }
             }
-
-            total_chunks_created += 1;
         }
 
-        last_rowid = batch_last_rowid;
+        chunks_created += 1;
+        if chunks_created % 100 == 0 {
+            emit_progress(app_handle, "chunking", chunks_created, total);
+        }
+    }
+
+    if embeddings_created > 0 {
         analytics_db::update_processing_state(
             analytics_conn,
             "chunking",
-            last_rowid,
-            total_chunks_created,
+            max_rowid,
+            chunks_created,
         )?;
-
-        emit_progress(app_handle, "chunking", last_rowid, total_messages);
     }
 
+    emit_progress(app_handle, "chunking", chunks_created, total);
     log::info!(
-        "Phase 1 complete: {} chunks created",
-        total_chunks_created
+        "Phase 1 complete: {} chunks created, {} embedded",
+        chunks_created, embeddings_created
     );
     Ok(())
 }

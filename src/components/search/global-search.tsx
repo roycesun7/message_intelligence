@@ -283,7 +283,7 @@ export function GlobalSearch() {
               expanded={messagesExpanded}
               onToggle={() => setMessagesExpanded((v) => !v)}
             >
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
                 {visibleMessages.map((r) => (
                   <SearchResultMessage
                     key={`${r.messageRowid}-${r.sourceId}`}

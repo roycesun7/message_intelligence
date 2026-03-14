@@ -137,6 +137,12 @@ pub fn run_indexing_pipeline(
 
     log::info!("Pipeline: target={index_target}, current={current_count}, deficit={}", index_target - current_count);
 
+    // Clear processing_state so phases can re-run with the new budget.
+    // The budget cap and INSERT OR REPLACE prevent duplicate embeddings.
+    analytics_conn.execute_batch(
+        "DELETE FROM processing_state WHERE pipeline_name IN ('chunking', 'embedding_recent', 'embedding_oldest', 'embedding_attachments');"
+    )?;
+
     // Build contact map and handle map for sender resolution
     let contact_map = contacts_db::build_contact_map().unwrap_or_default();
     let handle_map = build_handle_map(&chat_conn)?;

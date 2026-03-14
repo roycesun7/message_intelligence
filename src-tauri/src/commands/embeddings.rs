@@ -1,6 +1,6 @@
 use serde::Serialize;
 use std::collections::HashMap;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::db::{analytics_db, chat_db, contacts_db};
 use crate::embeddings::clip;
@@ -213,13 +213,62 @@ pub fn semantic_search(
 // ── Index target ───────────────────────────────────────────────────────
 
 /// Set the index target (number of messages to embed).
+/// If the new target is higher than current embeddings and no pipeline is running,
+/// spawn a background pipeline run to index more.
 #[tauri::command]
 pub fn set_index_target(
     state: State<'_, AppState>,
+    app_handle: AppHandle,
     target: i64,
 ) -> AppResult<()> {
     let analytics_conn = state.lock_analytics_db()?;
     analytics_db::set_search_setting(&analytics_conn, "index_target", &target.to_string())?;
+
+    // Check if we need to run the pipeline
+    let current_count = analytics_db::count_embeddings(&analytics_conn)?;
+    drop(analytics_conn);
+
+    if current_count < target && state.models_loaded() {
+        // Only dispatch if not already running
+        if !state.pipeline_running.load(std::sync::atomic::Ordering::SeqCst) {
+            let text_arc = {
+                let guard = state.clip_text.read().unwrap_or_else(|p| p.into_inner());
+                guard.clone()
+            };
+            let vision_arc = {
+                let guard = state.clip_vision.read().unwrap_or_else(|p| p.into_inner());
+                guard.clone()
+            };
+            let tok_arc = {
+                let guard = state.tokenizer.read().unwrap_or_else(|p| p.into_inner());
+                guard.clone()
+            };
+
+            if let (Some(text), Some(vision), Some(tok)) = (text_arc, vision_arc, tok_arc) {
+                let app_handle_clone = app_handle.clone();
+                let state_ref = app_handle.state::<AppState>();
+                state_ref.pipeline_running.store(true, std::sync::atomic::Ordering::SeqCst);
+
+                std::thread::spawn(move || {
+                    let mut text_session = text.lock().unwrap_or_else(|p| p.into_inner());
+                    let mut vision_session = vision.lock().unwrap_or_else(|p| p.into_inner());
+                    if let Err(e) = crate::embeddings::pipeline::run_indexing_pipeline(
+                        &app_handle_clone,
+                        &mut text_session,
+                        &mut vision_session,
+                        &tok,
+                    ) {
+                        log::error!("Pipeline (from set_index_target) failed: {e}");
+                    }
+                    // Clear the flag
+                    if let Some(state) = app_handle_clone.try_state::<AppState>() {
+                        state.pipeline_running.store(false, std::sync::atomic::Ordering::SeqCst);
+                    }
+                });
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -250,6 +299,9 @@ pub fn rebuild_search_index(
 
     match (text_arc, vision_arc, tok_arc) {
         (Some(text), Some(vision), Some(tok)) => {
+            let state_ref = app_handle.state::<AppState>();
+            state_ref.pipeline_running.store(true, std::sync::atomic::Ordering::SeqCst);
+
             std::thread::spawn(move || {
                 let mut text_session = text.lock().unwrap_or_else(|p| p.into_inner());
                 let mut vision_session = vision.lock().unwrap_or_else(|p| p.into_inner());
@@ -260,6 +312,10 @@ pub fn rebuild_search_index(
                     &tok,
                 ) {
                     log::error!("Rebuild pipeline failed: {e}");
+                }
+                // Clear the flag
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.pipeline_running.store(false, std::sync::atomic::Ordering::SeqCst);
                 }
             });
         }

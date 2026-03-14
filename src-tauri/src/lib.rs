@@ -243,6 +243,11 @@ pub fn run() {
                 let vision_arc = clip_vision.unwrap();
                 let tok = tokenizer.unwrap();
 
+                // Set the pipeline_running flag
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.pipeline_running.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+
                 let mut text_session = text_arc.lock().unwrap_or_else(|p| p.into_inner());
                 let mut vision_session = vision_arc.lock().unwrap_or_else(|p| p.into_inner());
 
@@ -254,6 +259,11 @@ pub fn run() {
                 ) {
                     log::error!("Embedding pipeline failed: {e}");
                     eprintln!("[pipeline] ERROR: {e}");
+                }
+
+                // Clear the pipeline_running flag
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.pipeline_running.store(false, std::sync::atomic::Ordering::SeqCst);
                 }
             });
 

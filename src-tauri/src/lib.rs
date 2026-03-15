@@ -478,6 +478,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::onboarding::check_fda_status,
             commands::onboarding::retry_chat_db_connection,
+            commands::onboarding::open_system_settings,
             commands::messages::get_chats,
             commands::messages::get_messages,
             commands::messages::get_message_attachments,

@@ -34,6 +34,27 @@ pub fn check_fda_status(state: State<'_, AppState>) -> AppResult<FdaStatus> {
     })
 }
 
+/// Open macOS System Settings to the Full Disk Access pane.
+#[tauri::command]
+pub fn open_system_settings() -> AppResult<()> {
+    // macOS 13+ (Ventura): System Settings
+    let status = std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
+        .status();
+
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        _ => {
+            // Fallback: open generic Privacy pane
+            std::process::Command::new("open")
+                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy")
+                .status()
+                .map_err(|e| AppError::Custom(format!("Failed to open System Settings: {e}")))?;
+            Ok(())
+        }
+    }
+}
+
 /// Attempt to (re)connect to chat.db after the user grants Full Disk Access.
 /// Also rebuilds the contact map on success.
 #[tauri::command]

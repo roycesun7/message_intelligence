@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, RotateCcw, Trash2, Play, Bug, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { Settings, RotateCcw, Trash2, Play, Bug, ChevronDown, ChevronRight, Loader2, Cpu, CheckCircle, AlertCircle } from "lucide-react";
 import { useEmbeddingStatus } from "@/hooks/use-search";
 import {
   setIndexTarget,
@@ -10,11 +10,30 @@ import {
   getDataDir,
   clearAllEmbeddings,
   getDebugEmbeddings,
+  getModelDiagnostics,
   type DebugEmbeddingItem,
 } from "@/lib/commands";
 import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
-import type { EmbeddingProgress } from "@/types";
+import type { EmbeddingProgress, ModelDiagnostics } from "@/types";
+
+const STEP_LABELS: Record<string, string> = {
+  ort_runtime: "ORT Runtime",
+  find_models: "Find Models",
+  check_files: "Check Files",
+  load_text_encoder: "Text Encoder",
+  load_vision_encoder: "Vision Encoder",
+  load_tokenizer: "Tokenizer",
+};
+
+function StepIcon({ status }: { status: string }) {
+  switch (status) {
+    case "success": return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case "error": return <AlertCircle className="h-4 w-4 text-red-500" />;
+    case "running": return <Loader2 className="h-4 w-4 text-[#007AFF] animate-spin" />;
+    default: return <div className="h-4 w-4 rounded-full bg-zinc-300 dark:bg-zinc-600" />;
+  }
+}
 
 function DebugSection({ sourceType, label }: { sourceType: string; label: string }) {
   const [items, setItems] = useState<DebugEmbeddingItem[] | null>(null);
@@ -87,6 +106,7 @@ export function SettingsPage() {
   const [pipelineProgress, setPipelineProgress] = useState<EmbeddingProgress | null>(null);
   const [dataDir, setDataDir] = useState<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<ModelDiagnostics | null>(null);
 
   const pipelineRunning = pipelineProgress !== null && pipelineProgress.phase !== "done";
 
@@ -110,6 +130,47 @@ export function SettingsPage() {
       unlisten.then((fn) => fn()).catch(() => {});
     };
   }, [queryClient]);
+
+  // Fetch model diagnostics on mount and poll while loading
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchDiagnostics = async () => {
+      try {
+        const data = await getModelDiagnostics();
+        if (!cancelled) {
+          setDiagnostics(data);
+          if (data.overall === "loading") {
+            timer = setTimeout(fetchDiagnostics, 2000);
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+
+    fetchDiagnostics();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  // Listen to model-load-progress events
+  useEffect(() => {
+    let cancelled = false;
+    const unlisten = listen<ModelDiagnostics>("model-load-progress", (event) => {
+      if (!cancelled) {
+        setDiagnostics(event.payload);
+      }
+    });
+    return () => {
+      cancelled = true;
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
+  }, []);
 
   const currentTarget = status?.indexTarget ?? 500;
   const totalMessages = status?.totalMessages ?? 0;
@@ -177,6 +238,90 @@ export function SettingsPage() {
       </div>
 
       <div className="max-w-lg mx-auto w-full space-y-8">
+        {/* Model Status Section */}
+        <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
+          <div className="flex items-center gap-3 mb-4">
+            <Cpu className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
+            <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Model Status</h2>
+          </div>
+
+          {/* Overall status banner */}
+          <div className="mb-4">
+            {(!diagnostics || diagnostics.overall === "pending") && (
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-700 text-sm text-[#4B6382] dark:text-zinc-400">
+                <div className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500" />
+                Waiting...
+              </span>
+            )}
+            {diagnostics?.overall === "loading" && (
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#007AFF]/10 text-sm text-[#007AFF]">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading models...
+              </span>
+            )}
+            {diagnostics?.overall === "ready" && (
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 text-sm text-green-600 dark:text-green-400">
+                <div className="h-2 w-2 rounded-full bg-green-500" />
+                Models ready
+              </span>
+            )}
+            {diagnostics?.overall === "error" && (
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-sm text-red-600 dark:text-red-400">
+                <div className="h-2 w-2 rounded-full bg-red-500" />
+                Models failed to load
+              </span>
+            )}
+          </div>
+
+          {/* Step list */}
+          {diagnostics && diagnostics.steps.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {diagnostics.steps.map((step) => (
+                <div key={step.name} className="flex items-start gap-2.5">
+                  <div className="mt-0.5 shrink-0">
+                    <StepIcon status={step.status} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm text-[#071739] dark:text-white">
+                        {STEP_LABELS[step.name] ?? step.name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </span>
+                      {step.durationMs !== null && (
+                        <span className="text-xs text-[#A4B5C4] dark:text-zinc-500 shrink-0">
+                          {step.durationMs}ms
+                        </span>
+                      )}
+                    </div>
+                    {step.message && (
+                      <p className="text-xs text-[#4B6382] dark:text-zinc-400 mt-0.5 break-all">
+                        {step.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Path info */}
+          {diagnostics && (diagnostics.ortDylibPath || diagnostics.modelsDir) && (
+            <div className="rounded-lg bg-[#CDD5DB]/20 dark:bg-zinc-800/50 p-3 space-y-1.5 text-xs font-mono">
+              {diagnostics.ortDylibPath && (
+                <div>
+                  <span className="text-[#4B6382] dark:text-zinc-400">ORT dylib path</span>
+                  <p className="mt-0.5 text-[#071739] dark:text-zinc-300 break-all select-text">{diagnostics.ortDylibPath}</p>
+                </div>
+              )}
+              {diagnostics.modelsDir && (
+                <div>
+                  <span className="text-[#4B6382] dark:text-zinc-400">Models directory</span>
+                  <p className="mt-0.5 text-[#071739] dark:text-zinc-300 break-all select-text">{diagnostics.modelsDir}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Search Index Section */}
         <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
           <div className="flex items-center gap-3 mb-4">
@@ -188,7 +333,7 @@ export function SettingsPage() {
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-[#4B6382] dark:text-zinc-400">
-                {status?.modelsLoaded ? (pipelineRunning ? "Indexing..." : "Ready") : "Models not loaded"}
+                {status?.modelsLoaded ? (pipelineRunning ? "Indexing..." : "Ready") : "Models not loaded — see above"}
               </span>
               <span className="text-sm text-[#A4B5C4] dark:text-zinc-500">
                 {totalEmbedded.toLocaleString()} / {displayTarget.toLocaleString()} messages

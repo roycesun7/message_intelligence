@@ -8,9 +8,9 @@ pub mod telemetry;
 
 use error::{AppError, AppResult};
 use rusqlite::Connection;
-use state::{AppState, ModelLoadStatus};
+use state::{AppState, ModelLoadStatus, ModelLoadStep};
 use std::sync::{Arc, Mutex, RwLock};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tokenizers::Tokenizer;
 
 fn chat_db_path() -> AppResult<std::path::PathBuf> {
@@ -51,86 +51,283 @@ fn load_onnx_session(path: &std::path::Path) -> ort::error::Result<ort::session:
     builder.commit_from_file(path)
 }
 
-/// Load MobileCLIP-S2 ONNX sessions and tokenizer on a background thread.
-fn load_clip_sessions_from_handle(
+/// Load MobileCLIP-S2 ONNX sessions and tokenizer on a background thread,
+/// emitting diagnostic progress events so the frontend can display real-time status.
+fn load_clip_sessions_with_diagnostics(
     app: &tauri::AppHandle,
 ) -> (
     Option<Arc<Mutex<ort::session::Session>>>,
     Option<Arc<Mutex<ort::session::Session>>>,
     Option<Arc<Tokenizer>>,
 ) {
-    let models_dir = {
-        let from_resource = app
-            .path()
-            .resource_dir()
-            .ok()
-            .map(|d| d.join("resources/models"));
-        let from_source = {
-            let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-            manifest.join("resources/models")
-        };
-        if from_resource
-            .as_ref()
-            .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
-        {
-            from_resource.unwrap()
-        } else if from_source.join("mobileclip_s2_text.onnx").exists() {
-            from_source
+    let mut status = ModelLoadStatus {
+        overall: "loading".into(),
+        ort_dylib_path: std::env::var("ORT_DYLIB_PATH").ok(),
+        models_dir: None,
+        steps: vec![],
+    };
+    if let Some(state) = app.try_state::<AppState>() {
+        state.set_model_load_status(status.clone());
+    }
+    let _ = app.emit("model-load-progress", &status);
+
+    // --- Step 1: ort_runtime ---
+    {
+        let ort_path = std::env::var("ORT_DYLIB_PATH").ok();
+        let (step_status, message) = if let Some(ref p) = ort_path {
+            eprintln!("[models] ORT_DYLIB_PATH = {p}");
+            ("success".into(), Some(format!("ORT_DYLIB_PATH={p}")))
         } else {
+            eprintln!("[models] ORT_DYLIB_PATH is not set");
+            ("error".into(), Some("ORT_DYLIB_PATH environment variable is not set".into()))
+        };
+        status.steps.push(ModelLoadStep {
+            name: "ort_runtime".into(),
+            status: step_status,
+            message,
+            duration_ms: None,
+        });
+        if let Some(state) = app.try_state::<AppState>() {
+            state.set_model_load_status(status.clone());
+        }
+        let _ = app.emit("model-load-progress", &status);
+    }
+
+    // --- Step 2: find_models ---
+    let from_resource = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|d| d.join("resources/models"));
+    let from_source = {
+        let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest.join("resources/models")
+    };
+
+    let models_dir = if from_resource
+        .as_ref()
+        .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
+    {
+        Some(from_resource.clone().unwrap())
+    } else if from_source.join("mobileclip_s2_text.onnx").exists() {
+        Some(from_source.clone())
+    } else {
+        None
+    };
+
+    {
+        let (step_status, message) = if let Some(ref dir) = models_dir {
+            (
+                "success".into(),
+                Some(format!(
+                    "Checked resource={:?}, source={:?}; selected {:?}",
+                    from_resource, from_source, dir
+                )),
+            )
+        } else {
+            (
+                "error".into(),
+                Some(format!(
+                    "Models not found. Checked resource={:?}, source={:?}",
+                    from_resource, from_source
+                )),
+            )
+        };
+        status.steps.push(ModelLoadStep {
+            name: "find_models".into(),
+            status: step_status,
+            message,
+            duration_ms: None,
+        });
+        if let Some(state) = app.try_state::<AppState>() {
+            state.set_model_load_status(status.clone());
+        }
+        let _ = app.emit("model-load-progress", &status);
+    }
+
+    let models_dir = match models_dir {
+        Some(dir) => dir,
+        None => {
             log::warn!(
                 "CLIP model files not found — semantic search disabled. \
                  Checked {:?} and {:?}",
                 from_resource,
                 from_source
             );
+            status.overall = "error".into();
+            if let Some(state) = app.try_state::<AppState>() {
+                state.set_model_load_status(status.clone());
+            }
+            let _ = app.emit("model-load-progress", &status);
             return (None, None, None);
         }
     };
 
+    status.models_dir = Some(models_dir.display().to_string());
+
+    // --- Step 3: check_files ---
     let text_path = models_dir.join("mobileclip_s2_text.onnx");
     let vision_path = models_dir.join("mobileclip_s2_vision.onnx");
     let tokenizer_path = models_dir.join("tokenizer.json");
 
-    if !text_path.exists() || !vision_path.exists() || !tokenizer_path.exists() {
+    let text_exists = text_path.exists();
+    let vision_exists = vision_path.exists();
+    let tokenizer_exists = tokenizer_path.exists();
+    let all_exist = text_exists && vision_exists && tokenizer_exists;
+
+    {
+        let mut found = vec![];
+        let mut missing = vec![];
+        if text_exists { found.push("text.onnx"); } else { missing.push("text.onnx"); }
+        if vision_exists { found.push("vision.onnx"); } else { missing.push("vision.onnx"); }
+        if tokenizer_exists { found.push("tokenizer.json"); } else { missing.push("tokenizer.json"); }
+
+        let message = format!("Found: [{}]; Missing: [{}]", found.join(", "), missing.join(", "));
+        status.steps.push(ModelLoadStep {
+            name: "check_files".into(),
+            status: if all_exist { "success".into() } else { "error".into() },
+            message: Some(message),
+            duration_ms: None,
+        });
+        if let Some(state) = app.try_state::<AppState>() {
+            state.set_model_load_status(status.clone());
+        }
+        let _ = app.emit("model-load-progress", &status);
+    }
+
+    if !all_exist {
         log::warn!("One or more CLIP model files missing in {:?}", models_dir);
+        status.overall = "error".into();
+        if let Some(state) = app.try_state::<AppState>() {
+            state.set_model_load_status(status.clone());
+        }
+        let _ = app.emit("model-load-progress", &status);
         return (None, None, None);
     }
 
+    // --- Step 4: load_text_encoder ---
     eprintln!("[models] Loading text encoder from {:?}...", text_path);
-    let text_session = match load_onnx_session(&text_path) {
-        Ok(session) => {
-            eprintln!("[models] Text encoder loaded OK");
-            Arc::new(Mutex::new(session))
-        }
-        Err(e) => {
-            eprintln!("[models] FAILED to load text encoder: {e}");
-            return (None, None, None);
+    let text_session = {
+        let start = std::time::Instant::now();
+        let result = load_onnx_session(&text_path);
+        let duration_ms = Some(start.elapsed().as_millis() as u64);
+        match result {
+            Ok(session) => {
+                eprintln!("[models] Text encoder loaded OK");
+                status.steps.push(ModelLoadStep {
+                    name: "load_text_encoder".into(),
+                    status: "success".into(),
+                    message: Some(format!("Loaded {:?}", text_path)),
+                    duration_ms,
+                });
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.set_model_load_status(status.clone());
+                }
+                let _ = app.emit("model-load-progress", &status);
+                Arc::new(Mutex::new(session))
+            }
+            Err(e) => {
+                eprintln!("[models] FAILED to load text encoder: {e}");
+                status.steps.push(ModelLoadStep {
+                    name: "load_text_encoder".into(),
+                    status: "error".into(),
+                    message: Some(format!("Failed: {e}")),
+                    duration_ms,
+                });
+                status.overall = "error".into();
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.set_model_load_status(status.clone());
+                }
+                let _ = app.emit("model-load-progress", &status);
+                return (None, None, None);
+            }
         }
     };
 
+    // --- Step 5: load_vision_encoder ---
     eprintln!("[models] Loading vision encoder from {:?}...", vision_path);
-    let vision_session = match load_onnx_session(&vision_path) {
-        Ok(session) => {
-            eprintln!("[models] Vision encoder loaded OK");
-            Arc::new(Mutex::new(session))
-        }
-        Err(e) => {
-            eprintln!("[models] FAILED to load vision encoder: {e}");
-            return (None, None, None);
+    let vision_session = {
+        let start = std::time::Instant::now();
+        let result = load_onnx_session(&vision_path);
+        let duration_ms = Some(start.elapsed().as_millis() as u64);
+        match result {
+            Ok(session) => {
+                eprintln!("[models] Vision encoder loaded OK");
+                status.steps.push(ModelLoadStep {
+                    name: "load_vision_encoder".into(),
+                    status: "success".into(),
+                    message: Some(format!("Loaded {:?}", vision_path)),
+                    duration_ms,
+                });
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.set_model_load_status(status.clone());
+                }
+                let _ = app.emit("model-load-progress", &status);
+                Arc::new(Mutex::new(session))
+            }
+            Err(e) => {
+                eprintln!("[models] FAILED to load vision encoder: {e}");
+                status.steps.push(ModelLoadStep {
+                    name: "load_vision_encoder".into(),
+                    status: "error".into(),
+                    message: Some(format!("Failed: {e}")),
+                    duration_ms,
+                });
+                status.overall = "error".into();
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.set_model_load_status(status.clone());
+                }
+                let _ = app.emit("model-load-progress", &status);
+                return (None, None, None);
+            }
         }
     };
 
+    // --- Step 6: load_tokenizer ---
     eprintln!("[models] Loading tokenizer from {:?}...", tokenizer_path);
-    let tokenizer = match Tokenizer::from_file(&tokenizer_path) {
-        Ok(tok) => {
-            eprintln!("[models] Tokenizer loaded OK");
-            Arc::new(tok)
-        }
-        Err(e) => {
-            eprintln!("[models] FAILED to load tokenizer: {e}");
-            return (None, None, None);
+    let tokenizer = {
+        let start = std::time::Instant::now();
+        let result = Tokenizer::from_file(&tokenizer_path);
+        let duration_ms = Some(start.elapsed().as_millis() as u64);
+        match result {
+            Ok(tok) => {
+                eprintln!("[models] Tokenizer loaded OK");
+                status.steps.push(ModelLoadStep {
+                    name: "load_tokenizer".into(),
+                    status: "success".into(),
+                    message: Some(format!("Loaded {:?}", tokenizer_path)),
+                    duration_ms,
+                });
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.set_model_load_status(status.clone());
+                }
+                let _ = app.emit("model-load-progress", &status);
+                Arc::new(tok)
+            }
+            Err(e) => {
+                eprintln!("[models] FAILED to load tokenizer: {e}");
+                status.steps.push(ModelLoadStep {
+                    name: "load_tokenizer".into(),
+                    status: "error".into(),
+                    message: Some(format!("Failed: {e}")),
+                    duration_ms,
+                });
+                status.overall = "error".into();
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.set_model_load_status(status.clone());
+                }
+                let _ = app.emit("model-load-progress", &status);
+                return (None, None, None);
+            }
         }
     };
+
+    // All steps succeeded
+    status.overall = "ready".into();
+    if let Some(state) = app.try_state::<AppState>() {
+        state.set_model_load_status(status.clone());
+    }
+    let _ = app.emit("model-load-progress", &status);
 
     (Some(text_session), Some(vision_session), Some(tokenizer))
 }
@@ -248,7 +445,7 @@ pub fn run() {
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
                 eprintln!("[pipeline] Loading CLIP models...");
-                let (clip_text, clip_vision, tokenizer) = load_clip_sessions_from_handle(&app_handle);
+                let (clip_text, clip_vision, tokenizer) = load_clip_sessions_with_diagnostics(&app_handle);
                 eprintln!("[pipeline] Model load result: text={} vision={} tokenizer={}",
                     clip_text.is_some(), clip_vision.is_some(), tokenizer.is_some());
 

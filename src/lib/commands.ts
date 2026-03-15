@@ -115,3 +115,6 @@ export const getEmojiFrequency = (chatId?: number, year?: number) =>
 export async function getMilestones(chatId?: number): Promise<Milestone[]> {
   return invoke<Milestone[]>("get_milestones", { chatId: chatId ?? null });
 }
+
+export const openSystemSettings = () =>
+  invoke<void>("open_system_settings");

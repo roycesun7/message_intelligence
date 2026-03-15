@@ -52,16 +52,10 @@ export function FdaGate({ children }: { children: React.ReactNode }) {
 
   const handleOpenSettings = async () => {
     try {
-      const { open } = await import("@tauri-apps/plugin-shell");
-      await open("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles");
-    } catch {
-      // Fallback: try the generic privacy URL
-      try {
-        const { open } = await import("@tauri-apps/plugin-shell");
-        await open("x-apple.systempreferences:com.apple.preference.security?Privacy");
-      } catch {
-        // If shell plugin fails entirely, just show instructions
-      }
+      const { openSystemSettings } = await import("@/lib/commands");
+      await openSystemSettings();
+    } catch (err) {
+      console.error("Failed to open System Settings:", err);
     }
   };
 

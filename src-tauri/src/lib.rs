@@ -500,6 +500,7 @@ pub fn run() {
             commands::fun::get_emoji_frequency,
             commands::fun::get_milestones,
             commands::embeddings::check_embedding_status,
+            commands::embeddings::get_model_diagnostics,
             commands::embeddings::semantic_search,
             commands::embeddings::set_index_target,
             commands::embeddings::run_pipeline,

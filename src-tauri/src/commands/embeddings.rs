@@ -22,6 +22,12 @@ pub struct EmbeddingStatus {
     pub attachment_count: i64,
 }
 
+/// Return the current model loading diagnostics.
+#[tauri::command]
+pub fn get_model_diagnostics(state: State<'_, AppState>) -> AppResult<crate::state::ModelLoadStatus> {
+    Ok(state.get_model_load_status())
+}
+
 /// Check the current status of the embedding pipeline.
 #[tauri::command]
 pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<EmbeddingStatus> {

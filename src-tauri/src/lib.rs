@@ -64,7 +64,7 @@ fn load_clip_sessions_from_handle(
             .path()
             .resource_dir()
             .ok()
-            .map(|d| d.join("models"));
+            .map(|d| d.join("resources/models"));
         let from_source = {
             let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             manifest.join("resources/models")

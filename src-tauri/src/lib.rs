@@ -139,14 +139,25 @@ fn load_clip_sessions_from_handle(
 pub fn run() {
     // Initialize ONNX Runtime via ort's load-dynamic feature.
     // Must call init_from().commit() before any other ort API to avoid deadlock.
-    let ort_candidates = [
-        "/opt/homebrew/lib/libonnxruntime.dylib", // Apple Silicon
-        "/usr/local/lib/libonnxruntime.dylib",    // Intel Mac
-    ];
+    // The bundled dylib lives at <app>/Contents/Resources/resources/libonnxruntime.dylib
+    let bundled = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+        .map(|bin_dir| bin_dir.join("../Resources/resources/libonnxruntime.dylib"));
+
+    let ort_candidates: Vec<std::path::PathBuf> = [
+        bundled,
+        Some(std::path::PathBuf::from("/opt/homebrew/lib/libonnxruntime.dylib")), // Apple Silicon
+        Some(std::path::PathBuf::from("/usr/local/lib/libonnxruntime.dylib")),    // Intel Mac
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
     let mut ort_ok = false;
     for path in &ort_candidates {
-        if std::path::Path::new(path).exists() {
-            eprintln!("[ort] Loading ONNX Runtime from {path}...");
+        if path.exists() {
+            eprintln!("[ort] Loading ONNX Runtime from {}...", path.display());
             match ort::init_from(path) {
                 Ok(builder) => {
                     builder.commit();
@@ -155,7 +166,7 @@ pub fn run() {
                     break;
                 }
                 Err(e) => {
-                    eprintln!("[ort] Failed to load from {path}: {e}");
+                    eprintln!("[ort] Failed to load from {}: {e}", path.display());
                 }
             }
         }

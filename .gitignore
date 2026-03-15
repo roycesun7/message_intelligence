@@ -44,6 +44,12 @@ next-env.d.ts
 .venv/
 .playwright-mcp/
 
+# Tauri build artifacts
+src-tauri/target/
+
 # Model files (too large for git — run scripts/setup_models.sh to download)
 src-tauri/resources/models/*
 !src-tauri/resources/models/README.md
+
+# Bundled ONNX runtime (large binary)
+src-tauri/resources/libonnxruntime.dylib

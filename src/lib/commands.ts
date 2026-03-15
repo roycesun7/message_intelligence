@@ -18,6 +18,7 @@ import type {
   FirstMessage,
   EmojiFrequency,
   Milestone,
+  ModelDiagnostics,
 } from "@/types";
 
 export const getChats = () => invoke<Chat[]>("get_chats");
@@ -118,3 +119,6 @@ export async function getMilestones(chatId?: number): Promise<Milestone[]> {
 
 export const openSystemSettings = () =>
   invoke<void>("open_system_settings");
+
+export const getModelDiagnostics = () =>
+  invoke<ModelDiagnostics>("get_model_diagnostics");

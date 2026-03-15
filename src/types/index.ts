@@ -258,3 +258,17 @@ export interface Milestone {
   recentCount: number | null;
   previousCount: number | null;
 }
+
+export interface ModelLoadStep {
+  name: string;
+  status: string;
+  message: string | null;
+  durationMs: number | null;
+}
+
+export interface ModelDiagnostics {
+  overall: string;
+  ortDylibPath: string | null;
+  modelsDir: string | null;
+  steps: ModelLoadStep[];
+}

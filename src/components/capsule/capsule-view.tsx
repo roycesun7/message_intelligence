@@ -53,6 +53,7 @@ import { FirstMessageCard } from "./first-message";
 import { MessageHeatmap } from "./message-heatmap";
 import { EmojiFrequencySection } from "./emoji-frequency";
 import { RelationshipTimeline } from "./relationship-timeline";
+import { MilestoneStrip } from "./milestone-strip";
 import type { Chat, DailyMessageCount } from "@/types";
 
 // ── Constants ───────────────────────────────────────────
@@ -259,8 +260,8 @@ function formatTrendDate(label: string, granularity: "daily" | "weekly" | "month
 // ── Year Selector ───────────────────────────────────────
 
 function YearSelector() {
-  const year = useAppStore((s) => s.wrappedYear);
-  const setYear = useAppStore((s) => s.setWrappedYear);
+  const year = useAppStore((s) => s.capsuleYear);
+  const setYear = useAppStore((s) => s.setCapsuleYear);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
@@ -633,19 +634,19 @@ function BetweenYouTwoTab({ chatId }: { chatId: number }) {
   );
 }
 
-// ── Main Wrapped View ───────────────────────────────────
+// ── Main Capsule View ───────────────────────────────────
 
-export function WrappedView() {
-  const year = useAppStore((s) => s.wrappedYear);
-  const wrappedChatId = useAppStore((s) => s.wrappedChatId);
-  const wrappedTab = useAppStore((s) => s.wrappedTab);
-  const setWrappedTab = useAppStore((s) => s.setWrappedTab);
+export function CapsuleView() {
+  const year = useAppStore((s) => s.capsuleYear);
+  const capsuleChatId = useAppStore((s) => s.capsuleChatId);
+  const capsuleTab = useAppStore((s) => s.capsuleTab);
+  const setCapsuleTab = useAppStore((s) => s.setCapsuleTab);
 
-  const chatIds = wrappedChatId !== null ? [wrappedChatId] : undefined;
+  const chatIds = capsuleChatId !== null ? [capsuleChatId] : undefined;
   const { data: stats, isLoading, isError } = useWrappedStats(year, chatIds);
   const { data: chats } = useChats();
 
-  const isPerChat = wrappedChatId !== null;
+  const isPerChat = capsuleChatId !== null;
 
   const chatMap = new Map<number, Chat>();
   if (chats) {
@@ -654,7 +655,7 @@ export function WrappedView() {
     }
   }
 
-  const selectedChat = wrappedChatId !== null ? chatMap.get(wrappedChatId) : undefined;
+  const selectedChat = capsuleChatId !== null ? chatMap.get(capsuleChatId) : undefined;
   const isGroupChat = selectedChat?.style === 43;
 
   if (isLoading) {
@@ -765,12 +766,12 @@ export function WrappedView() {
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight text-[#1B2432] dark:text-white">
-            {year === 0 ? "All-Time" : year} Wrapped
+            {year === 0 ? "All-Time" : year} Insights
             {isPerChat && (
               <>
                 {" — "}
                 <span className="text-[22px] font-bold text-[#3B82C4]">
-                  {resolveChatName(wrappedChatId, chatMap)}
+                  {resolveChatName(capsuleChatId, chatMap)}
                 </span>
               </>
             )}
@@ -821,29 +822,32 @@ export function WrappedView() {
       </div>
 
       {/* Tab Bar */}
-      <TabBar tabs={tabs} active={wrappedTab} onSelect={setWrappedTab} />
+      <TabBar tabs={tabs} active={capsuleTab} onSelect={setCapsuleTab} />
 
       {/* ═══════ OVERVIEW TAB ═══════ */}
-      {wrappedTab === "overview" && (
+      {capsuleTab === "overview" && (
         <div>
+          {/* Milestone cards */}
+          <MilestoneStrip chatId={capsuleChatId} />
+
           {/* Per-chat: Temporal trends */}
           {isPerChat && (
             <div className="mb-6">
-              <TemporalTrendsChart chatId={wrappedChatId} year={year} />
+              <TemporalTrendsChart chatId={capsuleChatId} year={year} />
             </div>
           )}
 
           {/* Per-chat group: First Message */}
           {isPerChat && isGroupChat && (
             <div className="mb-6">
-              <FirstMessageCard chatId={wrappedChatId} />
+              <FirstMessageCard chatId={capsuleChatId} />
             </div>
           )}
 
           {/* On This Day */}
           {year === 0 && (
             <div className="mb-6">
-              <OnThisDaySection chatId={wrappedChatId} />
+              <OnThisDaySection chatId={capsuleChatId} />
             </div>
           )}
 
@@ -931,17 +935,17 @@ export function WrappedView() {
       )}
 
       {/* ═══════ OVER TIME TAB ═══════ */}
-      {wrappedTab === "patterns" && (
+      {capsuleTab === "patterns" && (
         <div>
           {/* Message Heatmap */}
           <div className="mb-6">
-            <MessageHeatmap chatId={wrappedChatId} year={year} />
+            <MessageHeatmap chatId={capsuleChatId} year={year} />
           </div>
 
           {/* Conversation Timeline */}
           {isPerChat && (
             <div className="mb-6">
-              <RelationshipTimeline chatId={wrappedChatId} />
+              <RelationshipTimeline chatId={capsuleChatId} />
             </div>
           )}
 
@@ -1065,7 +1069,7 @@ export function WrappedView() {
       )}
 
       {/* ═══════ PEOPLE TAB (all-time only) ═══════ */}
-      {wrappedTab === "people" && !isPerChat && (
+      {capsuleTab === "people" && !isPerChat && (
         <Card className="card-glass">
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
@@ -1111,26 +1115,26 @@ export function WrappedView() {
       )}
 
       {/* ═══════ BETWEEN YOU TWO TAB (1:1 per-chat) ═══════ */}
-      {wrappedTab === "between" && isPerChat && !isGroupChat && (
+      {capsuleTab === "between" && isPerChat && !isGroupChat && (
         <div>
           <div className="mb-6">
-            <FirstMessageCard chatId={wrappedChatId} />
+            <FirstMessageCard chatId={capsuleChatId} />
           </div>
-          <BetweenYouTwoTab chatId={wrappedChatId} />
+          <BetweenYouTwoTab chatId={capsuleChatId} />
         </div>
       )}
 
       {/* ═══════ THE GROUP CHAT TAB (group per-chat) ═══════ */}
-      {wrappedTab === "group" && isPerChat && isGroupChat && (
-        <GroupDynamics chatId={wrappedChatId} />
+      {capsuleTab === "group" && isPerChat && isGroupChat && (
+        <GroupDynamics chatId={capsuleChatId} />
       )}
 
       {/* ═══════ FUN TAB ═══════ */}
-      {wrappedTab === "fun" && (
+      {capsuleTab === "fun" && (
         <div>
           {/* Personality */}
           <div className="mb-6">
-            <FunStats chatId={wrappedChatId} />
+            <FunStats chatId={capsuleChatId} />
           </div>
 
           {/* Late Night */}
@@ -1201,14 +1205,14 @@ export function WrappedView() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Emoji Frequency */}
             <EmojiFrequencySection
-              chatId={wrappedChatId}
+              chatId={capsuleChatId}
               year={year}
             />
 
             {/* Word Cloud */}
             <WordFrequencySection
               year={year}
-              chatIds={wrappedChatId !== null ? [wrappedChatId] : undefined}
+              chatIds={capsuleChatId !== null ? [capsuleChatId] : undefined}
             />
 
             {/* Conversation Openers */}

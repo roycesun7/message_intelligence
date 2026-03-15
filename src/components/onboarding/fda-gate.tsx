@@ -97,7 +97,7 @@ export function FdaGate({ children }: { children: React.ReactNode }) {
             Full Disk Access Required
           </h1>
           <p className="text-sm leading-relaxed text-zinc-400">
-            iCapsule needs permission to read your iMessage database.
+            Capsule needs permission to read your iMessage database.
             Your data never leaves this device — all processing happens locally.
           </p>
         </div>
@@ -112,7 +112,7 @@ export function FdaGate({ children }: { children: React.ReactNode }) {
               Go to <span className="font-medium text-zinc-200">Privacy &amp; Security</span> → <span className="font-medium text-zinc-200">Full Disk Access</span>
             </Step>
             <Step number={3}>
-              Toggle on <span className="font-medium text-zinc-200">iCapsule</span>
+              Toggle on <span className="font-medium text-zinc-200">Capsule</span>
             </Step>
             <Step number={4}>
               Come back here and click <span className="font-medium text-zinc-200">Check Again</span>

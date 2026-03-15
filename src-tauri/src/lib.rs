@@ -292,6 +292,7 @@ pub fn run() {
             commands::fun::get_texting_personality,
             commands::fun::get_first_message,
             commands::fun::get_emoji_frequency,
+            commands::fun::get_milestones,
             commands::embeddings::check_embedding_status,
             commands::embeddings::semantic_search,
             commands::embeddings::set_index_target,

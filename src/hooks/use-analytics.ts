@@ -12,6 +12,7 @@ import {
   getWordFrequency,
   getFirstMessage,
   getEmojiFrequency,
+  getMilestones,
 } from "@/lib/commands";
 import type {
   WrappedStats,
@@ -26,6 +27,7 @@ import type {
   WordFrequency,
   FirstMessage,
   EmojiFrequency,
+  Milestone,
 } from "@/types";
 
 /**
@@ -146,6 +148,15 @@ export const useEmojiFrequency = (chatId?: number | null, year?: number) => {
     staleTime: 5 * 60_000,
   });
 };
+
+/** Fetch relationship milestones (anniversaries, streaks, volume, trends). */
+export function useMilestones(chatId?: number | null) {
+  return useQuery<Milestone[]>({
+    queryKey: ["milestones", chatId],
+    queryFn: () => getMilestones(chatId ?? undefined),
+    staleTime: 15 * 60_000,
+  });
+}
 
 /** Fetch most frequently used words. */
 export const useWordFrequency = (

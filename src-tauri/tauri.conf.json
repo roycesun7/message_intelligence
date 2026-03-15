@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "iCapsule",
+  "productName": "Capsule",
   "version": "0.1.0",
   "identifier": "com.icapsule.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "iCapsule",
+        "title": "Capsule",
         "width": 1200,
         "height": 800,
         "resizable": true,
@@ -49,8 +49,8 @@
       "exceptionDomain": null
     },
     "category": "public.app-category.utilities",
-    "copyright": "Copyright © 2025 iCapsule",
+    "copyright": "Copyright © 2025 Capsule",
     "shortDescription": "Privacy-first iMessage analytics",
-    "longDescription": "iCapsule transforms your iMessage history into searchable, analytically powerful insights. All processing happens locally — no data ever leaves your device."
+    "longDescription": "Capsule transforms your iMessage history into searchable, analytically powerful insights. All processing happens locally — no data ever leaves your device."
   }
 }

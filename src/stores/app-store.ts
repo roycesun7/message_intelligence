@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type AppView = "chat" | "wrapped" | "search" | "settings";
+export type AppView = "chat" | "capsule" | "search" | "settings";
 export type Theme = "light" | "dark";
 
 function getStoredTheme(): Theme {
@@ -32,15 +32,15 @@ export interface AppState {
   selectedChatId: number | null;
   setSelectedChatId: (id: number | null) => void;
 
-  // ── Wrapped ─────────────────────────────────────
-  wrappedYear: number;
-  setWrappedYear: (year: number) => void;
-  wrappedChatId: number | null;
-  setWrappedChatId: (id: number | null) => void;
+  // ── Capsule ─────────────────────────────────────
+  capsuleYear: number;
+  setCapsuleYear: (year: number) => void;
+  capsuleChatId: number | null;
+  setCapsuleChatId: (id: number | null) => void;
 
-  // ── Wrapped tab ───────────────────────────────────
-  wrappedTab: string;
-  setWrappedTab: (tab: string) => void;
+  // ── Capsule tab ───────────────────────────────────
+  capsuleTab: string;
+  setCapsuleTab: (tab: string) => void;
 
   // ── Search ──────────────────────────────────────
   searchQuery: string;
@@ -74,14 +74,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedChatId: null,
   setSelectedChatId: (selectedChatId) => set({ selectedChatId }),
 
-  wrappedYear: 0, // 0 = all-time by default
-  setWrappedYear: (wrappedYear) => set({ wrappedYear }),
+  capsuleYear: 0, // 0 = all-time by default
+  setCapsuleYear: (capsuleYear) => set({ capsuleYear }),
 
-  wrappedChatId: null,
-  setWrappedChatId: (wrappedChatId) => set({ wrappedChatId, wrappedTab: "overview" }),
+  capsuleChatId: null,
+  setCapsuleChatId: (capsuleChatId) => set({ capsuleChatId, capsuleTab: "overview" }),
 
-  wrappedTab: "overview",
-  setWrappedTab: (wrappedTab) => set({ wrappedTab }),
+  capsuleTab: "overview",
+  setCapsuleTab: (capsuleTab) => set({ capsuleTab }),
 
   searchQuery: "",
   setSearchQuery: (searchQuery) => set({ searchQuery }),

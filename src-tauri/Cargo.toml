@@ -1,5 +1,5 @@
 [package]
-name = "icapsule"
+name = "capsule"
 version = "0.1.0"
 description = "Privacy-first iMessage analytics"
 authors = ["you"]

@@ -49,7 +49,7 @@ const ChatEntry = memo(function ChatEntry({
   const setSelectedChatId = useAppStore((s) => s.setSelectedChatId);
   const setView = useAppStore((s) => s.setView);
   const view = useAppStore((s) => s.view);
-  const setWrappedChatId = useAppStore((s) => s.setWrappedChatId);
+  const setCapsuleChatId = useAppStore((s) => s.setCapsuleChatId);
   const windowFocused = useWindowFocused();
 
   const name = getChatDisplayName(chat);
@@ -58,13 +58,13 @@ const ChatEntry = memo(function ChatEntry({
   const isUnfocusedActive = isActive && !windowFocused;
 
   const handleClick = useCallback(() => {
-    if (view === "wrapped") {
-      setWrappedChatId(chat.rowid);
+    if (view === "capsule") {
+      setCapsuleChatId(chat.rowid);
     } else {
       setSelectedChatId(chat.rowid);
       setView("chat");
     }
-  }, [chat.rowid, view, setSelectedChatId, setView, setWrappedChatId]);
+  }, [chat.rowid, view, setSelectedChatId, setView, setCapsuleChatId]);
 
   return (
     <div>
@@ -124,15 +124,15 @@ const ChatEntry = memo(function ChatEntry({
 // ────────────────────────────────────────────────────────
 
 // ────────────────────────────────────────────────────────
-// "All Chats" entry shown at top of list in wrapped view
+// "All Chats" entry shown at top of list in capsule view
 // ────────────────────────────────────────────────────────
 
 function AllChatsEntry({ isActive }: { isActive: boolean }) {
-  const setWrappedChatId = useAppStore((s) => s.setWrappedChatId);
+  const setCapsuleChatId = useAppStore((s) => s.setCapsuleChatId);
 
   const handleClick = useCallback(() => {
-    setWrappedChatId(null);
-  }, [setWrappedChatId]);
+    setCapsuleChatId(null);
+  }, [setCapsuleChatId]);
 
   return (
     <button
@@ -154,7 +154,7 @@ function AllChatsEntry({ isActive }: { isActive: boolean }) {
           </span>
         </div>
         <p className="mt-0.5 truncate text-xs text-[#4E5D6E] dark:text-zinc-500 apple-text-xs">
-          Global wrapped stats
+          Global insights
         </p>
       </div>
     </button>
@@ -166,11 +166,11 @@ export function ChatList() {
   const chatSearchQuery = useAppStore((s) => s.chatSearchQuery);
   const setChatSearchQuery = useAppStore((s) => s.setChatSearchQuery);
   const selectedChatId = useAppStore((s) => s.selectedChatId);
-  const wrappedChatId = useAppStore((s) => s.wrappedChatId);
+  const capsuleChatId = useAppStore((s) => s.capsuleChatId);
   const view = useAppStore((s) => s.view);
 
-  const isWrappedView = view === "wrapped";
-  const activeChatId = isWrappedView ? wrappedChatId : selectedChatId;
+  const isCapsuleView = view === "capsule";
+  const activeChatId = isCapsuleView ? capsuleChatId : selectedChatId;
 
   // Memoize Fuse index so it's only rebuilt when chats change
   const fuseIndex = useMemo(() => {
@@ -186,18 +186,18 @@ export function ChatList() {
 
   const itemContent = useCallback(
     (index: number) => {
-      if (isWrappedView && index === 0) {
-        return <AllChatsEntry isActive={wrappedChatId === null} />;
+      if (isCapsuleView && index === 0) {
+        return <AllChatsEntry isActive={capsuleChatId === null} />;
       }
-      const chatIndex = isWrappedView ? index - 1 : index;
+      const chatIndex = isCapsuleView ? index - 1 : index;
       const chat = filteredChats[chatIndex];
       if (!chat) return null;
       return <ChatEntry chat={chat} isActive={activeChatId === chat.rowid} />;
     },
-    [activeChatId, isWrappedView, wrappedChatId, filteredChats]
+    [activeChatId, isCapsuleView, capsuleChatId, filteredChats]
   );
 
-  const totalCount = filteredChats.length + (isWrappedView ? 1 : 0);
+  const totalCount = filteredChats.length + (isCapsuleView ? 1 : 0);
 
   return (
     <div className="relative h-full w-80 min-w-80 overflow-hidden rounded-2xl bg-[#F7F8FA]/80 dark:bg-[#2A2A2C]/60 backdrop-blur-2xl saturate-[1.2] dark:saturate-[1.8] border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_24px_rgba(0,0,0,0.4)] mr-2">

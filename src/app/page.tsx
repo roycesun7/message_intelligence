@@ -5,7 +5,7 @@ import { MessageSquare, BarChart3, Search, Settings, Sun, Moon } from "lucide-re
 import { useAppStore, type AppView } from "@/stores/app-store";
 import { ChatList } from "@/components/chat/chat-list";
 import { ChatView } from "@/components/chat/chat-view";
-import { WrappedView } from "@/components/wrapped/wrapped-view";
+import { CapsuleView } from "@/components/capsule/capsule-view";
 import { GlobalSearch } from "@/components/search/global-search";
 import { SettingsPage } from "@/components/settings/settings-page";
 import { IndexingStatusBar } from "@/components/layout/indexing-status-bar";
@@ -14,7 +14,7 @@ import { FdaGate } from "@/components/onboarding/fda-gate";
 // ── Nav tabs ──────────────────────────────────────────────
 const NAV_ITEMS: { id: AppView; label: string; icon: React.ElementType }[] = [
   { id: "chat", label: "Chats", icon: MessageSquare },
-  { id: "wrapped", label: "Wrapped", icon: BarChart3 },
+  { id: "capsule", label: "Capsule", icon: BarChart3 },
   { id: "search", label: "Search", icon: Search },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -64,8 +64,8 @@ function MainContent() {
   const view = useAppStore((s) => s.view);
 
   switch (view) {
-    case "wrapped":
-      return <WrappedView />;
+    case "capsule":
+      return <CapsuleView />;
     case "search":
       return <GlobalSearch />;
     case "settings":

@@ -17,6 +17,7 @@ import type {
   SemanticSearchResult,
   FirstMessage,
   EmojiFrequency,
+  Milestone,
 } from "@/types";
 
 export const getChats = () => invoke<Chat[]>("get_chats");
@@ -107,3 +108,7 @@ export const getEmojiFrequency = (chatId?: number, year?: number) =>
     chatId: chatId ?? null,
     year: year ?? null,
   });
+
+export async function getMilestones(chatId?: number): Promise<Milestone[]> {
+  return invoke<Milestone[]>("get_milestones", { chatId: chatId ?? null });
+}

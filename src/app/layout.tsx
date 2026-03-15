@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "iCapsule",
+  title: "Capsule",
   description: "Privacy-first iMessage analytics and insights",
 };
 

@@ -247,3 +247,14 @@ export interface EmojiFrequency {
   emoji: string;
   count: number;
 }
+
+export interface Milestone {
+  milestoneType: string;
+  chatId: number;
+  chatName: string;
+  headline: string;
+  detail: string | null;
+  value: number;
+  recentCount: number | null;
+  previousCount: number | null;
+}

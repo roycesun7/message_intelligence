@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -999,6 +1000,344 @@ pub async fn get_texting_personality(
             secondary_type,
             traits,
         })
+    })
+    .await
+    .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;
+
+    result
+}
+
+// -- Milestones --
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Milestone {
+    pub milestone_type: String, // "anniversary", "streak", "volume", "trend"
+    pub chat_id: i64,
+    pub chat_name: String,
+    pub headline: String,
+    pub detail: Option<String>,
+    pub value: f64,
+    pub recent_count: Option<i64>,
+    pub previous_count: Option<i64>,
+}
+
+// ── Tauri command: get_milestones ──────────────────────────────────────
+
+/// Detect relationship milestones across qualifying chats.
+/// A chat qualifies if it has 300+ total messages and its most recent
+/// message is within the last 180 days.
+///
+/// Checks four milestone types:
+/// - **Anniversary**: today's month+day matches the first message date
+/// - **Streak**: consecutive days ending today with at least 1 message
+/// - **Volume**: total message count just crossed a round-number threshold
+/// - **Trend**: 30%+ change in message volume vs the prior 30-day period
+#[tauri::command]
+pub async fn get_milestones(
+    state: State<'_, AppState>,
+    chat_id: Option<i64>,
+) -> AppResult<Vec<Milestone>> {
+    let chat_db_mutex = state.chat_db.clone();
+    let contact_map = state
+        .contact_map
+        .lock()
+        .map_err(|e| AppError::Custom(e.to_string()))?
+        .clone();
+
+    let result = tokio::task::spawn_blocking(move || -> AppResult<Vec<Milestone>> {
+        let guard = chat_db_mutex
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let conn = guard.as_ref().ok_or(AppError::FullDiskAccessRequired)?;
+
+        // ── Resolve chat name helper ────────────────────────────────
+        let resolve_chat_name =
+            |display_name: &Option<String>, chat_identifier: &str| -> String {
+                if let Some(dn) = display_name {
+                    if !dn.is_empty() {
+                        return dn.clone();
+                    }
+                }
+                contacts_db::resolve_name(chat_identifier, &contact_map)
+                    .unwrap_or_else(|| chat_identifier.to_string())
+            };
+
+        // ── Find qualifying chats ───────────────────────────────────
+        let today = chrono::Local::now().date_naive();
+        let cutoff_date = today - chrono::Duration::days(180);
+        let cutoff_date_str = cutoff_date.format("%Y-%m-%d").to_string();
+
+        let chat_filter = if chat_id.is_some() {
+            "AND c.ROWID = ?"
+        } else {
+            ""
+        };
+
+        let qualifying_sql = format!(
+            "SELECT c.ROWID, c.display_name, c.chat_identifier,
+                    COUNT(*) as msg_count,
+                    MAX(DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime')) as last_date
+             FROM chat c
+             INNER JOIN chat_message_join cmj ON cmj.chat_id = c.ROWID
+             INNER JOIN message ON message.ROWID = cmj.message_id
+             WHERE 1=1 {chat_filter}
+             GROUP BY c.ROWID
+             HAVING msg_count >= 300 AND last_date >= ?"
+        );
+
+        struct QualifyingChat {
+            chat_id: i64,
+            display_name: Option<String>,
+            chat_identifier: String,
+            msg_count: i64,
+        }
+
+        let mut stmt = conn.prepare(&qualifying_sql)?;
+        let qualifying_chats: Vec<QualifyingChat> = if let Some(cid) = chat_id {
+            let rows = stmt.query_map(rusqlite::params![cid, cutoff_date_str], |row| {
+                Ok(QualifyingChat {
+                    chat_id: row.get(0)?,
+                    display_name: row.get(1)?,
+                    chat_identifier: row.get(2)?,
+                    msg_count: row.get(3)?,
+                })
+            })?;
+            rows.filter_map(|r| r.ok()).collect()
+        } else {
+            let rows = stmt.query_map(rusqlite::params![cutoff_date_str], |row| {
+                Ok(QualifyingChat {
+                    chat_id: row.get(0)?,
+                    display_name: row.get(1)?,
+                    chat_identifier: row.get(2)?,
+                    msg_count: row.get(3)?,
+                })
+            })?;
+            rows.filter_map(|r| r.ok()).collect()
+        };
+
+        let mut milestones: Vec<Milestone> = Vec::new();
+
+        for chat in &qualifying_chats {
+            let chat_name =
+                resolve_chat_name(&chat.display_name, &chat.chat_identifier);
+
+            // ── 1. Anniversary ──────────────────────────────────────
+            {
+                let first_sql = "SELECT
+                        DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime') as first_date,
+                        message.text,
+                        message.attributedBody
+                     FROM message
+                     INNER JOIN chat_message_join cmj ON cmj.message_id = message.ROWID
+                     WHERE cmj.chat_id = ?
+                     ORDER BY message.date ASC
+                     LIMIT 1";
+
+                let mut stmt = conn.prepare(first_sql)?;
+                let first_row = stmt.query_row([chat.chat_id], |row| {
+                    let date_str: String = row.get(0)?;
+                    let text: Option<String> = row.get(1)?;
+                    let ab: Option<Vec<u8>> = row.get(2)?;
+                    Ok((date_str, text, ab))
+                });
+
+                if let Ok((first_date_str, text, ab)) = first_row {
+                    if let Ok(first_date) =
+                        chrono::NaiveDate::parse_from_str(&first_date_str, "%Y-%m-%d")
+                    {
+                        if first_date.month() == today.month()
+                            && first_date.day() == today.day()
+                            && today.year() > first_date.year()
+                        {
+                            let years = today.year() - first_date.year();
+                            let detail = resolve_text(&text, &ab);
+                            milestones.push(Milestone {
+                                milestone_type: "anniversary".to_string(),
+                                chat_id: chat.chat_id,
+                                chat_name: chat_name.clone(),
+                                headline: format!(
+                                    "{} year{} ago today",
+                                    years,
+                                    if years == 1 { "" } else { "s" }
+                                ),
+                                detail,
+                                value: years as f64,
+                                recent_count: None,
+                                previous_count: None,
+                            });
+                        }
+                    }
+                }
+            }
+
+            // ── 2. Streak ───────────────────────────────────────────
+            {
+                let streak_sql =
+                    "SELECT DISTINCT DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime') as msg_date
+                     FROM message
+                     INNER JOIN chat_message_join cmj ON cmj.message_id = message.ROWID
+                     WHERE cmj.chat_id = ?
+                     ORDER BY msg_date DESC";
+
+                let mut stmt = conn.prepare(streak_sql)?;
+                let dates: Vec<String> = stmt
+                    .query_map([chat.chat_id], |row| row.get::<_, String>(0))?
+                    .filter_map(|r| r.ok())
+                    .collect();
+
+                let mut streak: i64 = 0;
+                let mut expected = today;
+
+                for date_str in &dates {
+                    if let Ok(d) =
+                        chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
+                    {
+                        if d == expected {
+                            streak += 1;
+                            expected -= chrono::Duration::days(1);
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                if streak >= 7 {
+                    milestones.push(Milestone {
+                        milestone_type: "streak".to_string(),
+                        chat_id: chat.chat_id,
+                        chat_name: chat_name.clone(),
+                        headline: format!("{} day streak", streak),
+                        detail: None,
+                        value: streak as f64,
+                        recent_count: None,
+                        previous_count: None,
+                    });
+                }
+            }
+
+            // ── 3. Volume ───────────────────────────────────────────
+            {
+                let thresholds: &[i64] =
+                    &[1_000, 5_000, 10_000, 25_000, 50_000, 100_000];
+
+                // Find the highest threshold the total crosses
+                let crossed_threshold = thresholds
+                    .iter()
+                    .rev()
+                    .find(|&&t| chat.msg_count >= t);
+
+                if let Some(&threshold) = crossed_threshold {
+                    // Count messages excluding last 7 days
+                    let seven_days_ago = today - chrono::Duration::days(7);
+                    let seven_days_ago_str =
+                        seven_days_ago.format("%Y-%m-%d").to_string();
+
+                    let older_sql =
+                        "SELECT COUNT(*) FROM message
+                         INNER JOIN chat_message_join cmj ON cmj.message_id = message.ROWID
+                         WHERE cmj.chat_id = ?
+                           AND DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime') < ?";
+
+                    let mut stmt = conn.prepare(older_sql)?;
+                    let older_count: i64 = stmt
+                        .query_row(rusqlite::params![chat.chat_id, seven_days_ago_str], |row| {
+                            row.get(0)
+                        })
+                        .unwrap_or(0);
+
+                    // "Just crossed" = total >= threshold but older count < threshold
+                    if older_count < threshold {
+                        let formatted = if threshold >= 1_000 {
+                            format!("{}k", threshold / 1_000)
+                        } else {
+                            threshold.to_string()
+                        };
+                        milestones.push(Milestone {
+                            milestone_type: "volume".to_string(),
+                            chat_id: chat.chat_id,
+                            chat_name: chat_name.clone(),
+                            headline: format!("Hit {} messages!", formatted),
+                            detail: None,
+                            value: chat.msg_count as f64,
+                            recent_count: None,
+                            previous_count: None,
+                        });
+                    }
+                }
+            }
+
+            // ── 4. Trend ────────────────────────────────────────────
+            {
+                let thirty_days_ago = today - chrono::Duration::days(30);
+                let sixty_days_ago = today - chrono::Duration::days(60);
+                let thirty_days_ago_str =
+                    thirty_days_ago.format("%Y-%m-%d").to_string();
+                let sixty_days_ago_str =
+                    sixty_days_ago.format("%Y-%m-%d").to_string();
+
+                let trend_sql =
+                    "SELECT
+                        SUM(CASE WHEN DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime') >= ? THEN 1 ELSE 0 END) as recent,
+                        SUM(CASE WHEN DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime') >= ?
+                                  AND DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime') < ? THEN 1 ELSE 0 END) as prior
+                     FROM message
+                     INNER JOIN chat_message_join cmj ON cmj.message_id = message.ROWID
+                     WHERE cmj.chat_id = ?
+                       AND DATE(message.date / 1000000000 + 978307200, 'unixepoch', 'localtime') >= ?";
+
+                let mut stmt = conn.prepare(trend_sql)?;
+                let trend_row = stmt.query_row(
+                    rusqlite::params![
+                        thirty_days_ago_str,
+                        sixty_days_ago_str,
+                        thirty_days_ago_str,
+                        chat.chat_id,
+                        sixty_days_ago_str
+                    ],
+                    |row| {
+                        let recent: i64 = row.get::<_, Option<i64>>(0)?.unwrap_or(0);
+                        let prior: i64 = row.get::<_, Option<i64>>(1)?.unwrap_or(0);
+                        Ok((recent, prior))
+                    },
+                );
+
+                if let Ok((recent, prior)) = trend_row {
+                    if recent >= 10 && prior >= 10 {
+                        let pct_change =
+                            ((recent as f64 - prior as f64) / prior as f64) * 100.0;
+                        if pct_change.abs() >= 30.0 {
+                            let direction = if pct_change > 0.0 {
+                                "more"
+                            } else {
+                                "less"
+                            };
+                            milestones.push(Milestone {
+                                milestone_type: "trend".to_string(),
+                                chat_id: chat.chat_id,
+                                chat_name: chat_name.clone(),
+                                headline: format!(
+                                    "Texting {:.0}% {}",
+                                    pct_change.abs(),
+                                    direction
+                                ),
+                                detail: Some(format!(
+                                    "{} msgs last 30 days vs {} prior 30 days",
+                                    recent, prior
+                                )),
+                                value: pct_change,
+                                recent_count: Some(recent),
+                                previous_count: Some(prior),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(milestones)
     })
     .await
     .map_err(|e| AppError::Custom(format!("Task join error: {e}")))?;

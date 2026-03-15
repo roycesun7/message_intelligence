@@ -60,6 +60,8 @@ fn load_clip_sessions_with_diagnostics(
     Option<Arc<Mutex<ort::session::Session>>>,
     Option<Arc<Tokenizer>>,
 ) {
+    let fresh_launch = std::env::var("ICAPSULE_FRESH_LAUNCH").is_ok_and(|v| v == "1");
+
     let mut status = ModelLoadStatus {
         overall: "loading".into(),
         ort_dylib_path: std::env::var("ORT_DYLIB_PATH").ok(),
@@ -109,7 +111,7 @@ fn load_clip_sessions_with_diagnostics(
         .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
     {
         Some(from_resource.clone().unwrap())
-    } else if from_source.join("mobileclip_s2_text.onnx").exists() {
+    } else if !fresh_launch && from_source.join("mobileclip_s2_text.onnx").exists() {
         Some(from_source.clone())
     } else {
         None
@@ -385,14 +387,24 @@ pub fn run() {
                 )?;
             }
 
-            let chat_db = match open_chat_db() {
-                Ok(conn) => {
-                    log::info!("Successfully opened chat.db");
-                    Some(conn)
-                }
-                Err(e) => {
-                    log::warn!("Could not open chat.db (FDA may not be granted): {e}");
-                    None
+            let fresh_launch = std::env::var("ICAPSULE_FRESH_LAUNCH").is_ok_and(|v| v == "1");
+            if fresh_launch {
+                eprintln!("[dev] ICAPSULE_FRESH_LAUNCH=1 — simulating first boot");
+            }
+
+            let chat_db = if fresh_launch {
+                log::info!("[dev] Skipping chat.db (fresh launch simulation)");
+                None
+            } else {
+                match open_chat_db() {
+                    Ok(conn) => {
+                        log::info!("Successfully opened chat.db");
+                        Some(conn)
+                    }
+                    Err(e) => {
+                        log::warn!("Could not open chat.db (FDA may not be granted): {e}");
+                        None
+                    }
                 }
             };
 

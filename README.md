@@ -1,8 +1,8 @@
-# iCapsule
+# Capsule
 
 Privacy-first iMessage analytics for macOS. Your messages, your machine, your insights — no data ever leaves your device.
 
-iCapsule reads your iMessage history directly from Apple's `chat.db` in **read-only mode** and transforms it into a rich, searchable, and analytically powerful experience. Relationship intelligence, temporal analysis, word frequency, texting personality profiling, and fun shareable "Wrapped"-style insights — all computed locally.
+Capsule reads your iMessage history directly from Apple's `chat.db` in **read-only mode** and transforms it into a rich, searchable, and analytically powerful experience. Relationship intelligence, temporal analysis, word frequency, texting personality profiling, and fun shareable "Wrapped"-style insights — all computed locally.
 
 ## Features
 

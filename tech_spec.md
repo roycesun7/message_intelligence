@@ -1,8 +1,8 @@
-# iCapsule - Technical Specification
+# Capsule - Technical Specification
 
 ## Architecture Overview
 
-iCapsule is a native macOS desktop application built with **Tauri v2**, combining a **Rust backend** for performance-critical data processing with a **React/Next.js frontend** for the user interface. The app reads Apple's iMessage database (chat.db) directly in read-only mode and maintains a separate analytics database for cached computations.
+Capsule is a native macOS desktop application built with **Tauri v2**, combining a **Rust backend** for performance-critical data processing with a **React/Next.js frontend** for the user interface. The app reads Apple's iMessage database (chat.db) directly in read-only mode and maintains a separate analytics database for cached computations.
 
 ```
 +--------------------------------------------------+

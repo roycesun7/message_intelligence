@@ -8,7 +8,7 @@ pub mod telemetry;
 
 use error::{AppError, AppResult};
 use rusqlite::Connection;
-use state::AppState;
+use state::{AppState, ModelLoadStatus};
 use std::sync::{Arc, Mutex, RwLock};
 use tauri::Manager;
 use tokenizers::Tokenizer;
@@ -228,6 +228,12 @@ pub fn run() {
                 clip_vision: RwLock::new(None),
                 tokenizer: RwLock::new(None),
                 pipeline_running: std::sync::atomic::AtomicBool::new(false),
+                model_load_status: RwLock::new(ModelLoadStatus {
+                    overall: "pending".into(),
+                    ort_dylib_path: std::env::var("ORT_DYLIB_PATH").ok(),
+                    models_dir: None,
+                    steps: vec![],
+                }),
             });
 
             // Anonymous launch ping

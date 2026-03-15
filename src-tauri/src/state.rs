@@ -5,6 +5,25 @@ use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use crate::error::{AppError, AppResult};
 
+/// Tracks each step of the model loading process for diagnostics.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelLoadStep {
+    pub name: String,
+    pub status: String,       // "pending" | "running" | "success" | "error"
+    pub message: Option<String>,
+    pub duration_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelLoadStatus {
+    pub overall: String,      // "pending" | "loading" | "ready" | "error"
+    pub ort_dylib_path: Option<String>,
+    pub models_dir: Option<String>,
+    pub steps: Vec<ModelLoadStep>,
+}
+
 /// Holds database connections, contact map, and optional CLIP model sessions.
 ///
 /// - `chat_db`: read-only connection to Apple's ~/Library/Messages/chat.db (None if FDA not granted)
@@ -25,6 +44,8 @@ pub struct AppState {
     pub tokenizer: RwLock<Option<Arc<tokenizers::Tokenizer>>>,
     /// True while the embedding pipeline is running. Prevents concurrent runs.
     pub pipeline_running: AtomicBool,
+    /// Tracks model loading progress for frontend diagnostics.
+    pub model_load_status: RwLock<ModelLoadStatus>,
 }
 
 /// A guard that holds the MutexGuard and provides access to the inner Connection.
@@ -75,6 +96,15 @@ impl AppState {
     pub fn set_tokenizer(&self, tokenizer: Arc<tokenizers::Tokenizer>) {
         let mut guard = self.tokenizer.write().unwrap_or_else(|p| p.into_inner());
         *guard = Some(tokenizer);
+    }
+
+    pub fn get_model_load_status(&self) -> ModelLoadStatus {
+        self.model_load_status.read().unwrap_or_else(|p| p.into_inner()).clone()
+    }
+
+    pub fn set_model_load_status(&self, status: ModelLoadStatus) {
+        let mut guard = self.model_load_status.write().unwrap_or_else(|p| p.into_inner());
+        *guard = status;
     }
 
     /// Check if CLIP models are loaded.

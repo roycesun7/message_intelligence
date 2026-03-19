@@ -53,7 +53,7 @@ fn load_onnx_session(path: &std::path::Path) -> ort::error::Result<ort::session:
 
 /// Load MobileCLIP-S2 ONNX sessions and tokenizer on a background thread,
 /// emitting diagnostic progress events so the frontend can display real-time status.
-fn load_clip_sessions_with_diagnostics(
+pub fn load_clip_sessions_with_diagnostics(
     app: &tauri::AppHandle,
 ) -> (
     Option<Arc<Mutex<ort::session::Session>>>,
@@ -96,6 +96,16 @@ fn load_clip_sessions_with_diagnostics(
     }
 
     // --- Step 2: find_models ---
+    // Priority: 1) app data dir (user-downloaded), 2) bundle resources, 3) source tree (dev)
+    let from_app_data = app
+        .path()
+        .app_data_dir()
+        .ok()
+        .map(|d| {
+            let models_path = d.join("models");
+            let _ = std::fs::create_dir_all(&models_path);
+            models_path
+        });
     let from_resource = app
         .path()
         .resource_dir()
@@ -106,7 +116,12 @@ fn load_clip_sessions_with_diagnostics(
         manifest.join("resources/models")
     };
 
-    let models_dir = if from_resource
+    let models_dir = if from_app_data
+        .as_ref()
+        .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
+    {
+        Some(from_app_data.clone().unwrap())
+    } else if from_resource
         .as_ref()
         .is_some_and(|d| d.join("mobileclip_s2_text.onnx").exists())
     {
@@ -122,16 +137,18 @@ fn load_clip_sessions_with_diagnostics(
             (
                 "success".into(),
                 Some(format!(
-                    "Checked resource={:?}, source={:?}; selected {:?}",
-                    from_resource, from_source, dir
+                    "Checked app_data={:?}, resource={:?}, source={:?}; selected {:?}",
+                    from_app_data, from_resource, from_source, dir
                 )),
             )
         } else {
             (
                 "error".into(),
                 Some(format!(
-                    "Models not found. Checked resource={:?}, source={:?}",
-                    from_resource, from_source
+                    "Models not found. Checked app_data={:?}, resource={:?}, source={:?}. \
+                     Download models and place them in {:?}",
+                    from_app_data, from_resource, from_source,
+                    from_app_data.as_deref().unwrap_or(std::path::Path::new("(unknown)"))
                 )),
             )
         };
@@ -152,7 +169,8 @@ fn load_clip_sessions_with_diagnostics(
         None => {
             log::warn!(
                 "CLIP model files not found — semantic search disabled. \
-                 Checked {:?} and {:?}",
+                 Checked {:?}, {:?}, and {:?}",
+                from_app_data,
                 from_resource,
                 from_source
             );
@@ -338,13 +356,18 @@ fn load_clip_sessions_with_diagnostics(
 pub fn run() {
     // Initialize ONNX Runtime via ort's load-dynamic feature.
     // Must call init_from().commit() before any other ort API to avoid deadlock.
-    // The bundled dylib lives at <app>/Contents/Resources/resources/libonnxruntime.dylib
+    // Check multiple locations for libonnxruntime.dylib:
+    // 1. App data dir (user-downloaded alongside models)
+    // 2. Bundle resources (if bundled with the app)
+    // 3. Homebrew (developer machines)
+    let app_data = dirs::data_dir().map(|d| d.join("com.icapsule.app/models/libonnxruntime.dylib"));
     let bundled = std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
         .map(|bin_dir| bin_dir.join("../Resources/resources/libonnxruntime.dylib"));
 
     let ort_candidates: Vec<std::path::PathBuf> = [
+        app_data,
         bundled,
         Some(std::path::PathBuf::from("/opt/homebrew/lib/libonnxruntime.dylib")), // Apple Silicon
         Some(std::path::PathBuf::from("/usr/local/lib/libonnxruntime.dylib")),    // Intel Mac
@@ -522,6 +545,9 @@ pub fn run() {
             commands::embeddings::get_data_dir,
             commands::embeddings::clear_all_embeddings,
             commands::embeddings::get_debug_embeddings,
+            commands::embeddings::get_models_dir,
+            commands::embeddings::open_models_dir,
+            commands::embeddings::reload_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

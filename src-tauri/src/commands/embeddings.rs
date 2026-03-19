@@ -28,6 +28,73 @@ pub fn get_model_diagnostics(state: State<'_, AppState>) -> AppResult<crate::sta
     Ok(state.get_model_load_status())
 }
 
+/// Return the path where users should place model files.
+#[tauri::command]
+pub fn get_models_dir(app_handle: AppHandle) -> AppResult<String> {
+    let models_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::Custom(format!("Cannot resolve app data dir: {e}")))?
+        .join("models");
+    std::fs::create_dir_all(&models_dir)?;
+    Ok(models_dir.to_string_lossy().to_string())
+}
+
+/// Open the models directory in Finder.
+#[tauri::command]
+pub fn open_models_dir(app_handle: AppHandle) -> AppResult<()> {
+    let models_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::Custom(format!("Cannot resolve app data dir: {e}")))?
+        .join("models");
+    std::fs::create_dir_all(&models_dir)?;
+    std::process::Command::new("open")
+        .arg(&models_dir)
+        .status()
+        .map_err(|e| AppError::Custom(format!("Failed to open Finder: {e}")))?;
+    Ok(())
+}
+
+/// Reload models from disk after user places files in the models directory.
+#[tauri::command]
+pub fn reload_models(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+) -> AppResult<()> {
+    if state.pipeline_running.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err(AppError::Custom("Pipeline is currently running".into()));
+    }
+
+    let app_handle_clone = app_handle.clone();
+    std::thread::spawn(move || {
+        eprintln!("[models] Reloading models...");
+        let (clip_text, clip_vision, tokenizer) =
+            crate::load_clip_sessions_with_diagnostics(&app_handle_clone);
+
+        let has_models = clip_text.is_some() && clip_vision.is_some() && tokenizer.is_some();
+        if let Some(state) = app_handle_clone.try_state::<AppState>() {
+            if let Some(ref ct) = clip_text {
+                state.set_clip_text(ct.clone());
+            }
+            if let Some(ref cv) = clip_vision {
+                state.set_clip_vision(cv.clone());
+            }
+            if let Some(ref tok) = tokenizer {
+                state.set_tokenizer(tok.clone());
+            }
+        }
+
+        if has_models {
+            eprintln!("[models] Reload successful — models ready");
+        } else {
+            eprintln!("[models] Reload failed — models not found");
+        }
+    });
+
+    Ok(())
+}
+
 /// Check the current status of the embedding pipeline.
 #[tauri::command]
 pub fn check_embedding_status(state: State<'_, AppState>) -> AppResult<EmbeddingStatus> {

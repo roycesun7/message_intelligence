@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, RotateCcw, Trash2, Play, Bug, ChevronDown, ChevronRight, Loader2, Cpu, CheckCircle, AlertCircle } from "lucide-react";
+import { Settings, RotateCcw, Trash2, Play, Bug, ChevronDown, ChevronRight, Loader2, Cpu, CheckCircle, AlertCircle, FolderOpen, RefreshCw, Download } from "lucide-react";
 import { useEmbeddingStatus } from "@/hooks/use-search";
 import {
   setIndexTarget,
@@ -11,6 +11,9 @@ import {
   clearAllEmbeddings,
   getDebugEmbeddings,
   getModelDiagnostics,
+  getModelsDir,
+  openModelsDir,
+  reloadModels,
   type DebugEmbeddingItem,
 } from "@/lib/commands";
 import { useQueryClient } from "@tanstack/react-query";
@@ -107,11 +110,14 @@ export function SettingsPage() {
   const [dataDir, setDataDir] = useState<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
   const [diagnostics, setDiagnostics] = useState<ModelDiagnostics | null>(null);
+  const [modelsDir, setModelsDir] = useState<string | null>(null);
+  const [reloading, setReloading] = useState(false);
 
   const pipelineRunning = pipelineProgress !== null && pipelineProgress.phase !== "done";
 
   useEffect(() => {
     getDataDir().then(setDataDir).catch(() => {});
+    getModelsDir().then(setModelsDir).catch(() => {});
   }, []);
 
   // Listen to pipeline progress events
@@ -238,90 +244,6 @@ export function SettingsPage() {
       </div>
 
       <div className="max-w-lg mx-auto w-full space-y-8">
-        {/* Model Status Section */}
-        <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
-          <div className="flex items-center gap-3 mb-4">
-            <Cpu className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
-            <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Model Status</h2>
-          </div>
-
-          {/* Overall status banner */}
-          <div className="mb-4">
-            {(!diagnostics || diagnostics.overall === "pending") && (
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-700 text-sm text-[#4B6382] dark:text-zinc-400">
-                <div className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500" />
-                Waiting...
-              </span>
-            )}
-            {diagnostics?.overall === "loading" && (
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#007AFF]/10 text-sm text-[#007AFF]">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading models...
-              </span>
-            )}
-            {diagnostics?.overall === "ready" && (
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 text-sm text-green-600 dark:text-green-400">
-                <div className="h-2 w-2 rounded-full bg-green-500" />
-                Models ready
-              </span>
-            )}
-            {diagnostics?.overall === "error" && (
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-sm text-red-600 dark:text-red-400">
-                <div className="h-2 w-2 rounded-full bg-red-500" />
-                Models failed to load
-              </span>
-            )}
-          </div>
-
-          {/* Step list */}
-          {diagnostics && diagnostics.steps.length > 0 && (
-            <div className="space-y-2 mb-4">
-              {diagnostics.steps.map((step) => (
-                <div key={step.name} className="flex items-start gap-2.5">
-                  <div className="mt-0.5 shrink-0">
-                    <StepIcon status={step.status} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm text-[#071739] dark:text-white">
-                        {STEP_LABELS[step.name] ?? step.name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </span>
-                      {step.durationMs !== null && (
-                        <span className="text-xs text-[#A4B5C4] dark:text-zinc-500 shrink-0">
-                          {step.durationMs}ms
-                        </span>
-                      )}
-                    </div>
-                    {step.message && (
-                      <p className="text-xs text-[#4B6382] dark:text-zinc-400 mt-0.5 break-all">
-                        {step.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Path info */}
-          {diagnostics && (diagnostics.ortDylibPath || diagnostics.modelsDir) && (
-            <div className="rounded-lg bg-[#CDD5DB]/20 dark:bg-zinc-800/50 p-3 space-y-1.5 text-xs font-mono">
-              {diagnostics.ortDylibPath && (
-                <div>
-                  <span className="text-[#4B6382] dark:text-zinc-400">ORT dylib path</span>
-                  <p className="mt-0.5 text-[#071739] dark:text-zinc-300 break-all select-text">{diagnostics.ortDylibPath}</p>
-                </div>
-              )}
-              {diagnostics.modelsDir && (
-                <div>
-                  <span className="text-[#4B6382] dark:text-zinc-400">Models directory</span>
-                  <p className="mt-0.5 text-[#071739] dark:text-zinc-300 break-all select-text">{diagnostics.modelsDir}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* Search Index Section */}
         <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
           <div className="flex items-center gap-3 mb-4">
@@ -333,7 +255,7 @@ export function SettingsPage() {
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-[#4B6382] dark:text-zinc-400">
-                {status?.modelsLoaded ? (pipelineRunning ? "Indexing..." : "Ready") : "Models not loaded — see above"}
+                {status?.modelsLoaded ? (pipelineRunning ? "Indexing..." : "Ready") : "Models not loaded"}
               </span>
               <span className="text-sm text-[#A4B5C4] dark:text-zinc-500">
                 {totalEmbedded.toLocaleString()} / {displayTarget.toLocaleString()} messages
@@ -444,6 +366,70 @@ export function SettingsPage() {
           </div>
         </div>
 
+        {/* Models Section */}
+        <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
+          <div className="flex items-center gap-3 mb-4">
+            <Download className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
+            <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Search Models</h2>
+            {diagnostics && (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                diagnostics.overall === "ready" ? "bg-green-500/15 text-green-600 dark:text-green-400" :
+                diagnostics.overall === "error" ? "bg-red-500/15 text-red-600 dark:text-red-400" :
+                diagnostics.overall === "loading" ? "bg-[#007AFF]/15 text-[#007AFF]" :
+                "bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#A4B5C4] dark:text-zinc-500"
+              }`}>
+                {diagnostics.overall === "ready" ? "Loaded" : diagnostics.overall === "loading" ? "Loading..." : diagnostics.overall === "error" ? "Not found" : "Pending"}
+              </span>
+            )}
+          </div>
+
+          {diagnostics?.overall !== "ready" && (
+            <div className="mb-4">
+              <p className="text-sm text-[#4B6382] dark:text-zinc-400 leading-relaxed">
+                Semantic search requires model files. Download them from the iCapsule website and place them in the models folder.
+              </p>
+              <p className="text-xs text-[#A4B5C4] dark:text-zinc-500 mt-2">
+                Required files: <code className="bg-[#CDD5DB]/30 dark:bg-zinc-700 px-1 rounded">mobileclip_s2_text.onnx</code>, <code className="bg-[#CDD5DB]/30 dark:bg-zinc-700 px-1 rounded">mobileclip_s2_vision.onnx</code>, <code className="bg-[#CDD5DB]/30 dark:bg-zinc-700 px-1 rounded">tokenizer.json</code>
+              </p>
+            </div>
+          )}
+
+          {modelsDir && (
+            <div className="mb-4 rounded-lg bg-[#CDD5DB]/20 dark:bg-zinc-800/50 p-3 text-xs font-mono">
+              <span className="text-[#4B6382] dark:text-zinc-400">Models directory</span>
+              <p className="mt-0.5 text-[#071739] dark:text-zinc-300 break-all select-text">{modelsDir}</p>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => openModelsDir().catch(console.error)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#4B6382] dark:text-zinc-300 hover:bg-[#CDD5DB]/50 dark:hover:bg-zinc-600 transition-colors text-sm cursor-pointer"
+            >
+              <FolderOpen className="h-4 w-4" />
+              Open Folder
+            </button>
+
+            <button
+              onClick={async () => {
+                setReloading(true);
+                try {
+                  await reloadModels();
+                } catch (err) {
+                  console.error("Failed to reload models:", err);
+                } finally {
+                  setTimeout(() => setReloading(false), 2000);
+                }
+              }}
+              disabled={reloading || diagnostics?.overall === "loading"}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#007AFF] text-white hover:bg-[#007AFF]/90 transition-colors text-sm disabled:opacity-40 cursor-pointer"
+            >
+              <RefreshCw className={`h-4 w-4 ${reloading ? "animate-spin" : ""}`} />
+              {reloading ? "Loading..." : "Reload Models"}
+            </button>
+          </div>
+        </div>
+
         {/* Debug Section */}
         <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
           <button
@@ -458,13 +444,82 @@ export function SettingsPage() {
           </button>
 
           {debugMode && (
-            <div className="mt-4 space-y-2">
-              <p className="text-xs text-[#A4B5C4] dark:text-zinc-500 mb-3">
-                Inspect what has been embedded. Click each section to expand and view up to 50 most recent items.
-              </p>
-              <DebugSection sourceType="chunk" label="Conversation Chunks" />
-              <DebugSection sourceType="message" label="Individual Messages" />
-              <DebugSection sourceType="attachment" label="Images / Stickers" />
+            <div className="mt-4 space-y-4">
+              {/* Model Status */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Cpu className="h-4 w-4 text-[#4B6382] dark:text-zinc-400" />
+                  <span className="text-sm font-medium text-[#071739] dark:text-white">Model Status</span>
+                  {diagnostics && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                      diagnostics.overall === "ready" ? "bg-green-500/15 text-green-600 dark:text-green-400" :
+                      diagnostics.overall === "error" ? "bg-red-500/15 text-red-600 dark:text-red-400" :
+                      diagnostics.overall === "loading" ? "bg-[#007AFF]/15 text-[#007AFF]" :
+                      "bg-[#CDD5DB]/30 dark:bg-zinc-700 text-[#A4B5C4] dark:text-zinc-500"
+                    }`}>
+                      {diagnostics.overall}
+                    </span>
+                  )}
+                </div>
+
+                {diagnostics && diagnostics.steps.length > 0 && (
+                  <div className="space-y-1.5 ml-1">
+                    {diagnostics.steps.map((step) => (
+                      <div key={step.name} className="flex items-start gap-2">
+                        <div className="mt-0.5 shrink-0">
+                          <StepIcon status={step.status} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-[#071739] dark:text-zinc-200">
+                              {STEP_LABELS[step.name] ?? step.name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </span>
+                            {step.durationMs !== null && (
+                              <span className="text-xs text-[#A4B5C4] dark:text-zinc-500 shrink-0">
+                                {step.durationMs}ms
+                              </span>
+                            )}
+                          </div>
+                          {step.message && (
+                            <p className="text-xs text-[#4B6382] dark:text-zinc-400 mt-0.5 break-all">
+                              {step.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {diagnostics && (diagnostics.ortDylibPath || diagnostics.modelsDir) && (
+                  <div className="mt-2 rounded-md bg-[#CDD5DB]/15 dark:bg-zinc-800/40 p-2.5 space-y-1 text-xs font-mono">
+                    {diagnostics.ortDylibPath && (
+                      <div>
+                        <span className="text-[#4B6382] dark:text-zinc-400">ORT dylib</span>
+                        <p className="text-[#071739] dark:text-zinc-300 break-all select-text">{diagnostics.ortDylibPath}</p>
+                      </div>
+                    )}
+                    {diagnostics.modelsDir && (
+                      <div>
+                        <span className="text-[#4B6382] dark:text-zinc-400">Models dir</span>
+                        <p className="text-[#071739] dark:text-zinc-300 break-all select-text">{diagnostics.modelsDir}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-[#CDD5DB]/30 dark:border-zinc-700" />
+
+              {/* Embedding Inspector */}
+              <div>
+                <p className="text-xs text-[#A4B5C4] dark:text-zinc-500 mb-3">
+                  Inspect what has been embedded. Click each section to expand and view up to 50 most recent items.
+                </p>
+                <DebugSection sourceType="chunk" label="Conversation Chunks" />
+                <DebugSection sourceType="message" label="Individual Messages" />
+                <DebugSection sourceType="attachment" label="Images / Stickers" />
+              </div>
             </div>
           )}
         </div>

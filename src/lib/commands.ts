@@ -122,3 +122,12 @@ export const openSystemSettings = () =>
 
 export const getModelDiagnostics = () =>
   invoke<ModelDiagnostics>("get_model_diagnostics");
+
+export const getModelsDir = () =>
+  invoke<string>("get_models_dir");
+
+export const openModelsDir = () =>
+  invoke<void>("open_models_dir");
+
+export const reloadModels = () =>
+  invoke<void>("reload_models");

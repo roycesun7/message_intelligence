@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Capsule — Privacy-first iMessage analytics</title>
+<script>
+  // PostHog — replace phc_tmwhlLnIIeZvPkefDfkWQsUOnWw1T8bYbSGqj5VFBNm and YOUR_POSTHOG_HOST
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init push capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+  posthog.init('phc_tmwhlLnIIeZvPkefDfkWQsUOnWw1T8bYbSGqj5VFBNm', {
+    api_host: 'https://us.i.posthog.com',
+    person_profiles: 'always',
+  });
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{overflow:hidden;background:#03121A;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif}
@@ -12,12 +20,10 @@ canvas{display:block;width:100vw;height:100vh}
 .overlay *{pointer-events:auto}
 .logo{font-size:76px;font-weight:200;letter-spacing:12px;color:rgba(180,220,255,0.9);text-shadow:0 0 80px rgba(100,180,255,0.3),0 0 160px rgba(60,140,220,0.12)}
 .sub{font-size:16px;color:rgba(150,200,240,0.4);margin-top:10px;font-weight:300;letter-spacing:2px}
-.cta{display:inline-flex;align-items:center;margin-top:36px;border-radius:60px;background:rgba(100,180,255,0.06);border:1px solid rgba(100,180,255,0.12);backdrop-filter:blur(20px);overflow:hidden;transition:border-color 0.3s}
-.cta:hover{border-color:rgba(100,180,255,0.25)}
-.cta input{background:transparent;border:none;padding:16px 24px;font-size:14px;color:rgba(180,220,255,0.85);width:240px;outline:none;font-family:inherit}
-.cta input::placeholder{color:rgba(130,180,230,0.3)}
-.cta button{background:rgba(80,160,240,0.25);color:rgba(200,230,255,0.9);border:none;padding:14px 28px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;border-radius:60px;margin:4px;transition:background 0.3s}
-.cta button:hover{background:rgba(80,160,240,0.4)}
+.cta{display:inline-block;margin-top:36px}
+.cta a{display:inline-flex;align-items:center;gap:8px;padding:16px 36px;border-radius:60px;background:rgba(80,160,240,0.2);border:1px solid rgba(100,180,255,0.15);backdrop-filter:blur(20px);color:rgba(200,230,255,0.9);font-size:15px;font-weight:600;text-decoration:none;font-family:inherit;letter-spacing:0.5px;transition:background 0.3s,border-color 0.3s}
+.cta a:hover{background:rgba(80,160,240,0.35);border-color:rgba(100,180,255,0.3)}
+.cta a svg{width:18px;height:18px;opacity:0.7}
 .note{margin-top:16px;font-size:12px;color:rgba(130,180,230,0.25);letter-spacing:1px}
 </style>
 </head>
@@ -27,11 +33,18 @@ canvas{display:block;width:100vw;height:100vh}
   <div class="logo">capsule</div>
   <div class="sub">Your messages, illuminated.</div>
   <div class="cta">
-    <input placeholder="your@email.com">
-    <button>Try it out</button>
+    <a href="https://github.com/roycesun7/message_intelligence/releases/latest" id="download-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download for macOS
+    </a>
   </div>
-  <div class="note">Free download &middot; macOS only &middot; Fully local</div>
+  <div class="note">Free &middot; macOS only &middot; All processing happens locally</div>
 </div>
+<script>
+document.getElementById('download-btn').addEventListener('click',function(){
+  if(window.posthog)posthog.capture('download_clicked');
+});
+</script>
 <script>
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');

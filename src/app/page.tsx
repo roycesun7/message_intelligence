@@ -10,6 +10,7 @@ import { GlobalSearch } from "@/components/search/global-search";
 import { SettingsPage } from "@/components/settings/settings-page";
 import { IndexingStatusBar } from "@/components/layout/indexing-status-bar";
 import { FdaGate } from "@/components/onboarding/fda-gate";
+import { UpdateChecker } from "@/components/layout/update-checker";
 
 // ── Nav tabs ──────────────────────────────────────────────
 const NAV_ITEMS: { id: AppView; label: string; icon: React.ElementType }[] = [
@@ -89,6 +90,7 @@ export default function Home() {
           </main>
         </div>
       </div>
+      <UpdateChecker />
     </FdaGate>
   );
 }

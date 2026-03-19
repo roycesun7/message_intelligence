@@ -38,14 +38,17 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Capsule ${{ github.ref_name }}'
           releaseBody: |
-            Download `Capsule_VERSION_aarch64.dmg` below.
+            Download the `.dmg` file below to install.
 
             **Requirements:** macOS 12+ and Full Disk Access permission.
 
             Right-click → Open on first launch (app is not yet notarized).
           releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true

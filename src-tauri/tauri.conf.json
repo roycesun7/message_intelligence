@@ -27,8 +27,10 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [],
-      "pubkey": ""
+      "endpoints": [
+        "https://github.com/roycesun7/message_intelligence/releases/latest/download/latest.json"
+      ],
+      "pubkey": "PASTE_YOUR_PUBKEY_HERE"
     }
   },
   "bundle": {

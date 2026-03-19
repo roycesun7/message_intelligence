@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Setup models directory
+        run: mkdir -p src-tauri/resources/models && touch src-tauri/resources/models/.gitkeep
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Capsule ${{ github.ref_name }}'
+          releaseBody: |
+            Download `Capsule_VERSION_aarch64.dmg` below.
+
+            **Requirements:** macOS 12+ and Full Disk Access permission.
+
+            Right-click → Open on first launch (app is not yet notarized).
+          releaseDraft: false
+          prerelease: false

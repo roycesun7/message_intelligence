@@ -1,9 +1,10 @@
 mod commands;
-mod db;
+pub mod db;
 pub mod embeddings;
 pub mod error;
 pub mod ingestion;
 pub mod state;
+pub mod telemetry;
 
 use error::{AppError, AppResult};
 use rusqlite::Connection;
@@ -136,20 +137,31 @@ fn load_clip_sessions_from_handle(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Ensure ORT_DYLIB_PATH is set for ort's load-dynamic feature.
-    // Without this, Session::builder() hangs trying to find libonnxruntime.
-    if std::env::var("ORT_DYLIB_PATH").is_err() {
-        // Check common Homebrew paths
-        let candidates = [
-            "/opt/homebrew/lib/libonnxruntime.dylib", // Apple Silicon
-            "/usr/local/lib/libonnxruntime.dylib",    // Intel Mac
-        ];
-        for path in &candidates {
-            if std::path::Path::new(path).exists() {
-                std::env::set_var("ORT_DYLIB_PATH", path);
-                break;
+    // Initialize ONNX Runtime via ort's load-dynamic feature.
+    // Must call init_from().commit() before any other ort API to avoid deadlock.
+    let ort_candidates = [
+        "/opt/homebrew/lib/libonnxruntime.dylib", // Apple Silicon
+        "/usr/local/lib/libonnxruntime.dylib",    // Intel Mac
+    ];
+    let mut ort_ok = false;
+    for path in &ort_candidates {
+        if std::path::Path::new(path).exists() {
+            eprintln!("[ort] Loading ONNX Runtime from {path}...");
+            match ort::init_from(path) {
+                Ok(builder) => {
+                    builder.commit();
+                    eprintln!("[ort] ONNX Runtime initialized successfully");
+                    ort_ok = true;
+                    break;
+                }
+                Err(e) => {
+                    eprintln!("[ort] Failed to load from {path}: {e}");
+                }
             }
         }
+    }
+    if !ort_ok {
+        eprintln!("[ort] ONNX Runtime not found — semantic search will be disabled");
     }
 
     tauri::Builder::default()
@@ -207,6 +219,11 @@ pub fn run() {
                 pipeline_running: std::sync::atomic::AtomicBool::new(false),
             });
 
+            // Anonymous launch ping
+            if let Ok(data_dir) = app.path().app_data_dir() {
+                telemetry::send_launch_ping(&data_dir);
+            }
+
             // Spawn background thread to load CLIP models, then run the pipeline.
             // Loading 380MB of ONNX models is too slow for the setup closure.
             // Models are loaded ONCE and shared between AppState (for search queries)
@@ -237,34 +254,9 @@ pub fn run() {
                     return;
                 }
 
-                // Unwrap the Arc<Mutex<Session>> to get owned sessions for the pipeline.
-                // We lock and hold the sessions for the pipeline's duration.
-                let text_arc = clip_text.unwrap();
-                let vision_arc = clip_vision.unwrap();
-                let tok = tokenizer.unwrap();
-
-                // Set the pipeline_running flag
-                if let Some(state) = app_handle.try_state::<AppState>() {
-                    state.pipeline_running.store(true, std::sync::atomic::Ordering::SeqCst);
-                }
-
-                let mut text_session = text_arc.lock().unwrap_or_else(|p| p.into_inner());
-                let mut vision_session = vision_arc.lock().unwrap_or_else(|p| p.into_inner());
-
-                if let Err(e) = embeddings::pipeline::run_indexing_pipeline(
-                    &app_handle,
-                    &mut text_session,
-                    &mut vision_session,
-                    &tok,
-                ) {
-                    log::error!("Embedding pipeline failed: {e}");
-                    eprintln!("[pipeline] ERROR: {e}");
-                }
-
-                // Clear the pipeline_running flag
-                if let Some(state) = app_handle.try_state::<AppState>() {
-                    state.pipeline_running.store(false, std::sync::atomic::Ordering::SeqCst);
-                }
+                // Models loaded — pipeline is now available via run_pipeline / run_pipeline_for_chat.
+                // Auto-pipeline disabled: indexing is triggered manually from the UI.
+                eprintln!("[pipeline] Models ready. Pipeline available for manual trigger.");
             });
 
             Ok(())
@@ -297,6 +289,7 @@ pub fn run() {
             commands::embeddings::semantic_search,
             commands::embeddings::set_index_target,
             commands::embeddings::run_pipeline,
+            commands::embeddings::run_pipeline_for_chat,
             commands::embeddings::rebuild_search_index,
             commands::embeddings::get_data_dir,
             commands::embeddings::clear_all_embeddings,

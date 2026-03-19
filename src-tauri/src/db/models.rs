@@ -71,7 +71,7 @@ pub struct Handle {
 
 /// Raw row coming from SQLite before timestamp conversion.
 /// Used internally; not serialized to the frontend.
-pub(crate) struct RawMessageRow {
+pub struct RawMessageRow {
     pub rowid: i64,
     pub guid: String,
     pub text: Option<String>,

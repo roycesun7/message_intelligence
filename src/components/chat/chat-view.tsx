@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useCallback, useState } from "react";
+import { useEffect, useRef, useMemo, useCallback, useState, useDeferredValue } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { Virtuoso } from "react-virtuoso";
-import { Loader2, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { useMessages, useChatById, getChatDisplayName } from "@/hooks/use-messages";
 import { useAppStore } from "@/stores/app-store";
@@ -18,6 +18,11 @@ export function ChatView() {
   const setHighlightedMessageDate = useAppStore((s) => s.setHighlightedMessageDate);
   const chat = useChatById(chatId);
   const { data: messages, isLoading, isError, error } = useMessages(chatId);
+  // Defer message data so the heavy render (tapbackMap, Virtuoso) doesn't block the main thread
+  const deferredMessages = useDeferredValue(messages);
+  const isTransitioning = messages !== deferredMessages;
+  const showLoading = isLoading || isTransitioning;
+
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
@@ -29,16 +34,16 @@ export function ChatView() {
   const chatName = getChatDisplayName(chat);
 
   const tapbackMap = useMemo(() => {
-    if (!messages) return new Map<string, string[]>();
-    return buildTapbackMap(messages);
-  }, [messages]);
+    if (!deferredMessages) return new Map<string, string[]>();
+    return buildTapbackMap(deferredMessages);
+  }, [deferredMessages]);
 
   const visibleMessages = useMemo(() => {
-    if (!messages) return [];
-    return messages.filter(
+    if (!deferredMessages) return [];
+    return deferredMessages.filter(
       (m) => m.associatedMessageType < 2000 || m.associatedMessageType > 2005
     );
-  }, [messages]);
+  }, [deferredMessages]);
 
   // Capture scroll target from store into ref immediately
   useEffect(() => {
@@ -230,7 +235,7 @@ export function ChatView() {
       </div>
 
       {/* Loading bar */}
-      {isLoading && (
+      {showLoading && (
         <div className="absolute top-14 left-0 right-0 h-[2px] overflow-hidden bg-[#D1D5DB]/30 dark:bg-white/[0.04] z-20">
           <div className="h-full w-1/3 animate-[slide_1.2s_ease-in-out_infinite] rounded-full bg-[#3B82C4] dark:bg-[#60A5FA]" />
         </div>
@@ -258,19 +263,21 @@ export function ChatView() {
             }}
           />
         </div>
-        {isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#ECEEF2] dark:bg-zinc-950">
-            <Loader2 className="h-6 w-6 animate-spin text-[#94A3B3] dark:text-zinc-500" />
-            <p className="text-sm text-[#94A3B3] dark:text-zinc-500 apple-text-sm">Loading messages...</p>
+        {showLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#ECEEF2] dark:bg-zinc-950">
+            <div className="w-32 h-[3px] rounded-full overflow-hidden bg-[#D1D5DB]/30 dark:bg-white/[0.06]">
+              <div className="h-full w-1/3 animate-[slide_1.2s_ease-in-out_infinite] rounded-full bg-[#3B82C4] dark:bg-[#60A5FA]" />
+            </div>
+            <p className="text-xs text-[#94A3B3] dark:text-zinc-500 apple-text-xs">Loading messages</p>
           </div>
         )}
-        {!isLoading && isError && (
+        {!showLoading && isError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm bg-[#ECEEF2] dark:bg-zinc-950">
             <p className="text-red-500 dark:text-red-400">Failed to load messages</p>
             <p className="text-[#94A3B3] dark:text-zinc-600 text-xs max-w-md text-center">{String(error)}</p>
           </div>
         )}
-        {!isLoading && !isError && visibleMessages.length === 0 && (
+        {!showLoading && !isError && visibleMessages.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-[#94A3B3] dark:text-zinc-500 bg-[#ECEEF2] dark:bg-zinc-950">
             No messages in this chat.
           </div>
@@ -285,7 +292,7 @@ export function ChatView() {
       </div>
 
       {/* Scroll to bottom button */}
-      {!isAtBottom && visibleMessages.length > 0 && !isLoading && (
+      {!isAtBottom && visibleMessages.length > 0 && !showLoading && (
         <button
           onClick={scrollToBottom}
           className="absolute bottom-14 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA]/90 dark:bg-[#2A2A2C]/90 backdrop-blur-md border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)] hover:bg-[#ECEEF2] dark:hover:bg-[#3A3A3C] transition-colors cursor-pointer"

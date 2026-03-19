@@ -233,6 +233,56 @@ pub fn set_index_target(
     Ok(())
 }
 
+/// Run the pipeline scoped to a specific chat with an optional message limit.
+/// Useful for testing and targeted indexing.
+#[tauri::command]
+pub fn run_pipeline_for_chat(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    chat_id: i64,
+    message_limit: Option<i64>,
+) -> AppResult<()> {
+    if state.pipeline_running.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err(AppError::Custom("Pipeline is already running".into()));
+    }
+    if !state.models_loaded() {
+        return Err(AppError::Custom("CLIP models not loaded yet".into()));
+    }
+
+    let text_arc = {
+        let guard = state.clip_text.read().unwrap_or_else(|p| p.into_inner());
+        guard.clone()
+    };
+    let tok_arc = {
+        let guard = state.tokenizer.read().unwrap_or_else(|p| p.into_inner());
+        guard.clone()
+    };
+
+    if let (Some(text), Some(tok)) = (text_arc, tok_arc) {
+        let app_handle_clone = app_handle.clone();
+        let state_ref = app_handle.state::<AppState>();
+        state_ref.pipeline_running.store(true, std::sync::atomic::Ordering::SeqCst);
+
+        std::thread::spawn(move || {
+            let mut text_session = text.lock().unwrap_or_else(|p| p.into_inner());
+            if let Err(e) = crate::embeddings::pipeline::run_indexing_pipeline_filtered(
+                &app_handle_clone,
+                &mut text_session,
+                &tok,
+                Some(chat_id),
+                message_limit,
+            ) {
+                log::error!("Pipeline (for chat {chat_id}) failed: {e}");
+            }
+            if let Some(state) = app_handle_clone.try_state::<AppState>() {
+                state.pipeline_running.store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+        });
+    }
+
+    Ok(())
+}
+
 /// Manually trigger the indexing pipeline. Respects the current index_target.
 #[tauri::command]
 pub fn run_pipeline(

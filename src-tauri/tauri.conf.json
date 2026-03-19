@@ -30,13 +30,13 @@
       "endpoints": [
         "https://github.com/roycesun7/message_intelligence/releases/latest/download/latest.json"
       ],
-      "pubkey": "PASTE_YOUR_PUBKEY_HERE"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDRTBFMTA3MEYxOUE4QjEKUldTeHFCa1BCK0hnN0g2UG1kSEdWT0oyM25ua2VlWDJ0WDhVbGlqTDEzemdGWDdPcmorcXB3QlIK"
     }
   },
   "bundle": {
     "active": true,
     "targets": ["dmg", "app"],
-    "resources": ["resources/models/*"],
+    "resources": [],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -51,7 +51,7 @@
       "exceptionDomain": null
     },
     "category": "public.app-category.utilities",
-    "copyright": "Copyright © 2025 Capsule",
+    "copyright": "Copyright © 2025-2026 Capsule",
     "shortDescription": "Privacy-first iMessage analytics",
     "longDescription": "Capsule transforms your iMessage history into searchable, analytically powerful insights. All processing happens locally — no data ever leaves your device."
   }

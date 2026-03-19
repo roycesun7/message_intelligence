@@ -1091,6 +1091,7 @@ pub async fn get_milestones(
             display_name: Option<String>,
             chat_identifier: String,
             msg_count: i64,
+            last_date: String,
         }
 
         let mut stmt = conn.prepare(&qualifying_sql)?;
@@ -1101,6 +1102,7 @@ pub async fn get_milestones(
                     display_name: row.get(1)?,
                     chat_identifier: row.get(2)?,
                     msg_count: row.get(3)?,
+                    last_date: row.get::<_, Option<String>>(4)?.unwrap_or_default(),
                 })
             })?;
             rows.filter_map(|r| r.ok()).collect()
@@ -1111,6 +1113,7 @@ pub async fn get_milestones(
                     display_name: row.get(1)?,
                     chat_identifier: row.get(2)?,
                     msg_count: row.get(3)?,
+                    last_date: row.get::<_, Option<String>>(4)?.unwrap_or_default(),
                 })
             })?;
             rows.filter_map(|r| r.ok()).collect()
@@ -1305,36 +1308,79 @@ pub async fn get_milestones(
                 );
 
                 if let Ok((recent, prior)) = trend_row {
-                    if recent >= 10 && prior >= 10 {
-                        let pct_change =
-                            ((recent as f64 - prior as f64) / prior as f64) * 100.0;
-                        if pct_change.abs() >= 30.0 {
-                            let direction = if pct_change > 0.0 {
-                                "more"
-                            } else {
-                                "less"
-                            };
-                            milestones.push(Milestone {
-                                milestone_type: "trend".to_string(),
-                                chat_id: chat.chat_id,
-                                chat_name: chat_name.clone(),
-                                headline: format!(
-                                    "Texting {:.0}% {}",
-                                    pct_change.abs(),
-                                    direction
-                                ),
-                                detail: Some(format!(
-                                    "{} msgs last 30 days vs {} prior 30 days",
-                                    recent, prior
-                                )),
-                                value: pct_change,
-                                recent_count: Some(recent),
-                                previous_count: Some(prior),
-                            });
-                        }
+                    let pct_change = if prior > 0 {
+                        ((recent as f64 - prior as f64) / prior as f64) * 100.0
+                    } else {
+                        0.0
+                    };
+
+                    let fourteen_days_ago = today - chrono::Duration::days(14);
+                    let fourteen_days_ago_str = fourteen_days_ago.format("%Y-%m-%d").to_string();
+                    let has_recent_contact = chat.last_date >= fourteen_days_ago_str;
+
+                    let is_uptrend = pct_change > 0.0;
+
+                    // Volume gate: combined 60-day window must have 150+ messages
+                    let combined_volume = recent + prior;
+                    // Uptrend: both periods 10+ msgs, 30%+ change, contact in last 14 days, 150+ total
+                    // Downtrend: prior period 20+ msgs (was genuinely active), 30%+ drop, 150+ total
+                    let should_surface = if is_uptrend {
+                        combined_volume >= 150 && recent >= 10 && prior >= 10 && pct_change >= 30.0 && has_recent_contact
+                    } else {
+                        combined_volume >= 150 && prior >= 20 && pct_change <= -30.0
+                    };
+
+                    if should_surface {
+                        let direction = if is_uptrend { "more" } else { "less" };
+                        milestones.push(Milestone {
+                            milestone_type: "trend".to_string(),
+                            chat_id: chat.chat_id,
+                            chat_name: chat_name.clone(),
+                            headline: format!(
+                                "Texting {:.0}% {}",
+                                pct_change.abs(),
+                                direction
+                            ),
+                            detail: Some(format!(
+                                "{} msgs last 30 days vs {} prior 30 days",
+                                recent, prior
+                            )),
+                            value: pct_change,
+                            recent_count: Some(recent),
+                            previous_count: Some(prior),
+                        });
                     }
                 }
             }
+        }
+
+        // Cap trends: keep top 3 uptrends (by % change) and top 3 downtrends (by % change)
+        let mut uptrends: Vec<usize> = Vec::new();
+        let mut downtrends: Vec<usize> = Vec::new();
+        for (i, m) in milestones.iter().enumerate() {
+            if m.milestone_type == "trend" {
+                if m.value >= 0.0 {
+                    uptrends.push(i);
+                } else {
+                    downtrends.push(i);
+                }
+            }
+        }
+        // Sort by absolute pct_change descending (most significant first)
+        uptrends.sort_by(|&a, &b| milestones[b].value.partial_cmp(&milestones[a].value).unwrap_or(std::cmp::Ordering::Equal));
+        downtrends.sort_by(|&a, &b| milestones[a].value.partial_cmp(&milestones[b].value).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut remove_indices: Vec<usize> = Vec::new();
+        if uptrends.len() > 3 {
+            remove_indices.extend_from_slice(&uptrends[3..]);
+        }
+        if downtrends.len() > 3 {
+            remove_indices.extend_from_slice(&downtrends[3..]);
+        }
+        remove_indices.sort_unstable();
+        remove_indices.dedup();
+        for i in remove_indices.into_iter().rev() {
+            milestones.remove(i);
         }
 
         Ok(milestones)

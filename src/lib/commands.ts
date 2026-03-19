@@ -58,6 +58,9 @@ export const setIndexTarget = (target: number) =>
 export const runPipeline = () =>
   invoke<void>("run_pipeline");
 
+export const runPipelineForChat = (chatId: number, messageLimit?: number) =>
+  invoke<void>("run_pipeline_for_chat", { chatId, messageLimit: messageLimit ?? null });
+
 export const rebuildSearchIndex = () =>
   invoke<void>("rebuild_search_index");
 

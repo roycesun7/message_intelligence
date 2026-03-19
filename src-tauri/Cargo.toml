@@ -2,10 +2,11 @@
 name = "capsule"
 version = "0.1.0"
 description = "Privacy-first iMessage analytics"
-authors = ["you"]
+authors = ["Royce Sun"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.77.2"
+default-run = "capsule"
 
 [lib]
 name = "app_lib"

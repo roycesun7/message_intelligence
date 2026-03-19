@@ -97,20 +97,38 @@ fn expand_tilde(path: &str) -> Option<std::path::PathBuf> {
 
 // ── Main pipeline entry point ──────────────────────────────────────────
 
-/// Run the full indexing pipeline. This is called from a background thread
+/// Run the chunk-only indexing pipeline. This is called from a background thread
 /// and opens its own DB connections. ONNX sessions are passed in to avoid
 /// loading 380MB of models a second time (which deadlocks ort).
 ///
 /// The pipeline respects the `index_target` setting from analytics.db as a
-/// hard cap. It checks the current embedding count before each phase and
-/// passes the remaining budget as the phase limit.
+/// hard cap. Only embeds conversation chunks (grouped sender messages), not
+/// individual messages or attachments — chunks provide better semantic context
+/// and are 5-10x fewer embeddings than individual messages.
+///
+/// `chat_id_filter`: if Some, only processes messages from that chat.
+/// `message_limit`: if Some, caps the number of messages fetched (for testing).
 pub fn run_indexing_pipeline(
     app_handle: &AppHandle,
     text_session: &mut ort::session::Session,
-    vision_session: &mut ort::session::Session,
+    _vision_session: &mut ort::session::Session,
     tokenizer: &Tokenizer,
 ) -> AppResult<()> {
-    log::info!("Embedding pipeline starting...");
+    run_indexing_pipeline_filtered(app_handle, text_session, tokenizer, None, None)
+}
+
+/// Filtered variant: run chunk-only pipeline scoped to a specific chat and/or message limit.
+pub fn run_indexing_pipeline_filtered(
+    app_handle: &AppHandle,
+    text_session: &mut ort::session::Session,
+    tokenizer: &Tokenizer,
+    chat_id_filter: Option<i64>,
+    message_limit: Option<i64>,
+) -> AppResult<()> {
+    log::info!("Embedding pipeline starting (chunk-only)...");
+    if let Some(cid) = chat_id_filter {
+        log::info!("Pipeline: filtering to chat_id={cid}");
+    }
 
     // Open our own connections
     let chat_conn = match open_chat_db_readonly() {
@@ -138,7 +156,6 @@ pub fn run_indexing_pipeline(
     log::info!("Pipeline: target={index_target}, current={current_count}, deficit={}", index_target - current_count);
 
     // Clear processing_state so phases can re-run with the new budget.
-    // The budget cap and INSERT OR REPLACE prevent duplicate embeddings.
     analytics_conn.execute_batch(
         "DELETE FROM processing_state WHERE pipeline_name IN ('chunking', 'embedding_recent', 'embedding_oldest', 'embedding_attachments');"
     )?;
@@ -147,7 +164,7 @@ pub fn run_indexing_pipeline(
     let contact_map = contacts_db::build_contact_map().unwrap_or_default();
     let handle_map = build_handle_map(&chat_conn)?;
 
-    // Phase 1: Chunk recent messages into conversation segments
+    // Chunk-only: embed conversation chunks (Phase 1 only)
     let remaining = index_target - analytics_db::count_embeddings(&analytics_conn)?;
     if remaining > 0 {
         run_phase_chunking(
@@ -160,35 +177,8 @@ pub fn run_indexing_pipeline(
             &contact_map,
             remaining,
             index_target,
-        )?;
-    }
-
-    // Phase 2: Embed individual messages (newest first)
-    let remaining = index_target - analytics_db::count_embeddings(&analytics_conn)?;
-    if remaining > 0 {
-        run_phase_text_embedding(
-            app_handle,
-            &chat_conn,
-            &analytics_conn,
-            text_session,
-            tokenizer,
-            &handle_map,
-            &contact_map,
-            remaining,
-            index_target,
-        )?;
-    }
-
-    // Phase 3: Embed image attachments
-    let remaining = index_target - analytics_db::count_embeddings(&analytics_conn)?;
-    if remaining > 0 {
-        run_phase_attachment_embedding(
-            app_handle,
-            &chat_conn,
-            &analytics_conn,
-            vision_session,
-            remaining,
-            index_target,
+            chat_id_filter,
+            message_limit,
         )?;
     }
 
@@ -200,64 +190,79 @@ pub fn run_indexing_pipeline(
 
 // ── Phase 1: Chunking ──────────────────────────────────────────────────
 
-/// Fetch the most recent `limit` messages with chat_id, ordered by ROWID DESC.
-fn get_recent_messages_with_chat_id(
+/// Fetch messages with chat_id, ordered by ROWID DESC.
+/// If `chat_id_filter` is Some, only fetch messages from that chat.
+fn get_messages_for_pipeline(
     conn: &Connection,
     limit: i64,
+    chat_id_filter: Option<i64>,
     handle_map: &HashMap<i64, String>,
     contact_map: &HashMap<String, String>,
 ) -> AppResult<Vec<crate::db::models::Message>> {
     use crate::db::models::RawMessageRow;
 
-    let mut stmt = conn.prepare(
+    let query = if chat_id_filter.is_some() {
         "SELECT
-            m.ROWID,
-            m.guid,
-            m.text,
-            m.attributedBody,
-            m.is_from_me,
-            m.date,
-            m.date_read,
-            m.date_delivered,
-            m.handle_id,
-            m.service,
-            m.associated_message_type,
-            m.associated_message_guid,
-            m.cache_has_attachments,
-            m.thread_originator_guid,
-            m.group_title,
-            m.is_audio_message,
-            cmj.chat_id
+            m.ROWID, m.guid, m.text, m.attributedBody, m.is_from_me,
+            m.date, m.date_read, m.date_delivered, m.handle_id, m.service,
+            m.associated_message_type, m.associated_message_guid,
+            m.cache_has_attachments, m.thread_originator_guid,
+            m.group_title, m.is_audio_message, cmj.chat_id
+         FROM message AS m
+         INNER JOIN chat_message_join AS cmj ON cmj.message_id = m.ROWID
+         WHERE m.associated_message_type = 0 AND cmj.chat_id = ?2
+         ORDER BY m.ROWID DESC
+         LIMIT ?1"
+    } else {
+        "SELECT
+            m.ROWID, m.guid, m.text, m.attributedBody, m.is_from_me,
+            m.date, m.date_read, m.date_delivered, m.handle_id, m.service,
+            m.associated_message_type, m.associated_message_guid,
+            m.cache_has_attachments, m.thread_originator_guid,
+            m.group_title, m.is_audio_message, cmj.chat_id
          FROM message AS m
          LEFT JOIN chat_message_join AS cmj ON cmj.message_id = m.ROWID
          WHERE m.associated_message_type = 0
          ORDER BY m.ROWID DESC
-         LIMIT ?1",
-    )?;
+         LIMIT ?1"
+    };
 
-    let messages: Vec<crate::db::models::Message> = stmt
-        .query_map(rusqlite::params![limit], |row| {
-            Ok(RawMessageRow {
-                rowid: row.get(0)?,
-                guid: row.get(1)?,
-                text: row.get(2)?,
-                attributed_body: row.get(3)?,
-                is_from_me: row.get(4)?,
-                date: row.get(5)?,
-                date_read: row.get(6)?,
-                date_delivered: row.get(7)?,
-                handle_id: row.get(8)?,
-                service: row.get(9)?,
-                associated_message_type: row.get(10)?,
-                associated_message_guid: row.get(11)?,
-                cache_has_attachments: row.get(12)?,
-                thread_originator_guid: row.get(13)?,
-                group_title: row.get(14)?,
-                is_audio_message: row.get(15)?,
-                chat_id: row.get(16)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
+    let mut stmt = conn.prepare(query)?;
+
+    let row_mapper = |row: &rusqlite::Row| {
+        Ok(RawMessageRow {
+            rowid: row.get(0)?,
+            guid: row.get(1)?,
+            text: row.get(2)?,
+            attributed_body: row.get(3)?,
+            is_from_me: row.get(4)?,
+            date: row.get(5)?,
+            date_read: row.get(6)?,
+            date_delivered: row.get(7)?,
+            handle_id: row.get(8)?,
+            service: row.get(9)?,
+            associated_message_type: row.get(10)?,
+            associated_message_guid: row.get(11)?,
+            cache_has_attachments: row.get(12)?,
+            thread_originator_guid: row.get(13)?,
+            group_title: row.get(14)?,
+            is_audio_message: row.get(15)?,
+            chat_id: row.get(16)?,
+        })
+    };
+
+    let raw_rows: Vec<RawMessageRow> = if let Some(cid) = chat_id_filter {
+        stmt.query_map(rusqlite::params![limit, cid], row_mapper)?
+            .filter_map(|r| r.ok())
+            .collect()
+    } else {
+        stmt.query_map(rusqlite::params![limit], row_mapper)?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+
+    let messages = raw_rows
+        .into_iter()
         .map(|raw| {
             let sender = handle_map.get(&raw.handle_id).cloned();
             let sender_display_name = sender
@@ -280,6 +285,8 @@ fn run_phase_chunking(
     contact_map: &HashMap<String, String>,
     budget: i64,
     index_target: i64,
+    chat_id_filter: Option<i64>,
+    message_limit: Option<i64>,
 ) -> AppResult<()> {
     let already_done = analytics_db::get_last_processed_rowid(analytics_conn, "chunking")?;
     if already_done > 0 {
@@ -288,12 +295,13 @@ fn run_phase_chunking(
     }
 
     // Fetch more messages than budget since chunking groups them (fewer embeddings than messages)
-    let fetch_limit = (budget * 5).min(10000);
-    log::info!("Phase 1: Chunking (budget={budget}, fetching up to {fetch_limit} messages)...");
+    let fetch_limit = message_limit.unwrap_or((budget * 5).min(10000));
+    log::info!("Phase 1: Chunking (budget={budget}, fetching up to {fetch_limit} messages, chat_filter={:?})...", chat_id_filter);
 
-    let mut messages = get_recent_messages_with_chat_id(
+    let mut messages = get_messages_for_pipeline(
         chat_conn,
         fetch_limit,
+        chat_id_filter,
         handle_map,
         contact_map,
     )?;

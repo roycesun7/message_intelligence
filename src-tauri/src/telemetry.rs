@@ -42,7 +42,7 @@ pub fn send_launch_ping(data_dir: &Path) {
         .trim()
         .to_string();
 
-    tokio::spawn(async move {
+    std::thread::spawn(move || {
         let body = serde_json::json!({
             "api_key": POSTHOG_API_KEY,
             "event": "app_launched",
@@ -55,11 +55,10 @@ pub fn send_launch_ping(data_dir: &Path) {
             }
         });
 
-        let _ = reqwest::Client::new()
+        let _ = reqwest::blocking::Client::new()
             .post(format!("{POSTHOG_HOST}/capture/"))
             .json(&body)
             .timeout(std::time::Duration::from_secs(5))
-            .send()
-            .await;
+            .send();
     });
 }

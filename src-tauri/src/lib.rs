@@ -376,25 +376,42 @@ pub fn run() {
     .flatten()
     .collect();
 
-    let mut ort_ok = false;
-    for path in &ort_candidates {
-        if path.exists() {
-            eprintln!("[ort] Loading ONNX Runtime from {}...", path.display());
-            match ort::init_from(path) {
-                Ok(builder) => {
-                    builder.commit();
-                    eprintln!("[ort] ONNX Runtime initialized successfully");
-                    ort_ok = true;
-                    break;
-                }
-                Err(e) => {
-                    eprintln!("[ort] Failed to load from {}: {e}", path.display());
+    // ort::init_from() has a known deadlock in its error path (OnceLock re-entrancy
+    // when dlopen fails under hardened runtime). Run on a thread with a channel
+    // timeout so the app starts even if ort hangs.
+    let ort_ok = {
+        let candidates = ort_candidates.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut result = false;
+            for path in &candidates {
+                if path.exists() {
+                    eprintln!("[ort] Loading ONNX Runtime from {}...", path.display());
+                    match ort::init_from(path) {
+                        Ok(builder) => {
+                            builder.commit();
+                            eprintln!("[ort] ONNX Runtime initialized successfully");
+                            result = true;
+                            break;
+                        }
+                        Err(e) => {
+                            eprintln!("[ort] Failed to load from {}: {e}", path.display());
+                        }
+                    }
                 }
             }
+            let _ = tx.send(result);
+        });
+        match rx.recv_timeout(std::time::Duration::from_secs(10)) {
+            Ok(result) => result,
+            Err(_) => {
+                eprintln!("[ort] ONNX Runtime initialization timed out (likely deadlock) — continuing without it");
+                false
+            }
         }
-    }
+    };
     if !ort_ok {
-        eprintln!("[ort] ONNX Runtime not found — semantic search will be disabled");
+        eprintln!("[ort] ONNX Runtime not available — semantic search will be disabled");
     }
 
     tauri::Builder::default()

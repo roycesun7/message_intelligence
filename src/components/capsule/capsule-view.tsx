@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   useWrappedStats,
   useTemporalTrends,
@@ -43,6 +43,7 @@ import {
   AlignLeft,
   Activity,
   CalendarDays,
+  ChevronDown,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { GroupDynamics } from "./group-dynamics";
@@ -363,7 +364,7 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
               interval="preserveStartEnd"
               minTickGap={40}
             />
-            <YAxis tick={AXIS_TICK} width={35} />
+            <YAxis tick={AXIS_TICK} width={50} />
             <Tooltip
               {...CHART_TOOLTIP_STYLE}
               labelFormatter={(label) => formatTrendDate(String(label), granularity)}
@@ -391,6 +392,128 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
         </ResponsiveContainer>
       </CardContent>
     </Card>
+  );
+}
+
+// ── People Tab (global) ─────────────────────────────────
+
+function PeopleTab({
+  topChats,
+  lateNightChats,
+  chatMap,
+  resolveChatName,
+}: {
+  topChats: { key: string; sent: number; received: number; total: number }[];
+  lateNightChats: { key: string; sent: number; received: number; total: number }[];
+  chatMap: Map<number, Chat>;
+  resolveChatName: (id: number, map: Map<number, Chat>) => string;
+}) {
+  const [showMoreChats, setShowMoreChats] = useState(false);
+  const [showMoreLateNight, setShowMoreLateNight] = useState(false);
+
+  const visibleChats = showMoreChats ? topChats : topChats.slice(0, 10);
+  const visibleLateNight = showMoreLateNight ? lateNightChats : lateNightChats.slice(0, 10);
+
+  return (
+    <div>
+      <div className="mb-6">
+        <Card className="card-glass">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+              All Conversations — ranked by total messages
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topChats.length === 0 ? (
+              <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No data available.</p>
+            ) : (
+              <>
+                <ol className="space-y-2.5">
+                  {visibleChats.map((c, i) => {
+                    const pct = (c.total / (topChats[0]?.total || 1)) * 100;
+                    const name = resolveChatName(Number(c.key), chatMap);
+                    return (
+                      <li key={c.key} className="flex items-center gap-3">
+                        <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">
+                              {name}
+                            </span>
+                            <span className="ml-2 text-xs text-[#4E5D6E] dark:text-zinc-400">
+                              {c.total.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="mt-1 h-1 w-full rounded-full bg-[#D1D5DB]/30 dark:bg-white/[0.06]">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#1B2432] to-[#3B82C4] dark:from-blue-400 dark:to-purple-400"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {topChats.length > 10 && (
+                  <button
+                    onClick={() => setShowMoreChats(!showMoreChats)}
+                    className="flex items-center gap-1 mt-3 text-xs text-[#3B82C4] dark:text-blue-400 hover:text-[#1B2432] dark:hover:text-blue-300 transition-colors cursor-pointer"
+                  >
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMoreChats ? "rotate-180" : ""}`} />
+                    {showMoreChats ? "Show less" : `Show ${topChats.length - 10} more`}
+                  </button>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Late Night Crew */}
+      <Card className="card-glass">
+        <CardHeader className="flex flex-row items-center gap-2">
+          <Moon className="h-5 w-5 text-[#1B2432] dark:text-indigo-400" />
+          <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+            Your Late Night Crew
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-xs text-[#94A3B3] dark:text-zinc-500">Messages sent 10 PM – 5 AM</p>
+          {lateNightChats.length === 0 ? (
+            <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No late-night activity.</p>
+          ) : (
+            <>
+              <ol className="space-y-1.5">
+                {visibleLateNight.map((c, i) => {
+                  const name = resolveChatName(Number(c.key), chatMap);
+                  return (
+                    <li key={c.key} className="flex items-center justify-between py-1.5">
+                      <span className="flex items-center gap-2">
+                        <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">{i + 1}</span>
+                        <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">{name}</span>
+                      </span>
+                      <span className="text-sm text-[#4E5D6E] dark:text-zinc-400">{c.total.toLocaleString()}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+              {lateNightChats.length > 10 && (
+                <button
+                  onClick={() => setShowMoreLateNight(!showMoreLateNight)}
+                  className="flex items-center gap-1 mt-3 text-xs text-[#3B82C4] dark:text-blue-400 hover:text-[#1B2432] dark:hover:text-blue-300 transition-colors cursor-pointer"
+                >
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMoreLateNight ? "rotate-180" : ""}`} />
+                  {showMoreLateNight ? "Show less" : `Show ${lateNightChats.length - 10} more`}
+                </button>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -600,7 +723,7 @@ function BetweenYouTwoTab({ chatId }: { chatId: number }) {
                     tickFormatter={(v: number) => formatHourLabel(v)}
                     interval={2}
                   />
-                  <YAxis tick={AXIS_TICK} width={35} />
+                  <YAxis tick={AXIS_TICK} width={50} />
                   <Tooltip
                     {...CHART_TOOLTIP_STYLE}
                     labelFormatter={(label) => formatHourLabel(Number(label))}
@@ -689,7 +812,7 @@ export function CapsuleView() {
     stats.chatInteractions.sent,
     stats.chatInteractions.received,
     (c) => String(c.chatId),
-  ).slice(0, 10);
+  ).slice(0, 20);
 
   const monthlyData = combineByKey(
     stats.monthlyInteractions.sent,
@@ -713,7 +836,7 @@ export function CapsuleView() {
     stats.lateNightInteractions.sent,
     stats.lateNightInteractions.received,
     (c) => String(c.chatId),
-  ).slice(0, 10);
+  ).slice(0, 20);
 
   const topOpeners = [
     ...stats.mostPopularOpeners.sent,
@@ -864,7 +987,7 @@ export function CapsuleView() {
                   <BarChart data={yearlyData}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                     <XAxis dataKey="key" tick={AXIS_TICK} />
-                    <YAxis tick={AXIS_TICK} width={35} />
+                    <YAxis tick={AXIS_TICK} width={50} />
                     <Tooltip
                       {...CHART_TOOLTIP_STYLE}
                       formatter={(value, name) => [
@@ -949,6 +1072,41 @@ export function CapsuleView() {
             </div>
           )}
 
+          {/* Year by Year — all-time only */}
+          {!isPerChat && year === 0 && yearlyData.length > 1 && (
+            <Card className="mb-6 card-glass">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+                  Your Year by Year
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={yearlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                    <XAxis dataKey="key" tick={AXIS_TICK} />
+                    <YAxis tick={AXIS_TICK} width={50} />
+                    <Tooltip
+                      {...CHART_TOOLTIP_STYLE}
+                      formatter={(value, name) => [
+                        Number(value).toLocaleString(),
+                        name === "sent" ? "Sent" : name === "received" ? "Received" : "Total",
+                      ]}
+                    />
+                    <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                      {yearlyData.map((_entry, index) => (
+                        <Cell
+                          key={index}
+                          fill={YEAR_COLORS[index % YEAR_COLORS.length]}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Two-column: Month + Day charts */}
           <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Messages by month */}
@@ -970,7 +1128,7 @@ export function CapsuleView() {
                         tick={AXIS_TICK}
                         tickFormatter={(v: string) => v.slice(0, 3)}
                       />
-                      <YAxis tick={AXIS_TICK} width={35} />
+                      <YAxis tick={AXIS_TICK} width={50} />
                       <Tooltip
                         {...CHART_TOOLTIP_STYLE}
                         formatter={(value, name) => [
@@ -1011,7 +1169,7 @@ export function CapsuleView() {
                         tick={AXIS_TICK}
                         tickFormatter={(v: string) => v.slice(0, 3)}
                       />
-                      <YAxis tick={AXIS_TICK} width={35} />
+                      <YAxis tick={AXIS_TICK} width={50} />
                       <Tooltip
                         {...CHART_TOOLTIP_STYLE}
                       />
@@ -1030,123 +1188,12 @@ export function CapsuleView() {
             </Card>
           </div>
 
-          {/* Year by Year — all-time only */}
-          {!isPerChat && year === 0 && yearlyData.length > 1 && (
-            <Card className="mb-6 card-glass">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
-                  Your Year by Year
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={yearlyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
-                    <XAxis dataKey="key" tick={AXIS_TICK} />
-                    <YAxis tick={AXIS_TICK} width={35} />
-                    <Tooltip
-                      {...CHART_TOOLTIP_STYLE}
-                      formatter={(value, name) => [
-                        Number(value).toLocaleString(),
-                        name === "sent" ? "Sent" : name === "received" ? "Received" : "Total",
-                      ]}
-                    />
-                    <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                      {yearlyData.map((_entry, index) => (
-                        <Cell
-                          key={index}
-                          fill={YEAR_COLORS[index % YEAR_COLORS.length]}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-
         </div>
       )}
 
       {/* ═══════ PEOPLE TAB (all-time only) ═══════ */}
       {capsuleTab === "people" && !isPerChat && (
-        <div>
-          <div className="mb-6">
-            <Card className="card-glass">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
-                  All Conversations — ranked by total messages
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {topChats.length === 0 ? (
-                  <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No data available.</p>
-                ) : (
-                  <ol className="space-y-2.5">
-                    {topChats.map((c, i) => {
-                      const pct = (c.total / (topChats[0]?.total || 1)) * 100;
-                      const name = resolveChatName(Number(c.key), chatMap);
-                      return (
-                        <li key={c.key} className="flex items-center gap-3">
-                          <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">
-                            {i + 1}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">
-                                {name}
-                              </span>
-                              <span className="ml-2 text-xs text-[#4E5D6E] dark:text-zinc-400">
-                                {c.total.toLocaleString()}
-                              </span>
-                            </div>
-                            <div className="mt-1 h-1 w-full rounded-full bg-[#D1D5DB]/30 dark:bg-white/[0.06]">
-                              <div
-                                className="h-full rounded-full bg-gradient-to-r from-[#1B2432] to-[#3B82C4] dark:from-blue-400 dark:to-purple-400"
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Late Night Crew */}
-          <Card className="card-glass">
-            <CardHeader className="flex flex-row items-center gap-2">
-              <Moon className="h-5 w-5 text-[#1B2432] dark:text-indigo-400" />
-              <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
-                Your Late Night Crew
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-3 text-xs text-[#94A3B3] dark:text-zinc-500">Messages sent 10 PM – 5 AM</p>
-              {lateNightChats.length === 0 ? (
-                <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No late-night activity.</p>
-              ) : (
-                <ol className="space-y-1.5">
-                  {lateNightChats.map((c, i) => {
-                    const name = resolveChatName(Number(c.key), chatMap);
-                    return (
-                      <li key={c.key} className="flex items-center justify-between py-1.5">
-                        <span className="flex items-center gap-2">
-                          <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">{i + 1}</span>
-                          <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">{name}</span>
-                        </span>
-                        <span className="text-sm text-[#4E5D6E] dark:text-zinc-400">{c.total.toLocaleString()}</span>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <PeopleTab topChats={topChats} lateNightChats={lateNightChats} chatMap={chatMap} resolveChatName={resolveChatName} />
       )}
 
       {/* ═══════ BETWEEN YOU TWO TAB (1:1 per-chat) ═══════ */}
@@ -1167,6 +1214,14 @@ export function CapsuleView() {
       {/* ═══════ FUN TAB ═══════ */}
       {capsuleTab === "fun" && (
         <div>
+          {/* Most Used Words — full width */}
+          <div className="mb-6">
+            <WordFrequencySection
+              year={year}
+              chatIds={capsuleChatId !== null ? [capsuleChatId] : undefined}
+            />
+          </div>
+
           {/* Personality */}
           <div className="mb-6">
             <FunStats chatId={capsuleChatId} />
@@ -1228,12 +1283,6 @@ export function CapsuleView() {
             <EmojiFrequencySection
               chatId={capsuleChatId}
               year={year}
-            />
-
-            {/* Word Cloud */}
-            <WordFrequencySection
-              year={year}
-              chatIds={capsuleChatId !== null ? [capsuleChatId] : undefined}
             />
 
             {/* Conversation Openers */}

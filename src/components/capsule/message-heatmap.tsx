@@ -171,7 +171,7 @@ export function MessageHeatmap({
           Message Activity
         </CardTitle>
         <span className="ml-auto text-xs text-[#94A3B3] dark:text-zinc-500">
-          {data.reduce((sum, d) => sum + d.sent + d.received, 0).toLocaleString()} messages
+          {data.reduce((sum, d) => sum + d.sent + d.received, 0).toLocaleString()} messages · {year === 0 ? new Date().getFullYear() : year}
         </span>
       </CardHeader>
       <CardContent>

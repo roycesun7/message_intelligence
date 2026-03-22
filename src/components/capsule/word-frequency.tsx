@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useWordFrequency } from "@/hooks/use-analytics";
 
 interface WordFrequencySectionProps {
@@ -15,9 +15,63 @@ function getSizeClass(index: number): string {
   return "s4";
 }
 
+const MAX_WORDS = 20;
+const TARGET_ROWS = 3;
+
 export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProps) {
   const [fromMeOnly, setFromMeOnly] = useState(false);
   const { data: words, isLoading } = useWordFrequency(year, chatIds, fromMeOnly);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(MAX_WORDS);
+
+  const trimToFullRows = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const children = Array.from(el.children) as HTMLElement[];
+    if (children.length === 0) return;
+
+    // Group children by row (same offsetTop)
+    const rows: number[][] = [];
+    let currentTop = children[0].offsetTop;
+    let currentRow: number[] = [];
+    for (let i = 0; i < children.length; i++) {
+      if (children[i].offsetTop !== currentTop) {
+        rows.push(currentRow);
+        currentRow = [];
+        currentTop = children[i].offsetTop;
+      }
+      currentRow.push(i);
+    }
+    rows.push(currentRow);
+
+    // Keep only TARGET_ROWS complete rows
+    const keepRows = rows.slice(0, TARGET_ROWS);
+    const count = keepRows.reduce((sum, r) => sum + r.length, 0);
+    if (count !== visibleCount) {
+      setVisibleCount(count);
+    }
+  }, [visibleCount]);
+
+  // Re-measure after render and on resize
+  useEffect(() => {
+    // Reset to max so we can measure all items
+    setVisibleCount(MAX_WORDS);
+  }, [words, fromMeOnly]);
+
+  useEffect(() => {
+    // After rendering with all items, trim to full rows
+    requestAnimationFrame(trimToFullRows);
+  });
+
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      setVisibleCount(MAX_WORDS);
+    });
+    if (containerRef.current?.parentElement) {
+      observer.observe(containerRef.current.parentElement);
+    }
+    return () => observer.disconnect();
+  }, []);
 
   if (isLoading) {
     return (
@@ -78,8 +132,8 @@ export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProp
           </button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 justify-center py-3">
-        {words.slice(0, 14).map((w, i) => (
+      <div ref={containerRef} className="flex flex-wrap gap-2 py-3">
+        {words.slice(0, visibleCount).map((w, i) => (
           <span
             key={w.word}
             className={`wc-tag ${getSizeClass(i)} ${i % 2 === 0 ? "wc-blue" : "wc-gray"} text-[#1B2432] dark:text-white`}

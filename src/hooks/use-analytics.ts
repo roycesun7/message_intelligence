@@ -162,11 +162,11 @@ export function useMilestones(chatId?: number | null) {
 export const useWordFrequency = (
   year: number,
   chatIds?: number[],
-  fromMeOnly?: boolean,
+  filterMode?: string,
 ) => {
   return useQuery<WordFrequency[]>({
-    queryKey: ["wordFrequency", year, chatIds ?? null, fromMeOnly ?? false],
-    queryFn: () => getWordFrequency(year, chatIds, fromMeOnly),
+    queryKey: ["wordFrequency", year, chatIds ?? null, filterMode ?? "all"],
+    queryFn: () => getWordFrequency(year, chatIds, filterMode),
     staleTime: 5 * 60_000,
   });
 };

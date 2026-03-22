@@ -19,8 +19,9 @@ const MAX_WORDS = 20;
 const TARGET_ROWS = 3;
 
 export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProps) {
-  const [fromMeOnly, setFromMeOnly] = useState(false);
-  const { data: words, isLoading } = useWordFrequency(year, chatIds, fromMeOnly);
+  const [filterMode, setFilterMode] = useState<"all" | "mine" | "theirs">("all");
+  const { data: words, isLoading } = useWordFrequency(year, chatIds, filterMode);
+  const isPerChat = chatIds && chatIds.length > 0;
   const containerRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(MAX_WORDS);
 
@@ -56,7 +57,7 @@ export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProp
   useEffect(() => {
     // Reset to max so we can measure all items
     setVisibleCount(MAX_WORDS);
-  }, [words, fromMeOnly]);
+  }, [words, filterMode]);
 
   useEffect(() => {
     // After rendering with all items, trim to full rows
@@ -111,9 +112,9 @@ export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProp
         </h3>
         <div className="ml-auto flex items-center gap-0.5 rounded-lg bg-[#1B2432]/[0.04] dark:bg-white/[0.06] p-0.5">
           <button
-            onClick={() => setFromMeOnly(false)}
+            onClick={() => setFilterMode("all")}
             className={`rounded-md px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors ${
-              !fromMeOnly
+              filterMode === "all"
                 ? "bg-[#1B2432] text-white dark:bg-white/[0.15] dark:text-white"
                 : "text-[#4E5D6E] dark:text-zinc-400"
             }`}
@@ -121,15 +122,27 @@ export function WordFrequencySection({ year, chatIds }: WordFrequencySectionProp
             Everyone
           </button>
           <button
-            onClick={() => setFromMeOnly(true)}
+            onClick={() => setFilterMode("mine")}
             className={`rounded-md px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors ${
-              fromMeOnly
+              filterMode === "mine"
                 ? "bg-[#1B2432] text-white dark:bg-white/[0.15] dark:text-white"
                 : "text-[#4E5D6E] dark:text-zinc-400"
             }`}
           >
             My Words
           </button>
+          {isPerChat && (
+            <button
+              onClick={() => setFilterMode("theirs")}
+              className={`rounded-md px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                filterMode === "theirs"
+                  ? "bg-[#1B2432] text-white dark:bg-white/[0.15] dark:text-white"
+                  : "text-[#4E5D6E] dark:text-zinc-400"
+              }`}
+            >
+              Their Words
+            </button>
+          )}
         </div>
       </div>
       <div ref={containerRef} className="flex flex-wrap gap-2 py-3">

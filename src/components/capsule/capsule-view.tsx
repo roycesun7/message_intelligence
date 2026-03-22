@@ -44,6 +44,7 @@ import {
   Activity,
   CalendarDays,
   ChevronDown,
+  User,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { GroupDynamics } from "./group-dynamics";
@@ -410,18 +411,36 @@ function PeopleTab({
 }) {
   const [showMoreChats, setShowMoreChats] = useState(false);
   const [showMoreLateNight, setShowMoreLateNight] = useState(false);
+  const [dmOnly, setDmOnly] = useState(false);
 
-  const visibleChats = showMoreChats ? topChats : topChats.slice(0, 10);
+  const filteredChats = dmOnly
+    ? topChats.filter((c) => {
+        const chat = chatMap.get(Number(c.key));
+        return chat && chat.style === 45;
+      })
+    : topChats;
+  const visibleChats = showMoreChats ? filteredChats : filteredChats.slice(0, 10);
   const visibleLateNight = showMoreLateNight ? lateNightChats : lateNightChats.slice(0, 10);
 
   return (
     <div>
       <div className="mb-6">
         <Card className="card-glass">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
               All Conversations — ranked by total messages
             </CardTitle>
+            <button
+              onClick={() => { setDmOnly(!dmOnly); setShowMoreChats(false); }}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer border ${
+                dmOnly
+                  ? "bg-[#1B2432] text-white border-[#1B2432] dark:bg-blue-500 dark:border-blue-500 dark:text-white shadow-sm"
+                  : "bg-white text-[#4E5D6E] border-[#D1D5DB] hover:border-[#94A3B3] dark:bg-white/[0.06] dark:text-zinc-400 dark:border-white/[0.12] dark:hover:border-white/[0.2]"
+              }`}
+            >
+              <User className="h-3 w-3" />
+              DMs only
+            </button>
           </CardHeader>
           <CardContent>
             {topChats.length === 0 ? (
@@ -430,7 +449,7 @@ function PeopleTab({
               <>
                 <ol className="space-y-2.5">
                   {visibleChats.map((c, i) => {
-                    const pct = (c.total / (topChats[0]?.total || 1)) * 100;
+                    const pct = (c.total / (filteredChats[0]?.total || 1)) * 100;
                     const name = resolveChatName(Number(c.key), chatMap);
                     return (
                       <li key={c.key} className="flex items-center gap-3">
@@ -457,13 +476,13 @@ function PeopleTab({
                     );
                   })}
                 </ol>
-                {topChats.length > 10 && (
+                {filteredChats.length > 10 && (
                   <button
                     onClick={() => setShowMoreChats(!showMoreChats)}
                     className="flex items-center gap-1 mt-3 text-xs text-[#3B82C4] dark:text-blue-400 hover:text-[#1B2432] dark:hover:text-blue-300 transition-colors cursor-pointer"
                   >
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMoreChats ? "rotate-180" : ""}`} />
-                    {showMoreChats ? "Show less" : `Show ${topChats.length - 10} more`}
+                    {showMoreChats ? "Show less" : `Show ${filteredChats.length - 10} more`}
                   </button>
                 )}
               </>
@@ -1016,12 +1035,12 @@ export function CapsuleView() {
             </Card>
           )}
 
-          {/* Top People — all-time only */}
+          {/* Top Conversations — all-time only */}
           {!isPerChat && (
             <Card className="card-glass">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
-                  Your Top People
+                  Your Top Conversations
                 </CardTitle>
               </CardHeader>
               <CardContent>

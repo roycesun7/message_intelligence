@@ -1067,21 +1067,8 @@ pub struct WordFrequency {
 
 /// Common English stop words to exclude from frequency analysis.
 const STOP_WORDS: &[&str] = &[
-    "i", "me", "my", "we", "our", "you", "your", "he", "she", "it", "its",
-    "they", "them", "their", "this", "that", "these", "those", "is", "are",
-    "was", "were", "be", "been", "being", "have", "has", "had", "do", "does",
-    "did", "will", "would", "could", "should", "can", "may", "might", "shall",
-    "a", "an", "the", "and", "but", "or", "if", "so", "as", "at", "by", "in",
-    "on", "to", "of", "for", "with", "from", "up", "out", "not", "no", "nor",
-    "just", "also", "than", "then", "too", "very", "don't", "dont", "didn't",
-    "isn't", "it's", "i'm", "im", "what", "when", "where", "how", "who",
-    "which", "there", "here", "about", "all", "each", "some", "any", "more",
-    "other", "into", "over", "after", "before", "between", "because", "while",
-    "get", "got", "going", "go", "goes", "went", "come", "came", "like",
-    "know", "think", "want", "see", "look", "make", "way", "thing", "things",
-    "said", "say", "been", "one", "two", "right", "well", "back", "still",
-    "now", "let", "even", "much", "really", "yeah", "yes", "ok", "okay",
-    "oh", "lol", "haha", "hahaha", "lmao", "u", "ur",
+    "i", "im", "i'm", "i'll", "ill", "i've", "ive", "i'd", "id",
+    "it's", "its", "the", "a", "an",
 ];
 
 #[tauri::command]
@@ -1089,7 +1076,7 @@ pub async fn get_word_frequency(
     state: State<'_, AppState>,
     year: i64,
     chat_ids: Option<Vec<i64>>,
-    from_me_only: bool,
+    filter_mode: String,
 ) -> AppResult<Vec<WordFrequency>> {
     let chat_db_mutex = state.chat_db.clone();
 
@@ -1102,10 +1089,10 @@ pub async fn get_word_frequency(
         let cids = chat_ids.as_deref();
         let (filter_clause, filter_params) = year_filter_clause(year, cids);
 
-        let from_me_clause = if from_me_only {
-            "AND message.is_from_me = 1"
-        } else {
-            ""
+        let from_me_clause = match filter_mode.as_str() {
+            "mine" => "AND message.is_from_me = 1",
+            "theirs" => "AND message.is_from_me = 0",
+            _ => "",
         };
 
         let sql = format!(

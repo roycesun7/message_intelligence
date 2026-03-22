@@ -97,11 +97,11 @@ export const getTextingPersonality = (chatId?: number) =>
     chatId: chatId ?? null,
   });
 
-export const getWordFrequency = (year: number, chatIds?: number[], fromMeOnly?: boolean) =>
+export const getWordFrequency = (year: number, chatIds?: number[], filterMode?: string) =>
   invoke<WordFrequency[]>("get_word_frequency", {
     year,
     chatIds: chatIds ?? null,
-    fromMeOnly: fromMeOnly ?? false,
+    filterMode: filterMode ?? "all",
   });
 
 export const getFirstMessage = (chatId: number) =>

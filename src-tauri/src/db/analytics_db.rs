@@ -130,20 +130,21 @@ pub fn clear_embeddings(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
-pub fn get_cached_wrapped(conn: &Connection, year: i64) -> Option<String> {
+/// Returns cached JSON only if the stored message count matches the current count.
+pub fn get_cached_wrapped(conn: &Connection, year: i64, current_message_count: i64) -> Option<String> {
     conn.query_row(
-        "SELECT result_json FROM wrapped_cache WHERE year = ?1",
-        params![year],
+        "SELECT result_json FROM wrapped_cache WHERE year = ?1 AND message_count = ?2",
+        params![year, current_message_count],
         |row| row.get(0),
     )
     .ok()
 }
 
-pub fn set_cached_wrapped(conn: &Connection, year: i64, json: &str) -> AppResult<()> {
+pub fn set_cached_wrapped(conn: &Connection, year: i64, json: &str, message_count: i64) -> AppResult<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO wrapped_cache (year, result_json, computed_at)
-         VALUES (?1, ?2, datetime('now'))",
-        params![year, json],
+        "INSERT OR REPLACE INTO wrapped_cache (year, result_json, message_count, computed_at)
+         VALUES (?1, ?2, ?3, datetime('now'))",
+        params![year, json, message_count],
     )?;
     Ok(())
 }

@@ -2,10 +2,11 @@
 
 import { useMemo, useCallback, memo, useSyncExternalStore } from "react";
 import { Virtuoso } from "react-virtuoso";
+import { useQueryClient } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { Search, BarChart3 } from "lucide-react";
+import { Search, BarChart3, RefreshCw } from "lucide-react";
 
 import { useChats, getChatDisplayName } from "@/hooks/use-messages";
 import { useAppStore } from "@/stores/app-store";
@@ -162,12 +163,18 @@ function AllChatsEntry({ isActive }: { isActive: boolean }) {
 }
 
 export function ChatList() {
-  const { data: chats, isLoading, isError } = useChats();
+  const { data: chats, isLoading, isError, isFetching } = useChats();
+  const queryClient = useQueryClient();
   const chatSearchQuery = useAppStore((s) => s.chatSearchQuery);
   const setChatSearchQuery = useAppStore((s) => s.setChatSearchQuery);
   const selectedChatId = useAppStore((s) => s.selectedChatId);
   const capsuleChatId = useAppStore((s) => s.capsuleChatId);
   const view = useAppStore((s) => s.view);
+
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["chats"] });
+    queryClient.invalidateQueries({ queryKey: ["messages"] });
+  }, [queryClient]);
 
   const isCapsuleView = view === "capsule";
   const activeChatId = isCapsuleView ? capsuleChatId : selectedChatId;
@@ -201,16 +208,26 @@ export function ChatList() {
 
   return (
     <div className="relative h-full w-80 min-w-80 overflow-hidden rounded-2xl bg-[#F7F8FA]/80 dark:bg-[#2A2A2C]/60 backdrop-blur-2xl saturate-[1.2] dark:saturate-[1.8] border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_24px_rgba(0,0,0,0.4)] mr-2">
-      {/* Search bar — floats over list so content scrolls behind the blur */}
+      {/* Search bar + refresh — floats over list so content scrolls behind the blur */}
       <div className="absolute top-0 left-0 right-0 pt-3 px-3 pb-1 z-10 backdrop-blur-[1px] bg-[#F7F8FA]/15 dark:bg-[#2A2A2C]/15">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B3] dark:text-zinc-500" />
-          <Input
-            placeholder="Search"
-            value={chatSearchQuery}
-            onChange={(e) => setChatSearchQuery(e.target.value)}
-            className="h-9 pl-9 rounded-full bg-[#F7F8FA] dark:bg-[#2A2A2C] border-[#D1D5DB]/40 dark:border-white/[0.06] text-[#1B2432] dark:text-zinc-200 placeholder:text-[#94A3B3] dark:placeholder:text-zinc-500 focus-visible:ring-[#4E5D6E]/40 dark:focus-visible:ring-[#007AFF]/40 apple-text-sm"
-          />
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B3] dark:text-zinc-500" />
+            <Input
+              placeholder="Search"
+              value={chatSearchQuery}
+              onChange={(e) => setChatSearchQuery(e.target.value)}
+              className="h-9 pl-9 rounded-full bg-[#F7F8FA] dark:bg-[#2A2A2C] border-[#D1D5DB]/40 dark:border-white/[0.06] text-[#1B2432] dark:text-zinc-200 placeholder:text-[#94A3B3] dark:placeholder:text-zinc-500 focus-visible:ring-[#4E5D6E]/40 dark:focus-visible:ring-[#007AFF]/40 apple-text-sm"
+            />
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isFetching}
+            title="Refresh messages"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F7F8FA] dark:bg-[#2A2A2C] border border-[#D1D5DB]/40 dark:border-white/[0.06] text-[#94A3B3] dark:text-zinc-500 hover:text-[#4E5D6E] dark:hover:text-zinc-300 hover:bg-[#ECEEF2] dark:hover:bg-[#3A3A3C] transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          </button>
         </div>
       </div>
 

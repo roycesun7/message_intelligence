@@ -12,14 +12,25 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
         );
 
         CREATE TABLE IF NOT EXISTS wrapped_cache (
-            year        INTEGER PRIMARY KEY,
-            result_json TEXT NOT NULL,
-            computed_at TEXT NOT NULL DEFAULT (datetime('now'))
+            year          INTEGER PRIMARY KEY,
+            result_json   TEXT NOT NULL,
+            message_count INTEGER NOT NULL DEFAULT 0,
+            computed_at   TEXT NOT NULL DEFAULT (datetime('now'))
         );
         ",
     )?;
 
     conn.execute_batch("DROP TABLE IF EXISTS embedding_state;")?;
+
+    // Migration: add message_count column to wrapped_cache if missing
+    let has_msg_count: bool = conn
+        .prepare("SELECT message_count FROM wrapped_cache LIMIT 0")
+        .is_ok();
+    if !has_msg_count {
+        conn.execute_batch(
+            "ALTER TABLE wrapped_cache ADD COLUMN message_count INTEGER NOT NULL DEFAULT 0;",
+        )?;
+    }
 
     conn.execute_batch(
         "

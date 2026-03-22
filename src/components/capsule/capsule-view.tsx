@@ -1070,48 +1070,83 @@ export function CapsuleView() {
 
       {/* ═══════ PEOPLE TAB (all-time only) ═══════ */}
       {capsuleTab === "people" && !isPerChat && (
-        <Card className="card-glass">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
-              All Conversations — ranked by total messages
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topChats.length === 0 ? (
-              <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No data available.</p>
-            ) : (
-              <ol className="space-y-2.5">
-                {topChats.map((c, i) => {
-                  const pct = (c.total / (topChats[0]?.total || 1)) * 100;
-                  const name = resolveChatName(Number(c.key), chatMap);
-                  return (
-                    <li key={c.key} className="flex items-center gap-3">
-                      <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">
-                        {i + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">
-                            {name}
+        <div>
+          <div className="mb-6">
+            <Card className="card-glass">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+                  All Conversations — ranked by total messages
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {topChats.length === 0 ? (
+                  <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No data available.</p>
+                ) : (
+                  <ol className="space-y-2.5">
+                    {topChats.map((c, i) => {
+                      const pct = (c.total / (topChats[0]?.total || 1)) * 100;
+                      const name = resolveChatName(Number(c.key), chatMap);
+                      return (
+                        <li key={c.key} className="flex items-center gap-3">
+                          <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">
+                            {i + 1}
                           </span>
-                          <span className="ml-2 text-xs text-[#4E5D6E] dark:text-zinc-400">
-                            {c.total.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1 w-full rounded-full bg-[#D1D5DB]/30 dark:bg-white/[0.06]">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#1B2432] to-[#3B82C4] dark:from-blue-400 dark:to-purple-400"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </CardContent>
-        </Card>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">
+                                {name}
+                              </span>
+                              <span className="ml-2 text-xs text-[#4E5D6E] dark:text-zinc-400">
+                                {c.total.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="mt-1 h-1 w-full rounded-full bg-[#D1D5DB]/30 dark:bg-white/[0.06]">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-[#1B2432] to-[#3B82C4] dark:from-blue-400 dark:to-purple-400"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Late Night Crew */}
+          <Card className="card-glass">
+            <CardHeader className="flex flex-row items-center gap-2">
+              <Moon className="h-5 w-5 text-[#1B2432] dark:text-indigo-400" />
+              <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+                Your Late Night Crew
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 text-xs text-[#94A3B3] dark:text-zinc-500">Messages sent 10 PM – 5 AM</p>
+              {lateNightChats.length === 0 ? (
+                <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No late-night activity.</p>
+              ) : (
+                <ol className="space-y-1.5">
+                  {lateNightChats.map((c, i) => {
+                    const name = resolveChatName(Number(c.key), chatMap);
+                    return (
+                      <li key={c.key} className="flex items-center justify-between py-1.5">
+                        <span className="flex items-center gap-2">
+                          <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">{i + 1}</span>
+                          <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">{name}</span>
+                        </span>
+                        <span className="text-sm text-[#4E5D6E] dark:text-zinc-400">{c.total.toLocaleString()}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* ═══════ BETWEEN YOU TWO TAB (1:1 per-chat) ═══════ */}
@@ -1137,70 +1172,56 @@ export function CapsuleView() {
             <FunStats chatId={capsuleChatId} />
           </div>
 
-          {/* Late Night */}
-          <div className="mb-6">
-            <Card className="card-glass">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <Moon className="h-5 w-5 text-[#1B2432] dark:text-indigo-400" />
-                <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
-                  {isPerChat ? "Night Owl Mode" : "Your Late Night Crew"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="mb-3 text-xs text-[#94A3B3] dark:text-zinc-500">Messages sent 10 PM – 5 AM</p>
-
-                {lateNightChats.length === 0 ? (
-                  <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No late-night activity.</p>
-                ) : isPerChat ? (
-                  <div>
-                    <div className="flex items-baseline gap-2 mb-1">
-                      <span className="text-2xl font-bold text-[#1B2432] dark:text-white">
-                        {lnTotal.toLocaleString()}
-                      </span>
-                      <span className="text-sm text-[#4E5D6E] dark:text-zinc-400">
-                        late night messages ({totalMessages > 0 ? ((lnTotal / totalMessages) * 100).toFixed(1) : "0"}% of all)
-                      </span>
+          {/* Night Owl Mode — per-chat only (global version is in People tab) */}
+          {isPerChat && (
+            <div className="mb-6">
+              <Card className="card-glass">
+                <CardHeader className="flex flex-row items-center gap-2">
+                  <Moon className="h-5 w-5 text-[#1B2432] dark:text-indigo-400" />
+                  <CardTitle className="text-lg font-semibold text-[#1B2432] dark:text-white">
+                    Night Owl Mode
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-3 text-xs text-[#94A3B3] dark:text-zinc-500">Messages sent 10 PM – 5 AM</p>
+                  {lateNightChats.length === 0 ? (
+                    <p className="text-sm text-[#94A3B3] dark:text-zinc-500">No late-night activity.</p>
+                  ) : (
+                    <div>
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="text-2xl font-bold text-[#1B2432] dark:text-white">
+                          {lnTotal.toLocaleString()}
+                        </span>
+                        <span className="text-sm text-[#4E5D6E] dark:text-zinc-400">
+                          late night messages ({totalMessages > 0 ? ((lnTotal / totalMessages) * 100).toFixed(1) : "0"}% of all)
+                        </span>
+                      </div>
+                      <div className="flex gap-4 mt-3 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#007AFF]" />
+                          <span className="font-semibold text-[#1B2432] dark:text-zinc-200">{lnSent.toLocaleString()}</span>
+                          <span className="text-[#94A3B3] dark:text-zinc-500">sent</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#94A3B3] dark:bg-zinc-500" />
+                          <span className="font-semibold text-[#1B2432] dark:text-zinc-200">{lnReceived.toLocaleString()}</span>
+                          <span className="text-[#94A3B3] dark:text-zinc-500">received</span>
+                        </div>
+                      </div>
+                      {lnTotal > 0 && (
+                        <div className="h-1.5 rounded-full bg-[#1B2432]/[0.06] dark:bg-white/[0.06] mt-3 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#007AFF]"
+                            style={{ width: `${(lnSent / lnTotal) * 100}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div className="flex gap-4 mt-3 text-sm">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#007AFF]" />
-                        <span className="font-semibold text-[#1B2432] dark:text-zinc-200">{lnSent.toLocaleString()}</span>
-                        <span className="text-[#94A3B3] dark:text-zinc-500">sent</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#94A3B3] dark:bg-zinc-500" />
-                        <span className="font-semibold text-[#1B2432] dark:text-zinc-200">{lnReceived.toLocaleString()}</span>
-                        <span className="text-[#94A3B3] dark:text-zinc-500">received</span>
-                      </div>
-                    </div>
-                    {lnTotal > 0 && (
-                      <div className="h-1.5 rounded-full bg-[#1B2432]/[0.06] dark:bg-white/[0.06] mt-3 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-[#007AFF]"
-                          style={{ width: `${(lnSent / lnTotal) * 100}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <ol className="space-y-1.5">
-                    {lateNightChats.map((c, i) => {
-                      const name = resolveChatName(Number(c.key), chatMap);
-                      return (
-                        <li key={c.key} className="flex items-center justify-between py-1.5">
-                          <span className="flex items-center gap-2">
-                            <span className="w-5 text-right text-xs font-bold text-[#94A3B3] dark:text-zinc-500">{i + 1}</span>
-                            <span className="text-sm font-medium text-[#1B2432] dark:text-zinc-200 truncate">{name}</span>
-                          </span>
-                          <span className="text-sm text-[#4E5D6E] dark:text-zinc-400">{c.total.toLocaleString()}</span>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Emoji Frequency */}

@@ -2,7 +2,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::db::analytics_db;
+use crate::db::{analytics_db, chat_db};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
@@ -148,11 +148,28 @@ pub async fn get_wrapped_stats(
     // Only use cache for unfiltered (global) queries
     let use_cache = chat_ids.is_none();
 
-    // Check cache first
+    // Quick message count from chat.db for cache staleness check
+    let chat_db_mutex = state.chat_db.clone();
+    let analytics_db_mutex = state.analytics_db.clone();
+
+    let current_msg_count = if use_cache {
+        let guard = chat_db_mutex
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(conn) = guard.as_ref() {
+            chat_db::get_total_message_count(conn).unwrap_or(0)
+        } else {
+            0
+        }
+    } else {
+        0
+    };
+
+    // Check cache first — only valid if message count hasn't changed
     if use_cache {
         let analytics_conn = state
             .lock_analytics_db()?;
-        if let Some(json) = analytics_db::get_cached_wrapped(&analytics_conn, year) {
+        if let Some(json) = analytics_db::get_cached_wrapped(&analytics_conn, year, current_msg_count) {
             if let Ok(stats) = serde_json::from_str::<WrappedStats>(&json) {
                 return Ok(stats);
             }
@@ -162,8 +179,6 @@ pub async fn get_wrapped_stats(
 
     // Compute on a blocking thread to avoid holding the mutex across await points
     // and to keep the UI responsive during heavy SQL work.
-    let chat_db_mutex = state.chat_db.clone();
-    let analytics_db_mutex = state.analytics_db.clone();
     let chat_ids_clone = chat_ids.clone();
 
     let result = tokio::task::spawn_blocking(move || -> AppResult<WrappedStats> {
@@ -200,7 +215,7 @@ pub async fn get_wrapped_stats(
                 let a_conn = analytics_db_mutex
                     .lock()
                     .map_err(|e| AppError::Custom(e.to_string()))?;
-                let _ = analytics_db::set_cached_wrapped(&a_conn, year, &json);
+                let _ = analytics_db::set_cached_wrapped(&a_conn, year, &json, current_msg_count);
             }
         }
 

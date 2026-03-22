@@ -21,6 +21,7 @@
     "fuse.js": "^7.1.0",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
+    "posthog-js": "^1.363.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-virtuoso": "^4.18.3",

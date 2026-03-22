@@ -20,6 +20,12 @@ function applyTheme(theme: Theme) {
 }
 
 export interface AppState {
+  // ── Tutorial ──────────────────────────────────
+  tutorialStep: number | null;  // null = done/skipped
+  advanceTutorial: () => void;
+  skipTutorial: () => void;
+  resetTutorial: () => void;
+
   // ── Navigation ──────────────────────────────────
   view: AppView;
   setView: (view: AppView) => void;
@@ -60,7 +66,40 @@ export interface AppState {
   setHighlightedMessageDate: (date: number | null) => void;
 }
 
+function getTutorialStart(): number | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("hasCompletedTutorial") ? null : 1;
+}
+
+function completeTutorial() {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("hasCompletedTutorial", "true");
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
+  tutorialStep: getTutorialStart(),
+  advanceTutorial: () => {
+    const step = get().tutorialStep;
+    if (step === null) return;
+    if (step >= 3) {
+      completeTutorial();
+      set({ tutorialStep: null });
+    } else {
+      set({ tutorialStep: step + 1 });
+    }
+  },
+  skipTutorial: () => {
+    completeTutorial();
+    set({ tutorialStep: null });
+  },
+  resetTutorial: () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("hasCompletedTutorial");
+    }
+    set({ tutorialStep: 1, view: "chat", selectedChatId: null, capsuleChatId: null });
+  },
+
   view: "chat",
   setView: (view) => set({ view }),
 

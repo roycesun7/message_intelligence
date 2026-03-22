@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Settings, RotateCcw, Trash2, Play, Bug, ChevronDown, ChevronRight, Loader2, Cpu, CheckCircle, AlertCircle, FolderOpen, RefreshCw, Download } from "lucide-react";
+import { useAppStore } from "@/stores/app-store";
 import { useEmbeddingStatus } from "@/hooks/use-search";
 import {
   setIndexTarget,
@@ -523,7 +524,32 @@ export function SettingsPage() {
             </div>
           )}
         </div>
+
+        {/* Tutorial Section */}
+        <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
+          <div className="flex items-center gap-3 mb-2">
+            <Play className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
+            <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Tutorial</h2>
+          </div>
+          <p className="text-sm text-[#4B6382] dark:text-zinc-400 mb-4">
+            Replay the guided walkthrough of Capsule.
+          </p>
+          <ReplayTutorialButton />
+        </div>
       </div>
     </div>
+  );
+}
+
+function ReplayTutorialButton() {
+  const resetTutorial = useAppStore((s) => s.resetTutorial);
+  return (
+    <button
+      onClick={resetTutorial}
+      className="flex items-center gap-2 rounded-xl bg-[#3B82C4] hover:bg-[#2d6da3] text-white text-sm font-medium px-4 py-2.5 transition-colors cursor-pointer"
+    >
+      <RotateCcw className="h-4 w-4" />
+      Replay Tutorial
+    </button>
   );
 }

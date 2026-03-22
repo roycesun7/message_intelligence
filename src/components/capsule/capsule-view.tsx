@@ -953,6 +953,13 @@ export function CapsuleView() {
           {/* Milestone cards */}
           <MilestoneStrip chatId={capsuleChatId} />
 
+          {/* On This Day — per-chat: show before volume chart */}
+          {isPerChat && year === 0 && (
+            <div className="mb-6">
+              <OnThisDaySection chatId={capsuleChatId} />
+            </div>
+          )}
+
           {/* Per-chat: Temporal trends */}
           {isPerChat && (
             <div className="mb-6">
@@ -967,8 +974,8 @@ export function CapsuleView() {
             </div>
           )}
 
-          {/* On This Day */}
-          {year === 0 && (
+          {/* On This Day — global */}
+          {!isPerChat && year === 0 && (
             <div className="mb-6">
               <OnThisDaySection chatId={capsuleChatId} />
             </div>

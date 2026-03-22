@@ -10,6 +10,7 @@ import { GlobalSearch } from "@/components/search/global-search";
 import { SettingsPage } from "@/components/settings/settings-page";
 import { IndexingStatusBar } from "@/components/layout/indexing-status-bar";
 import { FdaGate } from "@/components/onboarding/fda-gate";
+import { TutorialOverlay } from "@/components/onboarding/tutorial-overlay";
 import { UpdateChecker } from "@/components/layout/update-checker";
 
 // ── Nav tabs ──────────────────────────────────────────────
@@ -27,13 +28,14 @@ function NavBar() {
   const toggleTheme = useAppStore((s) => s.toggleTheme);
 
   return (
-    <nav className="flex h-11 shrink-0 items-center gap-1 rounded-2xl bg-[#F7F8FA]/80 dark:bg-[#2A2A2C]/60 backdrop-blur-2xl saturate-[1.2] dark:saturate-[1.8] border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_24px_rgba(0,0,0,0.4)] px-4 relative z-10 mx-2 mt-2">
+    <nav data-tutorial="nav-bar" className="flex h-11 shrink-0 items-center gap-1 rounded-2xl bg-[#F7F8FA]/80 dark:bg-[#2A2A2C]/60 backdrop-blur-2xl saturate-[1.2] dark:saturate-[1.8] border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_24px_rgba(0,0,0,0.4)] px-4 relative z-10 mx-2 mt-2">
       {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
         const isActive = view === id;
         return (
           <button
             key={id}
             onClick={() => setView(id)}
+            data-tutorial={id === "capsule" ? "capsule-tab" : undefined}
             className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium tracking-wide transition-all duration-200 apple-text-sm ${
               isActive
                 ? "bg-[#1B2432]/10 text-[#1B2432] dark:bg-[#007AFF]/20 dark:text-[#007AFF]"
@@ -90,6 +92,7 @@ export default function Home() {
           </main>
         </div>
       </div>
+      <TutorialOverlay />
       <UpdateChecker />
     </FdaGate>
   );

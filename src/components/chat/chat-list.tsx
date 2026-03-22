@@ -207,7 +207,7 @@ export function ChatList() {
   const totalCount = filteredChats.length + (isCapsuleView ? 1 : 0);
 
   return (
-    <div className="relative h-full w-80 min-w-80 overflow-hidden rounded-2xl bg-[#F7F8FA]/80 dark:bg-[#2A2A2C]/60 backdrop-blur-2xl saturate-[1.2] dark:saturate-[1.8] border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_24px_rgba(0,0,0,0.4)] mr-2">
+    <div data-tutorial="chat-list" className="relative h-full w-80 min-w-80 overflow-hidden rounded-2xl bg-[#F7F8FA]/80 dark:bg-[#2A2A2C]/60 backdrop-blur-2xl saturate-[1.2] dark:saturate-[1.8] border border-[#D1D5DB]/30 dark:border-white/[0.08] shadow-[0_2px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_24px_rgba(0,0,0,0.4)] mr-2">
       {/* Search bar + refresh — floats over list so content scrolls behind the blur */}
       <div className="absolute top-0 left-0 right-0 pt-3 px-3 pb-1 z-10 backdrop-blur-[1px] bg-[#F7F8FA]/15 dark:bg-[#2A2A2C]/15">
         <div className="flex items-center gap-1.5">

@@ -496,3 +496,9 @@
 .rainbow-glow {
   animation: rainbow-glow 4s ease-in-out infinite;
 }
+
+/* ── Tutorial spotlight pulse ────────────────── */
+@keyframes tutorial-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 196, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(59, 130, 196, 0); }
+}

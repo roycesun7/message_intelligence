@@ -11,6 +11,7 @@
     api_host: 'https://us.i.posthog.com',
     person_profiles: 'always',
   });
+  posthog.register({ source: 'landing' });
 </script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -25,6 +26,7 @@ canvas{display:block;width:100vw;height:100vh}
 .cta a:hover{background:rgba(80,160,240,0.35);border-color:rgba(100,180,255,0.3)}
 .cta a svg{width:18px;height:18px;opacity:0.7}
 .note{margin-top:16px;font-size:12px;color:rgba(130,180,230,0.25);letter-spacing:1px}
+.source-link{color:inherit;text-decoration:underline;text-underline-offset:2px}
 </style>
 </head>
 <body>
@@ -33,16 +35,20 @@ canvas{display:block;width:100vw;height:100vh}
   <div class="logo">capsule</div>
   <div class="sub">Your messages, illuminated.</div>
   <div class="cta">
-    <a href="https://github.com/roycesun7/message_intelligence/releases/latest/download/Capsule_0.1.0_aarch64.dmg" id="download-btn">
+    <a href="https://github.com/roycesun7/message_intelligence/releases/latest/download/Capsule_0.2.0_aarch64.dmg" id="download-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Download for macOS
     </a>
   </div>
-  <div class="note">Free &middot; macOS only &middot; All processing happens locally</div>
+  <div class="note">Free &middot; Open <a href="https://github.com/roycesun7/message_intelligence" class="source-link">source</a> &middot; macOS only</div>
+  <div class="note">All processing happens locally</div>
 </div>
 <script>
 document.getElementById('download-btn').addEventListener('click',function(){
-  if(window.posthog)posthog.capture('download_clicked');
+  if(window.posthog)posthog.capture('download_clicked',{source:'landing'});
+});
+document.querySelector('.source-link').addEventListener('click',function(){
+  if(window.posthog)posthog.capture('source_link_clicked',{source:'landing'});
 });
 </script>
 <script>
@@ -348,8 +354,13 @@ class AnglerFish{
     // The lure extends from the head forward and up
     const lureBaseX=S*0.6;
     const lureBaseY=-S*0.3;
-    const lureTipX=S*1.4+Math.sin(t*1.2)*S*0.15;
-    const lureTipY=-S*0.9+Math.cos(t*0.9)*S*0.1;
+    // Fixed 3/8 circle arc for the lure stalk
+    const lureArcR=S*0.45;
+    const lureCX=lureBaseX+lureArcR;
+    const lureCY=lureBaseY;
+    const lureArcEnd=7*Math.PI/4;
+    const lureTipX=lureCX+lureArcR*Math.cos(lureArcEnd);
+    const lureTipY=lureCY+lureArcR*Math.sin(lureArcEnd);
 
     // Large ambient light from lure
     const ambR=S*5;
@@ -371,119 +382,207 @@ class AnglerFish{
     ctx.fillRect(lureTipX-medR,lureTipY-medR,medR*2,medR*2);
 
     // ── BODY ──
-    // Main body shape (bulbous front, tapers back)
+    // Main body shape — rounder, more organic angler silhouette
     ctx.beginPath();
-    // Top line
     ctx.moveTo(-S*1.2,0);
-    ctx.bezierCurveTo(-S*0.8,-S*0.15,-S*0.3,-S*0.35,S*0.1,-S*0.4);
-    ctx.bezierCurveTo(S*0.4,-S*0.42,S*0.6,-S*0.3,S*0.7,-S*0.15);
-    // Front/mouth area
-    ctx.bezierCurveTo(S*0.75,-S*0.05,S*0.75,S*0.05,S*0.7,S*0.15);
-    // Bottom line
-    ctx.bezierCurveTo(S*0.6,S*0.35,S*0.3,S*0.45,S*0.1,S*0.42);
-    ctx.bezierCurveTo(-S*0.3,S*0.38,-S*0.8,S*0.15,-S*1.2,0);
+    // Dorsal (top) contour — high arch then steep drop to blunt head
+    ctx.bezierCurveTo(-S*0.9,-S*0.12,-S*0.5,-S*0.38,-S*0.1,-S*0.44);
+    ctx.bezierCurveTo(S*0.15,-S*0.48,S*0.4,-S*0.42,S*0.55,-S*0.3);
+    ctx.bezierCurveTo(S*0.65,-S*0.2,S*0.72,-S*0.1,S*0.72,0);
+    // Blunt snout
+    ctx.bezierCurveTo(S*0.72,S*0.1,S*0.65,S*0.22,S*0.55,S*0.32);
+    // Ventral (bottom) contour — rounder belly
+    ctx.bezierCurveTo(S*0.35,S*0.48,S*0.1,S*0.52,-S*0.15,S*0.46);
+    ctx.bezierCurveTo(-S*0.5,S*0.38,-S*0.9,S*0.15,-S*1.2,0);
     ctx.closePath();
 
-    // Body gradient (dark with subtle bioluminescence)
-    const bodyG=ctx.createLinearGradient(-S*1.2,-S*0.4,S*0.7,S*0.4);
-    bodyG.addColorStop(0,'rgba(15,25,40,0.85)');
-    bodyG.addColorStop(0.4,'rgba(20,35,55,0.8)');
-    bodyG.addColorStop(0.7,'rgba(25,40,60,0.75)');
-    bodyG.addColorStop(1,'rgba(18,30,48,0.8)');
+    // Body gradient — dark with depth shading
+    const bodyG=ctx.createRadialGradient(S*0.1,-S*0.05,S*0.1,S*0.1,S*0.1,S*0.9);
+    bodyG.addColorStop(0,'rgba(30,50,70,0.85)');
+    bodyG.addColorStop(0.4,'rgba(22,38,58,0.82)');
+    bodyG.addColorStop(0.7,'rgba(16,28,45,0.8)');
+    bodyG.addColorStop(1,'rgba(12,22,38,0.85)');
     ctx.fillStyle=bodyG;
     ctx.fill();
 
-    // Body edge highlight (subtle rim light from lure)
-    ctx.strokeStyle=`rgba(80,160,220,${this.lureBrightness*0.12})`;
-    ctx.lineWidth=1;
+    // Body rim light from lure
+    ctx.strokeStyle=`rgba(80,160,220,${this.lureBrightness*0.1})`;
+    ctx.lineWidth=0.8;
     ctx.stroke();
 
-    // ── FINS ──
-    // Dorsal fin
-    const dorsalWave=Math.sin(this.tailPhase)*0.15;
+    // Subtle belly highlight
     ctx.beginPath();
-    ctx.moveTo(-S*0.3,-S*0.35);
-    ctx.quadraticCurveTo(-S*0.1,-S*0.55+dorsalWave*S,S*0.2,-S*0.38);
-    ctx.strokeStyle='rgba(20,40,60,0.5)';ctx.lineWidth=1.5;ctx.stroke();
-    ctx.fillStyle='rgba(18,35,55,0.4)';ctx.fill();
+    ctx.moveTo(-S*0.8,S*0.08);
+    ctx.bezierCurveTo(-S*0.4,S*0.35,S*0.2,S*0.4,S*0.5,S*0.2);
+    ctx.strokeStyle=`rgba(60,120,160,${this.lureBrightness*0.06})`;
+    ctx.lineWidth=1.5;ctx.stroke();
 
-    // Pectoral fins (animated)
-    const finWave=Math.sin(this.tailPhase*1.5)*0.2;
-    // Top pectoral
+    // Lateral line (faint line along mid-body)
     ctx.beginPath();
-    ctx.moveTo(S*0.1,-S*0.2);
-    ctx.quadraticCurveTo(S*0.05+finWave*S,-S*0.5,-S*0.2,-S*0.35+finWave*S*0.5);
-    ctx.strokeStyle='rgba(25,45,65,0.35)';ctx.lineWidth=1;ctx.stroke();
-    // Bottom pectoral
-    ctx.beginPath();
-    ctx.moveTo(S*0.1,S*0.2);
-    ctx.quadraticCurveTo(S*0.05-finWave*S,S*0.5,-S*0.2,S*0.35-finWave*S*0.5);
-    ctx.stroke();
+    ctx.moveTo(-S*0.9,0);
+    ctx.bezierCurveTo(-S*0.5,-S*0.02,S*0.1,-S*0.04,S*0.5,-S*0.05);
+    ctx.strokeStyle='rgba(70,130,170,0.06)';
+    ctx.lineWidth=0.6;ctx.stroke();
 
-    // ── TAIL (animated swimming motion) ──
-    const tailSwing=Math.sin(this.tailPhase)*S*0.2;
+    // Subtle scale texture (faint arcs)
+    ctx.save();
+    ctx.globalAlpha=0.03;
+    for(let row=0;row<3;row++){
+      for(let col=0;col<5;col++){
+        const sx=-S*0.7+col*S*0.3;
+        const sy=-S*0.15+row*S*0.15;
+        ctx.beginPath();
+        ctx.arc(sx,sy,S*0.08,0.2,Math.PI-0.2);
+        ctx.strokeStyle='rgba(100,180,220,1)';
+        ctx.lineWidth=0.5;ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    // ── DORSAL FIN (more detailed, with membrane lines) ──
+    const dorsalWave=Math.sin(this.tailPhase)*0.12;
+    ctx.beginPath();
+    ctx.moveTo(-S*0.35,-S*0.42);
+    ctx.bezierCurveTo(-S*0.25,-S*0.65+dorsalWave*S,-S*0.05,-S*0.7+dorsalWave*S,S*0.15,-S*0.45);
+    ctx.bezierCurveTo(S*0.05,-S*0.44,-S*0.15,-S*0.43,-S*0.35,-S*0.42);
+    ctx.closePath();
+    ctx.fillStyle='rgba(18,35,55,0.5)';ctx.fill();
+    ctx.strokeStyle='rgba(40,70,100,0.2)';ctx.lineWidth=0.8;ctx.stroke();
+    // Fin rays
+    ctx.save();ctx.globalAlpha=0.08;
+    for(let i=0;i<4;i++){
+      const fx=-S*0.3+i*S*0.12;
+      const fy=-S*0.43;
+      const ftip=fx+S*0.02;
+      const ftipY=-S*0.58+dorsalWave*S*0.5+Math.abs(i-1.5)*S*0.04;
+      ctx.beginPath();ctx.moveTo(fx,fy);ctx.lineTo(ftip,ftipY);
+      ctx.strokeStyle='rgba(80,140,180,1)';ctx.lineWidth=0.5;ctx.stroke();
+    }
+    ctx.restore();
+
+    // ── PECTORAL FIN (more fin-like shape) ──
+    const finWave=Math.sin(this.tailPhase*1.5)*0.15;
+    ctx.beginPath();
+    ctx.moveTo(S*0.05,S*0.15);
+    ctx.bezierCurveTo(S*0.15+finWave*S*0.5,S*0.35,-S*0.1+finWave*S*0.3,S*0.55,-S*0.25,S*0.4-finWave*S*0.3);
+    ctx.bezierCurveTo(-S*0.15,S*0.3,-S*0.05,S*0.2,S*0.05,S*0.15);
+    ctx.closePath();
+    ctx.fillStyle='rgba(18,35,55,0.35)';ctx.fill();
+    ctx.strokeStyle='rgba(50,90,130,0.12)';ctx.lineWidth=0.6;ctx.stroke();
+
+    // Small ventral fin
+    ctx.beginPath();
+    ctx.moveTo(-S*0.3,S*0.35);
+    ctx.quadraticCurveTo(-S*0.35+finWave*S*0.2,S*0.5,-S*0.5,S*0.38);
+    ctx.strokeStyle='rgba(30,55,75,0.3)';ctx.lineWidth=0.8;ctx.stroke();
+    ctx.fillStyle='rgba(18,35,55,0.25)';ctx.fill();
+
+    // ── TAIL (forked, larger and more visible) ──
+    const tailSwing=Math.sin(this.tailPhase)*S*0.25;
+    // Caudal peduncle (narrow tail base)
     ctx.beginPath();
     ctx.moveTo(-S*1.1,-S*0.05);
-    ctx.quadraticCurveTo(-S*1.4,tailSwing*0.5,-S*1.7,tailSwing);
-    ctx.quadraticCurveTo(-S*1.5,0,-S*1.7,-tailSwing*0.6);
-    ctx.quadraticCurveTo(-S*1.4,-tailSwing*0.3,-S*1.1,S*0.05);
+    ctx.bezierCurveTo(-S*1.2,-S*0.03,-S*1.25,0,-S*1.3,0);
+    ctx.bezierCurveTo(-S*1.25,0,-S*1.2,S*0.03,-S*1.1,S*0.05);
+    ctx.fillStyle='rgba(18,32,50,0.7)';ctx.fill();
+    // Upper tail lobe
+    ctx.beginPath();
+    ctx.moveTo(-S*1.28,-S*0.03);
+    ctx.bezierCurveTo(-S*1.5,tailSwing*0.3-S*0.18,-S*1.7,tailSwing*0.5-S*0.12,-S*1.9,tailSwing-S*0.05);
+    ctx.bezierCurveTo(-S*1.7,tailSwing*0.3,-S*1.5,S*0.01,-S*1.28,S*0.01);
+    ctx.closePath();
     ctx.fillStyle='rgba(18,32,50,0.6)';ctx.fill();
-    ctx.strokeStyle='rgba(60,120,180,0.08)';ctx.lineWidth=0.8;ctx.stroke();
+    ctx.strokeStyle=`rgba(60,120,180,${0.08+this.lureBrightness*0.03})`;ctx.lineWidth=0.7;ctx.stroke();
+    // Lower tail lobe
+    ctx.beginPath();
+    ctx.moveTo(-S*1.28,S*0.03);
+    ctx.bezierCurveTo(-S*1.5,-tailSwing*0.2+S*0.18,-S*1.7,-tailSwing*0.4+S*0.12,-S*1.85,-tailSwing*0.7+S*0.05);
+    ctx.bezierCurveTo(-S*1.65,-tailSwing*0.2,-S*1.5,-S*0.01,-S*1.28,-S*0.01);
+    ctx.closePath();
+    ctx.fillStyle='rgba(18,32,50,0.6)';ctx.fill();
+    ctx.strokeStyle=`rgba(60,120,180,${0.08+this.lureBrightness*0.03})`;ctx.lineWidth=0.7;ctx.stroke();
 
-    // ── MOUTH (slightly open, with teeth) ──
+    // ── MOUTH (with underbite jaw, curved) ──
     const jawAngle=this.jawOpen;
-    // Upper jaw
+    // Mouth interior (dark gap)
     ctx.beginPath();
-    ctx.moveTo(S*0.5,-S*0.02);
-    ctx.lineTo(S*0.78,-S*0.08-jawAngle*S*0.5);
-    ctx.lineTo(S*0.7,-S*0.15);
-    ctx.fillStyle='rgba(10,15,25,0.9)';ctx.fill();
-    // Lower jaw
-    ctx.beginPath();
-    ctx.moveTo(S*0.5,S*0.02);
-    ctx.lineTo(S*0.78,S*0.08+jawAngle*S*0.5);
-    ctx.lineTo(S*0.7,S*0.15);
-    ctx.fill();
-    // Teeth (small, sharp, pointing inward)
-    ctx.fillStyle=`rgba(180,200,220,${0.3+this.lureBrightness*0.1})`;
-    for(let i=0;i<5;i++){
-      const tx=S*0.52+i*S*0.05;
-      const tSize=2+Math.random()*2;
-      // Upper teeth
-      ctx.beginPath();
-      ctx.moveTo(tx,-S*0.02-jawAngle*S*i*0.08);
-      ctx.lineTo(tx+1,S*0.04-jawAngle*S*i*0.06);
-      ctx.lineTo(tx-1,S*0.04-jawAngle*S*i*0.06);
-      ctx.fill();
-      // Lower teeth
-      ctx.beginPath();
-      ctx.moveTo(tx,S*0.02+jawAngle*S*i*0.08);
-      ctx.lineTo(tx+1,-S*0.04+jawAngle*S*i*0.06);
-      ctx.lineTo(tx-1,-S*0.04+jawAngle*S*i*0.06);
-      ctx.fill();
-    }
+    ctx.moveTo(S*0.55,-S*0.04);
+    ctx.bezierCurveTo(S*0.65,-S*0.06,S*0.7,-S*0.03,S*0.72,0);
+    ctx.bezierCurveTo(S*0.7,S*0.03,S*0.65,S*0.06+jawAngle*S,S*0.55,S*0.06+jawAngle*S*0.5);
+    ctx.fillStyle='rgba(5,8,15,0.9)';ctx.fill();
 
-    // ── EYE ──
-    // Eye socket
-    ctx.beginPath();ctx.arc(S*0.35,-S*0.15,S*0.08,0,Math.PI*2);
-    ctx.fillStyle='rgba(5,10,18,0.9)';ctx.fill();
-    // Iris
-    ctx.beginPath();ctx.arc(S*0.36,-S*0.15,S*0.05,0,Math.PI*2);
-    ctx.fillStyle=`rgba(60,180,200,${0.4+this.lureBrightness*0.15})`;ctx.fill();
-    // Pupil
-    ctx.beginPath();ctx.arc(S*0.37,-S*0.15,S*0.025,0,Math.PI*2);
-    ctx.fillStyle='rgba(5,10,15,0.95)';ctx.fill();
+    // Lower jaw (slight underbite, curves down when open)
+    ctx.beginPath();
+    ctx.moveTo(S*0.4,S*0.2);
+    ctx.bezierCurveTo(S*0.55,S*0.25+jawAngle*S*0.3,S*0.7,S*0.15+jawAngle*S*0.5,S*0.75,S*0.05+jawAngle*S*0.3);
+    ctx.strokeStyle='rgba(20,35,55,0.6)';ctx.lineWidth=1.2;ctx.stroke();
+
+    // Teeth (varied sizes, curved, translucent)
+    const teethPositions=[0,0.04,0.09,0.14,0.18,0.22];
+    const teethSizes=[3,4.5,3.5,5,3,2.5];
+    ctx.fillStyle=`rgba(180,210,230,${0.25+this.lureBrightness*0.08})`;
+    teethPositions.forEach((tp,i)=>{
+      const tx=S*0.5+tp*S;
+      const tH=teethSizes[i];
+      // Upper teeth (point down)
+      ctx.beginPath();
+      ctx.moveTo(tx,-S*0.03-jawAngle*S*i*0.04);
+      ctx.lineTo(tx+0.8,S*0.01+tH*0.4-jawAngle*S*i*0.03);
+      ctx.quadraticCurveTo(tx,S*0.01+tH*0.5-jawAngle*S*i*0.03,tx-0.8,S*0.01+tH*0.4-jawAngle*S*i*0.03);
+      ctx.fill();
+      // Lower teeth (point up, fewer)
+      if(i%2===0){
+        ctx.beginPath();
+        ctx.moveTo(tx,S*0.04+jawAngle*S*i*0.04);
+        ctx.lineTo(tx+0.7,-S*0.0+jawAngle*S*i*0.03);
+        ctx.quadraticCurveTo(tx,-S*0.01+jawAngle*S*i*0.03,tx-0.7,-S*0.0+jawAngle*S*i*0.03);
+        ctx.fill();
+      }
+    });
+
+    // ── EYE (more detailed) ──
+    // Eye socket shadow
+    ctx.beginPath();ctx.arc(S*0.35,-S*0.15,S*0.1,0,Math.PI*2);
+    ctx.fillStyle='rgba(5,10,18,0.5)';ctx.fill();
+    // Eyeball
+    ctx.beginPath();ctx.arc(S*0.35,-S*0.15,S*0.075,0,Math.PI*2);
+    ctx.fillStyle='rgba(8,14,22,0.9)';ctx.fill();
+    // Iris (larger, more visible)
+    ctx.beginPath();ctx.arc(S*0.36,-S*0.15,S*0.055,0,Math.PI*2);
+    const irisG=ctx.createRadialGradient(S*0.36,-S*0.15,0,S*0.36,-S*0.15,S*0.055);
+    irisG.addColorStop(0,`rgba(80,200,220,${0.5+this.lureBrightness*0.2})`);
+    irisG.addColorStop(0.6,`rgba(40,150,180,${0.4+this.lureBrightness*0.15})`);
+    irisG.addColorStop(1,`rgba(20,100,130,${0.3+this.lureBrightness*0.1})`);
+    ctx.fillStyle=irisG;ctx.fill();
+    // Pupil (vertical slit like deep-sea fish)
+    ctx.beginPath();
+    ctx.ellipse(S*0.365,-S*0.15,S*0.012,S*0.035,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(2,5,10,0.95)';ctx.fill();
     // Eye glint
-    ctx.beginPath();ctx.arc(S*0.34,-S*0.17,S*0.012,0,Math.PI*2);
-    ctx.fillStyle=`rgba(200,240,255,${0.4+this.lureBrightness*0.2})`;ctx.fill();
+    ctx.beginPath();ctx.arc(S*0.34,-S*0.17,S*0.014,0,Math.PI*2);
+    ctx.fillStyle=`rgba(200,240,255,${0.5+this.lureBrightness*0.25})`;ctx.fill();
+    // Secondary smaller glint
+    ctx.beginPath();ctx.arc(S*0.375,-S*0.135,S*0.006,0,Math.PI*2);
+    ctx.fillStyle=`rgba(180,230,250,${0.3+this.lureBrightness*0.15})`;ctx.fill();
 
-    // ── LURE STALK (illicium) ──
+    // ── BODY BIOLUMINESCENT SPOTS ──
+    ctx.save();
+    const spotPositions=[[-S*0.6,-S*0.1],[-S*0.3,S*0.15],[S*0.0,-S*0.2],[-S*0.5,S*0.2],[-S*0.15,S*0.3]];
+    spotPositions.forEach(([sx,sy])=>{
+      const flicker=0.3+0.3*Math.sin(t*1.5+sx+sy);
+      ctx.beginPath();ctx.arc(sx,sy,S*0.015,0,Math.PI*2);
+      ctx.fillStyle=`rgba(80,200,220,${flicker*0.15*this.lureBrightness})`;ctx.fill();
+      const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,S*0.06);
+      sg.addColorStop(0,`rgba(80,200,220,${flicker*0.04*this.lureBrightness})`);
+      sg.addColorStop(1,'rgba(80,200,220,0)');
+      ctx.fillStyle=sg;
+      ctx.fillRect(sx-S*0.06,sy-S*0.06,S*0.12,S*0.12);
+    });
+    ctx.restore();
+
+    // ── LURE STALK (illicium) — 3/8 circle arc ──
     ctx.beginPath();
-    ctx.moveTo(lureBaseX,lureBaseY);
-    // Curved stalk
-    const stalkMidX=(lureBaseX+lureTipX)/2+Math.sin(t*0.8)*S*0.08;
-    const stalkMidY=(lureBaseY+lureTipY)/2+Math.cos(t*1.1)*S*0.06;
-    ctx.quadraticCurveTo(stalkMidX,stalkMidY,lureTipX,lureTipY);
+    ctx.arc(lureCX,lureCY,lureArcR,Math.PI,lureArcEnd,false);
     ctx.strokeStyle=`rgba(40,70,90,0.5)`;
     ctx.lineWidth=1.5;ctx.stroke();
 

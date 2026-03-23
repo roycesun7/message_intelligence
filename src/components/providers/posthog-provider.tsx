@@ -7,7 +7,8 @@ const POSTHOG_HOST = "https://us.i.posthog.com";
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if (process.env.NODE_ENV === "development") return;
+    // TODO: re-enable before release
+    // if (process.env.NODE_ENV === "development") return;
 
     async function init() {
       const posthog = (await import("posthog-js")).default;

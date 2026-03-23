@@ -311,7 +311,10 @@ function TabBar({
 // ── Temporal Trends Chart (Recharts AreaChart) ──────────
 
 function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number }) {
+  const theme = useAppStore((s) => s.theme);
   const { data: trends, isLoading } = useTemporalTrends(chatId, year === 0 ? undefined : year);
+  const sentColor = theme === "dark" ? "#F59E0B" : "#1B2432";
+  const sentGradientId = `gradientSent-${theme}`;
 
   const { points, granularity } = useMemo(
     () => aggregateTemporalData(trends ?? []),
@@ -348,9 +351,9 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={points} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <defs>
-              <linearGradient id="gradientSent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1B2432" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#1B2432" stopOpacity={0.05} />
+              <linearGradient id={sentGradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={sentColor} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={sentColor} stopOpacity={0.05} />
               </linearGradient>
               <linearGradient id="gradientReceived" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3B82C4" stopOpacity={0.3} />
@@ -385,8 +388,8 @@ function TemporalTrendsChart({ chatId, year }: { chatId: number; year: number })
             <Area
               type="monotone"
               dataKey="sent"
-              stroke="#1B2432"
-              fill="url(#gradientSent)"
+              stroke={sentColor}
+              fill={`url(#${sentGradientId})`}
               strokeWidth={1.5}
             />
           </AreaChart>

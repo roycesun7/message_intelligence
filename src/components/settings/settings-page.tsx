@@ -114,14 +114,11 @@ export function SettingsPage() {
   const [modelsDir, setModelsDir] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
 
-  const pipelineRunning = pipelineProgress !== null && pipelineProgress.phase !== "done";
-
   useEffect(() => {
     getDataDir().then(setDataDir).catch(() => {});
     getModelsDir().then(setModelsDir).catch(() => {});
   }, []);
 
-  // Listen to pipeline progress events
   useEffect(() => {
     let cancelled = false;
     const unlisten = listen<EmbeddingProgress>("embedding-progress", (event) => {
@@ -132,61 +129,109 @@ export function SettingsPage() {
         }
       }
     });
-    return () => {
-      cancelled = true;
-      unlisten.then((fn) => fn()).catch(() => {});
-    };
+    return () => { cancelled = true; unlisten.then((fn) => fn()).catch(() => {}); };
   }, [queryClient]);
 
-  // Fetch model diagnostics on mount and poll while loading
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-
     const fetchDiagnostics = async () => {
       try {
         const data = await getModelDiagnostics();
         if (!cancelled) {
           setDiagnostics(data);
-          if (data.overall === "loading") {
-            timer = setTimeout(fetchDiagnostics, 2000);
-          }
+          if (data.overall === "loading") timer = setTimeout(fetchDiagnostics, 2000);
         }
-      } catch {
-        // Ignore errors
-      }
+      } catch { /* ignore */ }
     };
-
     fetchDiagnostics();
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, []);
 
-  // Listen to model-load-progress events
   useEffect(() => {
     let cancelled = false;
     const unlisten = listen<ModelDiagnostics>("model-load-progress", (event) => {
-      if (!cancelled) {
-        setDiagnostics(event.payload);
-      }
+      if (!cancelled) setDiagnostics(event.payload);
     });
-    return () => {
-      cancelled = true;
-      unlisten.then((fn) => fn()).catch(() => {});
-    };
+    return () => { cancelled = true; unlisten.then((fn) => fn()).catch(() => {}); };
   }, []);
 
+  return (
+    <div className="flex flex-1 flex-col bg-[#F0EDE8] dark:bg-zinc-950 p-6 overflow-y-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold text-[#071739] dark:text-white">Settings</h1>
+        <p className="mt-1 text-sm text-[#4B6382] dark:text-zinc-400">
+          Preferences and advanced settings
+        </p>
+      </div>
+
+      <div className="max-w-lg mx-auto w-full space-y-8">
+        {/* Tutorial Section — always visible */}
+        <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
+          <div className="flex items-center gap-3 mb-2">
+            <Play className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
+            <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Tutorial</h2>
+          </div>
+          <p className="text-sm text-[#4B6382] dark:text-zinc-400 mb-4">
+            Replay the guided walkthrough of Capsule.
+          </p>
+          <ReplayTutorialButton />
+        </div>
+
+        {/* Semantic Search Settings — collapsed by default */}
+        <AdvancedSearchSettings
+          status={status}
+          queryClient={queryClient}
+          sliderValue={sliderValue}
+          setSliderValue={setSliderValue}
+          rebuilding={rebuilding}
+          setRebuilding={setRebuilding}
+          pipelineProgress={pipelineProgress}
+          dataDir={dataDir}
+          debugMode={debugMode}
+          setDebugMode={setDebugMode}
+          diagnostics={diagnostics}
+          modelsDir={modelsDir}
+          reloading={reloading}
+          setReloading={setReloading}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AdvancedSearchSettings({
+  status, queryClient, sliderValue, setSliderValue,
+  rebuilding, setRebuilding, pipelineProgress,
+  dataDir, debugMode, setDebugMode, diagnostics,
+  modelsDir, reloading, setReloading,
+}: {
+  status: ReturnType<typeof useEmbeddingStatus>["data"];
+  queryClient: ReturnType<typeof useQueryClient>;
+  sliderValue: number | null;
+  setSliderValue: (v: number | null) => void;
+  rebuilding: boolean;
+  setRebuilding: (v: boolean) => void;
+  pipelineProgress: EmbeddingProgress | null;
+  dataDir: string | null;
+  debugMode: boolean;
+  setDebugMode: (v: boolean) => void;
+  diagnostics: ModelDiagnostics | null;
+  modelsDir: string | null;
+  reloading: boolean;
+  setReloading: (v: boolean) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const pipelineRunning = pipelineProgress !== null && pipelineProgress.phase !== "done";
   const currentTarget = status?.indexTarget ?? 500;
   const totalMessages = status?.totalMessages ?? 0;
   const totalEmbedded = status?.totalEmbedded ?? 0;
   const displayTarget = sliderValue ?? currentTarget;
+  const progress = displayTarget > 0 ? Math.min(100, (totalEmbedded / displayTarget) * 100) : 0;
+  const needsMoreIndexing = totalEmbedded < displayTarget;
 
-  const handleSliderChange = (value: number) => {
-    setSliderValue(value);
-  };
+  const handleSliderChange = (value: number) => setSliderValue(value);
 
   const commitSliderValue = async (value: number | null) => {
     if (value === null) return;
@@ -199,15 +244,8 @@ export function SettingsPage() {
   };
 
   const handleStartIndexing = async () => {
-    // Save the slider value first if changed
-    if (sliderValue !== null) {
-      await commitSliderValue(sliderValue);
-    }
-    try {
-      await runPipeline();
-    } catch {
-      // Pipeline may already be running — that's fine, progress events will update the UI
-    }
+    if (sliderValue !== null) await commitSliderValue(sliderValue);
+    try { await runPipeline(); } catch { /* may already be running */ }
   };
 
   const handleRebuild = async () => {
@@ -215,41 +253,35 @@ export function SettingsPage() {
     try {
       await rebuildSearchIndex();
       queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
-    } catch (err) {
-      console.error("Failed to rebuild index:", err);
-    } finally {
-      setRebuilding(false);
-    }
+    } catch (err) { console.error("Failed to rebuild index:", err); }
+    finally { setRebuilding(false); }
   };
 
   const handleClearEmbeddings = async () => {
     try {
       await clearAllEmbeddings();
       queryClient.invalidateQueries({ queryKey: ["embeddingStatus"] });
-    } catch (err) {
-      console.error("Failed to clear embeddings:", err);
-    }
+    } catch (err) { console.error("Failed to clear embeddings:", err); }
   };
 
-  const progress = displayTarget > 0 ? Math.min(100, (totalEmbedded / displayTarget) * 100) : 0;
-  const needsMoreIndexing = totalEmbedded < displayTarget;
-
   return (
-    <div className="flex flex-1 flex-col bg-[#F0EDE8] dark:bg-zinc-950 p-6 overflow-y-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-[#071739] dark:text-white">Settings</h1>
-        <p className="mt-1 text-sm text-[#4B6382] dark:text-zinc-400">
-          Configure search indexing and other preferences
-        </p>
-      </div>
+    <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl border border-[#CDD5DB]/40 dark:border-transparent">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-3 w-full text-left p-6 cursor-pointer"
+      >
+        <Settings className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
+        <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Semantic Search</h2>
+        <span className="text-xs text-[#A4B5C4] dark:text-zinc-500 ml-1">Coming Soon</span>
+        {expanded ? <ChevronDown className="h-4 w-4 ml-auto text-[#A4B5C4] dark:text-zinc-500" /> : <ChevronRight className="h-4 w-4 ml-auto text-[#A4B5C4] dark:text-zinc-500" />}
+      </button>
 
-      <div className="max-w-lg mx-auto w-full space-y-8">
+      {expanded && (
+        <div className="px-6 pb-6 space-y-8">
         {/* Search Index Section */}
-        <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
+        <div>
           <div className="flex items-center gap-3 mb-4">
-            <Settings className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
-            <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Search Index</h2>
+            <h3 className="text-sm font-semibold text-[#071739] dark:text-white">Search Index</h3>
           </div>
 
           {/* Status */}
@@ -524,19 +556,8 @@ export function SettingsPage() {
             </div>
           )}
         </div>
-
-        {/* Tutorial Section */}
-        <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
-          <div className="flex items-center gap-3 mb-2">
-            <Play className="h-5 w-5 text-[#4B6382] dark:text-zinc-400" />
-            <h2 className="text-lg font-semibold text-[#071739] dark:text-white">Tutorial</h2>
-          </div>
-          <p className="text-sm text-[#4B6382] dark:text-zinc-400 mb-4">
-            Replay the guided walkthrough of Capsule.
-          </p>
-          <ReplayTutorialButton />
         </div>
-      </div>
+      )}
     </div>
   );
 }

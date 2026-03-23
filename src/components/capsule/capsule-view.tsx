@@ -972,8 +972,8 @@ export function CapsuleView() {
       {/* ═══════ OVERVIEW TAB ═══════ */}
       {capsuleTab === "overview" && (
         <div>
-          {/* Milestone cards */}
-          <MilestoneStrip chatId={capsuleChatId} />
+          {/* Milestone cards — all-time only */}
+          {year === 0 && <MilestoneStrip chatId={capsuleChatId} />}
 
           {/* On This Day — per-chat: show before volume chart */}
           {isPerChat && year === 0 && (

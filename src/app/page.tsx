@@ -12,6 +12,7 @@ import { IndexingStatusBar } from "@/components/layout/indexing-status-bar";
 import { FdaGate } from "@/components/onboarding/fda-gate";
 import { TutorialOverlay } from "@/components/onboarding/tutorial-overlay";
 import { UpdateChecker } from "@/components/layout/update-checker";
+import { useAnalyticsTracking } from "@/hooks/use-analytics-tracking";
 
 // ── Nav tabs ──────────────────────────────────────────────
 const NAV_ITEMS: { id: AppView; label: string; icon: React.ElementType }[] = [
@@ -81,6 +82,7 @@ function MainContent() {
 
 // ── Page ──────────────────────────────────────────────────
 export default function Home() {
+  useAnalyticsTracking();
   return (
     <FdaGate>
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#ECEEF2] dark:bg-zinc-950">

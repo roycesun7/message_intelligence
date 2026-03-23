@@ -158,14 +158,13 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-[#ECEEF2] dark:bg-zinc-950 p-6 overflow-y-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-[#071739] dark:text-white">Settings</h1>
-        <p className="mt-1 text-sm text-[#4B6382] dark:text-zinc-400">
-          Preferences and advanced settings
-        </p>
-      </div>
-
       <div className="max-w-3xl mx-auto w-full space-y-8">
+        <div>
+          <h1 className="text-3xl font-extrabold text-[#071739] dark:text-white">Settings</h1>
+          <p className="mt-1 text-sm text-[#4B6382] dark:text-zinc-400">
+            Preferences and advanced settings
+          </p>
+        </div>
         {/* Tutorial Section — always visible */}
         <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
           <div className="flex items-center gap-3 mb-2">

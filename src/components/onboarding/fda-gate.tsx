@@ -94,6 +94,9 @@ export function FdaGate({ children }: { children: React.ReactNode }) {
             Capsule needs permission to read your iMessage database.
             Your data never leaves this device — all processing happens locally.
           </p>
+          <p className="text-xs leading-relaxed text-zinc-500">
+            No servers, no accounts, no data collection. Your messages are read directly from your Mac and never stored or transmitted anywhere.
+          </p>
         </div>
 
         {/* Steps */}

@@ -10,6 +10,7 @@
   posthog.init('phc_tmwhlLnIIeZvPkefDfkWQsUOnWw1T8bYbSGqj5VFBNm', {
     api_host: 'https://us.i.posthog.com',
     person_profiles: 'always',
+    autocapture: false,
     loaded: function(ph) { ph.register({ source: 'landing' }); },
   });
 </script>

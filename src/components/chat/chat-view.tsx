@@ -73,30 +73,17 @@ export function ChatView() {
     if (!needsScrollToBottomRef.current || visibleMessages.length === 0) return;
     needsScrollToBottomRef.current = false;
 
-    const lastIndex = visibleMessages.length - 1;
+    const scrollToEnd = () => {
+      virtuosoRef.current?.scrollTo({
+        top: Number.MAX_SAFE_INTEGER,
+        behavior: "auto",
+      });
+    };
     // Immediate jump
-    requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: lastIndex,
-        align: "end",
-        behavior: "auto",
-      });
-    });
+    requestAnimationFrame(scrollToEnd);
     // Correction after Virtuoso settles item measurements
-    const t1 = setTimeout(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: lastIndex,
-        align: "end",
-        behavior: "auto",
-      });
-    }, 200);
-    const t2 = setTimeout(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: lastIndex,
-        align: "end",
-        behavior: "auto",
-      });
-    }, 500);
+    const t1 = setTimeout(scrollToEnd, 200);
+    const t2 = setTimeout(scrollToEnd, 500);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [visibleMessages]); // fires when messages load/change
 

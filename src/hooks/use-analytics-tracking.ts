@@ -17,37 +17,10 @@ export function useAnalyticsTracking() {
   const view = useAppStore((s) => s.view);
   const capsuleTab = useAppStore((s) => s.capsuleTab);
   const tutorialStep = useAppStore((s) => s.tutorialStep);
-  const theme = useAppStore((s) => s.theme);
 
   const prevView = useRef(view);
   const viewEnteredAt = useRef(Date.now());
   const prevTutorialStep = useRef(tutorialStep);
-  const hasIdentified = useRef(false);
-
-  // Set user properties once
-  useEffect(() => {
-    if (process.env.NODE_ENV === "development") return;
-    if (hasIdentified.current) return;
-    hasIdentified.current = true;
-
-    (async () => {
-      try {
-        const posthog = (await import("posthog-js")).default;
-        posthog.register({ theme });
-      } catch {}
-    })();
-  }, [theme]);
-
-  // Track theme changes
-  useEffect(() => {
-    if (process.env.NODE_ENV === "development") return;
-    (async () => {
-      try {
-        const posthog = (await import("posthog-js")).default;
-        posthog.register({ theme });
-      } catch {}
-    })();
-  }, [theme]);
 
   // Track tab switches with time spent
   useEffect(() => {

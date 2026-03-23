@@ -157,7 +157,7 @@ export function SettingsPage() {
   }, []);
 
   return (
-    <div className="flex flex-1 flex-col bg-[#F0EDE8] dark:bg-zinc-950 p-6 overflow-y-auto">
+    <div className="flex flex-1 flex-col bg-[#ECEEF2] dark:bg-zinc-950 p-6 overflow-y-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-extrabold text-[#071739] dark:text-white">Settings</h1>
         <p className="mt-1 text-sm text-[#4B6382] dark:text-zinc-400">

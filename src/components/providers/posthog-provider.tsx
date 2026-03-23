@@ -16,9 +16,10 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         api_host: POSTHOG_HOST,
         autocapture: false,
         capture_pageview: false,
-        capture_pageleave: true, // tracks session end
+        capture_pageleave: true,
         persistence: "localStorage",
       });
+      posthog.register({ source: "app" });
     }
     init();
   }, []);

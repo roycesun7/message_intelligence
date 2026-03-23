@@ -48,10 +48,10 @@ pub fn send_launch_ping(data_dir: &Path) {
             "event": "app_launched",
             "distinct_id": distinct_id,
             "properties": {
+                "source": "app",
                 "app_version": app_version,
                 "os_version": os_version,
                 "os": "macOS",
-                "$lib": "capsule-rust",
             }
         });
 

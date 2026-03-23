@@ -27,10 +27,9 @@ fn get_install_id(data_dir: &Path) -> String {
 /// Only runs in release builds — no noise from local development.
 /// Failures are silently ignored — telemetry should never affect the app.
 pub fn send_launch_ping(data_dir: &Path) {
-    // TODO: re-enable before release
-    // if cfg!(debug_assertions) {
-    //     return;
-    // }
+    if cfg!(debug_assertions) {
+        return;
+    }
     let distinct_id = get_install_id(data_dir);
     let app_version = env!("CARGO_PKG_VERSION").to_string();
 

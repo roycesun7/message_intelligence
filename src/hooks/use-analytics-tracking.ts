@@ -24,8 +24,7 @@ export function useAnalyticsTracking() {
 
   // Track tab switches with time spent
   useEffect(() => {
-    // TODO: re-enable before release
-    // if (process.env.NODE_ENV === "development") return;
+    if (process.env.NODE_ENV === "development") return;
     if (view === prevView.current) return;
 
     const timeSpent = Math.round((Date.now() - viewEnteredAt.current) / 1000);
@@ -47,8 +46,7 @@ export function useAnalyticsTracking() {
 
   // Track Capsule sub-tab views
   useEffect(() => {
-    // TODO: re-enable before release
-    // if (process.env.NODE_ENV === "development") return;
+    if (process.env.NODE_ENV === "development") return;
     if (view !== "capsule") return;
 
     (async () => {
@@ -63,8 +61,7 @@ export function useAnalyticsTracking() {
 
   // Track tutorial completion/skip
   useEffect(() => {
-    // TODO: re-enable before release
-    // if (process.env.NODE_ENV === "development") return;
+    if (process.env.NODE_ENV === "development") return;
     const prev = prevTutorialStep.current;
     prevTutorialStep.current = tutorialStep;
 

@@ -165,7 +165,7 @@ export function SettingsPage() {
         </p>
       </div>
 
-      <div className="max-w-lg mx-auto w-full space-y-8">
+      <div className="max-w-3xl mx-auto w-full space-y-8">
         {/* Tutorial Section — always visible */}
         <div className="bg-white/80 dark:bg-[#2C2C2E] rounded-2xl p-6 border border-[#CDD5DB]/40 dark:border-transparent">
           <div className="flex items-center gap-3 mb-2">
